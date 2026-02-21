@@ -1,6 +1,6 @@
 ---
 name: link-workspace-packages
-description: 'Link workspace packages in monorepos (npm, yarn, pnpm, bun). USE WHEN: (1) you just created or generated new packages and need to wire up their dependencies, (2) user imports from a sibling package and needs to add it as a dependency, (3) you get resolution errors for workspace packages (@org/*) like "cannot find module", "failed to resolve import", "TS2307", or "cannot resolve". DO NOT patch around with tsconfig paths or manual package.json edits - use the package manager''s workspace commands to fix actual linking.'
+description: 'Link workspace packages in monorepos (npm, yarn, pnpm, bun). USE WHEN: (1) you just created or generated new packages and need to wire up their dependencies, (2) user imports from a sibling package and needs to add it as a dependency, (3) you get resolution errors for workspace packages (@pipefx/*) like "cannot find module", "failed to resolve import", "TS2307", or "cannot resolve". DO NOT patch around with tsconfig paths or manual package.json edits - use the package manager''s workspace commands to fix actual linking.'
 ---
 
 # Link Workspace Packages
@@ -33,16 +33,16 @@ Uses `workspace:` protocol - symlinks only created when explicitly declared.
 
 ```bash
 # From consumer directory
-pnpm add @org/ui --workspace
+pnpm add @pipefx/ui --workspace
 
 # Or with --filter from anywhere
-pnpm add @org/ui --filter @org/app --workspace
+pnpm add @pipefx/ui --filter @pipefx/app --workspace
 ```
 
 Result in `package.json`:
 
 ```json
-{ "dependencies": { "@org/ui": "workspace:*" } }
+{ "dependencies": { "@pipefx/ui": "workspace:*" } }
 ```
 
 ---
@@ -52,13 +52,13 @@ Result in `package.json`:
 Also uses `workspace:` protocol.
 
 ```bash
-yarn workspace @org/app add @org/ui
+yarn workspace @pipefx/app add @pipefx/ui
 ```
 
 Result in `package.json`:
 
 ```json
-{ "dependencies": { "@org/ui": "workspace:^" } }
+{ "dependencies": { "@pipefx/ui": "workspace:^" } }
 ```
 
 ---
@@ -68,13 +68,13 @@ Result in `package.json`:
 No `workspace:` protocol. npm auto-symlinks workspace packages.
 
 ```bash
-npm install @org/ui --workspace @org/app
+npm install @pipefx/ui --workspace @pipefx/app
 ```
 
 Result in `package.json`:
 
 ```json
-{ "dependencies": { "@org/ui": "*" } }
+{ "dependencies": { "@pipefx/ui": "*" } }
 ```
 
 npm resolves to local workspace automatically during install.
@@ -86,13 +86,13 @@ npm resolves to local workspace automatically during install.
 Supports `workspace:` protocol (pnpm-compatible).
 
 ```bash
-cd packages/app && bun add @org/ui
+cd packages/app && bun add @pipefx/ui
 ```
 
 Result in `package.json`:
 
 ```json
-{ "dependencies": { "@org/ui": "workspace:*" } }
+{ "dependencies": { "@pipefx/ui": "workspace:*" } }
 ```
 
 ---
@@ -102,13 +102,13 @@ Result in `package.json`:
 **Example 1: pnpm - link ui lib to app**
 
 ```bash
-pnpm add @org/ui --filter @org/app --workspace
+pnpm add @pipefx/ui --filter @pipefx/app --workspace
 ```
 
 **Example 2: npm - link multiple packages**
 
 ```bash
-npm install @org/data-access @org/ui --workspace @org/dashboard
+npm install @pipefx/data-access @pipefx/ui --workspace @pipefx/dashboard
 ```
 
 **Example 3: Debug "Cannot find module"**
@@ -119,7 +119,7 @@ npm install @org/data-access @org/ui --workspace @org/dashboard
 
 ## Notes
 
-- Symlinks appear in `<consumer>/node_modules/@org/<package>`
+- Symlinks appear in `<consumer>/node_modules/@pipefx/<package>`
 - **Hoisting differs by manager:**
   - npm/bun: hoist shared deps to root `node_modules`
   - pnpm: no hoisting (strict isolation, prevents phantom deps)

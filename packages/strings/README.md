@@ -1,4 +1,4 @@
-# @org/strings
+# @pipefx/strings
 
 String manipulation utilities for TypeScript applications.
 
@@ -19,14 +19,14 @@ This package provides essential string manipulation utilities:
 ## 📝 Usage Examples
 
 ```typescript
-import { capitalize, slugify } from '@org/strings';
+import { capitalize, slugify } from '@pipefx/strings';
 
 // Capitalize strings
-capitalize('hello world');  // 'Hello world'
-capitalize('typescript');   // 'Typescript'
+capitalize('hello world'); // 'Hello world'
+capitalize('typescript'); // 'Typescript'
 
 // Create URL-friendly slugs
-slugify('Hello World!');           // 'hello-world'
+slugify('Hello World!'); // 'hello-world'
 slugify('TypeScript & JavaScript'); // 'typescript-javascript'
 ```
 
@@ -72,6 +72,7 @@ nx run strings:build-base  # Run custom build command
 ## 🔒 Module Boundaries
 
 This package has the tag `scope:strings` and can only import from:
-- `@org/utils` (tagged with `scope:shared`)
 
-Attempting to import from `@org/colors` or `@org/async` will result in a linting error due to module boundary constraints.
+- `@pipefx/utils` (tagged with `scope:shared`)
+
+Attempting to import from `@pipefx/colors` or `@pipefx/async` will result in a linting error due to module boundary constraints.

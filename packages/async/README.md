@@ -1,4 +1,4 @@
-# @org/async
+# @pipefx/async
 
 Async utility functions with retry logic and error handling for TypeScript applications.
 
@@ -28,7 +28,7 @@ This package provides powerful async utilities:
 ## 📝 Usage Examples
 
 ```typescript
-import { retry, createRetry, withRetry, TimeoutError } from '@org/async';
+import { retry, createRetry, withRetry, TimeoutError } from '@pipefx/async';
 
 // Basic retry with default options
 const result = await retry(async () => {
@@ -43,16 +43,16 @@ const data = await retry(
     return await riskyOperation();
   },
   {
-    retries: 3,      // Max 3 retries
-    delay: 1000,     // 1 second delay
-    backoff: 2       // Exponential backoff factor
+    retries: 3, // Max 3 retries
+    delay: 1000, // 1 second delay
+    backoff: 2, // Exponential backoff factor
   }
 );
 
 // Create a reusable retry function
 const retryWithDefaults = createRetry({
   retries: 2,
-  delay: 500
+  delay: 500,
 });
 
 const result1 = await retryWithDefaults(operation1);
@@ -63,17 +63,12 @@ const safeFunction = withRetry(riskyFunction, { retries: 3 });
 const result = await safeFunction(arg1, arg2);
 
 // Retry multiple operations
-const results = await retryAll([
-  operation1,
-  operation2,
-  operation3
-], { retries: 2 });
+const results = await retryAll([operation1, operation2, operation3], {
+  retries: 2,
+});
 
 // Race operations with retry
-const fastest = await retryRace([
-  slowOperation,
-  fastOperation
-]);
+const fastest = await retryRace([slowOperation, fastOperation]);
 ```
 
 ## 🧪 Testing
@@ -109,9 +104,10 @@ nx lint async     # Lint the package
 ## 🔒 Module Boundaries
 
 This package has the tag `scope:async` and can only import from:
-- `@org/utils` (tagged with `scope:shared`)
 
-Attempting to import from `@org/colors` or `@org/strings` will result in a linting error due to module boundary constraints.
+- `@pipefx/utils` (tagged with `scope:shared`)
+
+Attempting to import from `@pipefx/colors` or `@pipefx/strings` will result in a linting error due to module boundary constraints.
 
 ## 🔧 Self-Healing CI Demo
 
@@ -122,6 +118,7 @@ This package demonstrates Nx's self-healing CI capabilities. The intentionally f
 3. How the system can self-correct common issues
 
 To see this in action in CI, the workflow runs:
+
 ```bash
 npx nx fix-ci
 ```

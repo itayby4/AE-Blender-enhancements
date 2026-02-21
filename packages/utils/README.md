@@ -1,4 +1,4 @@
-# @org/utils
+# @pipefx/utils
 
 Shared utility functions used across all packages in the monorepo.
 
@@ -12,6 +12,7 @@ Shared utility functions used across all packages in the monorepo.
 ## 🔒 Private Package
 
 This is an **internal library** that:
+
 - Will NOT be published to NPM
 - Provides shared utilities for other packages
 - Serves as the foundation layer for the monorepo
@@ -22,7 +23,7 @@ This package provides core utilities that are shared across all other packages:
 
 - Common helper functions
 - Shared types and interfaces
-- Base utilities used by `@org/strings`, `@org/async`, and `@org/colors`
+- Base utilities used by `@pipefx/strings`, `@pipefx/async`, and `@pipefx/colors`
 
 ## 📝 Usage
 
@@ -30,7 +31,7 @@ This package is automatically available to all other packages in the monorepo:
 
 ```typescript
 // In any other package (strings, async, colors)
-import { someUtility } from '@org/utils';
+import { someUtility } from '@pipefx/utils';
 
 // Use the shared functionality
 const result = someUtility(input);
@@ -55,6 +56,7 @@ nx lint utils     # Lint the package
 ## 🔒 Module Boundaries
 
 This package has the tag `scope:shared` which means:
+
 - **Can be imported by**: All packages (`scope:strings`, `scope:async`, `scope:colors`)
 - **Can import from**: Nothing (it's the base layer)
 
@@ -63,6 +65,7 @@ This ensures a clean dependency hierarchy where `utils` serves as the foundation
 ## 🏛️ Architecture Role
 
 As the shared foundation of the monorepo:
+
 1. Contains no business logic specific to strings, async, or colors
 2. Provides only generic, reusable utilities
 3. Has no external dependencies beyond TypeScript's standard library

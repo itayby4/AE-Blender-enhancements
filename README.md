@@ -3,21 +3,25 @@
 <a alt="Nx logo" href="https://nx.dev" target="_blank" rel="noreferrer"><img src="https://raw.githubusercontent.com/nrwl/nx/master/images/nx-logo.png" width="45"></a>
 
 ✨ A repository showcasing key [Nx](https://nx.dev) features for TypeScript monorepos ✨
+
 <!-- BEGIN: nx-cloud -->
+
 🚀 If you haven't connected to Nx Cloud yet, [complete your setup here](https://cloud.nx.app/setup/connect-workspace/guide). Get faster builds with remote caching, distributed task execution, and self-healing CI. [See how your workspace can benefit](#nx-cloud).
+
 <!-- END: nx-cloud -->
+
 ## 📦 Project Overview
 
 This repository demonstrates a production-ready TypeScript monorepo with:
 
 - **3 Publishable Packages** - Ready for NPM publishing
 
-  - `@org/strings` - String manipulation utilities
-  - `@org/async` - Async utility functions with retry logic
-  - `@org/colors` - Color conversion and manipulation utilities
+  - `@pipefx/strings` - String manipulation utilities
+  - `@pipefx/async` - Async utility functions with retry logic
+  - `@pipefx/colors` - Color conversion and manipulation utilities
 
 - **1 Internal Library**
-  - `@org/utils` - Shared utilities (private, not published)
+  - `@pipefx/utils` - Shared utilities (private, not published)
 
 ## 🚀 Quick Start
 
@@ -132,12 +136,12 @@ npx nx release publish --projects=strings,colors
 
 This repository uses tags to enforce module boundaries:
 
-| Package        | Tag             | Can Import From        |
-| -------------- | --------------- | ---------------------- |
-| `@org/utils`   | `scope:shared`  | Nothing (base library) |
-| `@org/strings` | `scope:strings` | `scope:shared`         |
-| `@org/async`   | `scope:async`   | `scope:shared`         |
-| `@org/colors`  | `scope:colors`  | `scope:shared`         |
+| Package           | Tag             | Can Import From        |
+| ----------------- | --------------- | ---------------------- |
+| `@pipefx/utils`   | `scope:shared`  | Nothing (base library) |
+| `@pipefx/strings` | `scope:strings` | `scope:shared`         |
+| `@pipefx/async`   | `scope:async`   | `scope:shared`         |
+| `@pipefx/colors`  | `scope:colors`  | `scope:shared`         |
 
 The ESLint configuration enforces these boundaries, preventing circular dependencies and maintaining clean architecture.
 
@@ -145,7 +149,7 @@ The ESLint configuration enforces these boundaries, preventing circular dependen
 
 To see module boundary enforcement in action:
 
-1. Try importing `@org/colors` into `@org/strings`
+1. Try importing `@pipefx/colors` into `@pipefx/strings`
 2. Run `npx nx lint strings`
 3. You'll see an error about violating module boundaries
 

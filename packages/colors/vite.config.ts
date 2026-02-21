@@ -9,7 +9,7 @@ export default defineConfig(() => ({
   //  plugins: [ nxViteTsPaths() ],
   // },
   test: {
-    name: '@org/colors',
+    name: '@pipefx/colors',
     watch: false,
     globals: true,
     environment: 'node',

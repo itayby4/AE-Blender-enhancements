@@ -1,4 +1,4 @@
-import { validateType } from '@org/utils';
+import { validateType } from '@pipefx/utils';
 
 /**
  * Convert text to URL-friendly slug
