@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, type ChangeEvent, type KeyboardEvent } from 'react';
 import {
   MonitorPlay,
   Scissors,
@@ -22,9 +22,21 @@ import {
 } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Card, CardContent } from '../components/ui/card';
-import { Badge } from '../components/ui/badge';
 import { ScrollArea } from '../components/ui/scroll-area';
 import { Input } from '../components/ui/input';
+
+interface ChatMessage {
+  id: number;
+  sender: string;
+  text: string;
+}
+
+interface LogEntry {
+  id: number;
+  time: string;
+  level: string;
+  message: string;
+}
 
 // Mock data for DaVinci Resolve macros
 const MACRO_CATEGORIES = [
@@ -45,13 +57,13 @@ const MACROS = [
   { id: 'render', category: 'fx', name: 'Render Cache', icon: Play, hotkey: 'Ctrl+R' },
 ];
 
-const INITIAL_CHAT = [
+const INITIAL_CHAT: ChatMessage[] = [
   { id: 1, sender: 'ai', text: 'Hello! I am connected to DaVinci Resolve. How can I help you edit today?' },
   { id: 2, sender: 'user', text: 'Can you create a macro to apply my Teal & Orange LUT to all selected clips?' },
   { id: 3, sender: 'ai', text: 'Sure! I have generated a macro for that and added it to your Color Grading page.' },
 ];
 
-const INITIAL_LOGS = [
+const INITIAL_LOGS: LogEntry[] = [
   { id: 1, time: '10:00:00', level: 'info', message: 'Application started' },
   { id: 2, time: '10:00:02', level: 'info', message: 'Initializing UI components...' },
   { id: 3, time: '10:00:05', level: 'success', message: 'Connected to DaVinci Resolve Studio 18.6' },
@@ -264,8 +276,8 @@ export function App() {
                 <div className="relative flex items-center">
                   <Input 
                     value={chatInput}
-                    onChange={(e) => setChatInput(e.target.value)}
-                    onKeyDown={(e) => { 
+                    onChange={(e: ChangeEvent<HTMLInputElement>) => setChatInput(e.target.value)}
+                    onKeyDown={(e: KeyboardEvent<HTMLInputElement>) => { 
                       if (e.key === 'Enter') {
                         e.preventDefault();
                         handleSendMessage();
