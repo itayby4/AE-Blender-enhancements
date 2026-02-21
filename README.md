@@ -1,209 +1,158 @@
-# Nx TypeScript Repository
+# PipeFX
 
-<a alt="Nx logo" href="https://nx.dev" target="_blank" rel="noreferrer"><img src="https://raw.githubusercontent.com/nrwl/nx/master/images/nx-logo.png" width="45"></a>
+A TypeScript monorepo powered by [Nx](https://nx.dev) — publishable utility packages and a Tauri desktop application.
 
-✨ A repository showcasing key [Nx](https://nx.dev) features for TypeScript monorepos ✨
+## Prerequisites
 
-<!-- BEGIN: nx-cloud -->
+| Tool | Version | Install |
+|------|---------|---------|
+| Node.js | >= 22 | [nvm](https://github.com/nvm-sh/nvm) or [nodejs.org](https://nodejs.org) |
+| pnpm | >= 10 | `corepack enable && corepack prepare pnpm@latest --activate` |
+| Rust | stable | [rustup.rs](https://rustup.rs) |
 
-🚀 If you haven't connected to Nx Cloud yet, [complete your setup here](https://cloud.nx.app/setup/connect-workspace/guide). Get faster builds with remote caching, distributed task execution, and self-healing CI. [See how your workspace can benefit](#nx-cloud).
+Tauri also needs platform-specific system dependencies. See the [Tauri prerequisites guide](https://v2.tauri.app/start/prerequisites/) for your OS.
 
-<!-- END: nx-cloud -->
-
-## 📦 Project Overview
-
-This repository demonstrates a production-ready TypeScript monorepo with:
-
-- **3 Publishable Packages** - Ready for NPM publishing
-
-  - `@pipefx/strings` - String manipulation utilities
-  - `@pipefx/async` - Async utility functions with retry logic
-  - `@pipefx/colors` - Color conversion and manipulation utilities
-
-- **1 Internal Library**
-  - `@pipefx/utils` - Shared utilities (private, not published)
-
-## 🚀 Quick Start
+## Quick Start
 
 ```bash
-# Clone the repository
-git clone <your-fork-url>
-cd typescript-template
-
 # Install dependencies
-npm install
+pnpm install
 
-# Build all packages
-npx nx run-many -t build
+# Build everything
+pnpm nx run-many -t build
 
-# Run tests
-npx nx run-many -t test
+# Run all tests
+pnpm nx run-many -t test
 
 # Lint all projects
-npx nx run-many -t lint
+pnpm nx run-many -t lint
 
-# Run everything in parallel
-npx nx run-many -t lint test build --parallel=3
+# Type-check all projects
+pnpm nx run-many -t typecheck
 
-# Visualize the project graph
-npx nx graph
+# Launch the desktop app in dev mode
+pnpm nx serve desktop
 ```
 
-## ⭐ Featured Nx Capabilities
+## Project Structure
 
-This repository showcases several powerful Nx features:
-
-### 1. 🔒 Module Boundaries
-
-Enforces architectural constraints using tags. Each package has specific dependencies it can use:
-
-- `scope:shared` (utils) - Can be used by all packages
-- `scope:strings` - Can only depend on shared utilities
-- `scope:async` - Can only depend on shared utilities
-- `scope:colors` - Can only depend on shared utilities
-
-**Try it out:**
-
-```bash
-# See the current project graph and boundaries
-npx nx graph
-
-# View a specific project's details
-npx nx show project strings --web
+```
+pipefx/
+├── apps/
+│   └── desktop/              Tauri desktop application
+│       ├── src/              Frontend source (React, Tailwind CSS, shadcn/ui)
+│       ├── src-tauri/        Rust backend (Tauri 2)
+│       ├── components.json   shadcn/ui configuration
+│       └── vite.config.mts   Vite bundler config
+├── packages/
+│   ├── strings/              @pipefx/strings — string manipulation utilities
+│   ├── async/                @pipefx/async  — async retry and helpers
+│   ├── colors/               @pipefx/colors — color conversion and manipulation
+│   └── utils/                @pipefx/utils  — shared internal utilities (private)
+├── nx.json                   Nx workspace configuration
+├── pnpm-workspace.yaml       pnpm workspace definition
+└── tsconfig.base.json        Shared TypeScript compiler options
 ```
 
-[Learn more about module boundaries →](https://nx.dev/features/enforce-module-boundaries)
+## Desktop App (`apps/desktop`)
 
-### 2. 🛠️ Custom Run Commands
+A native desktop application built with [Tauri 2](https://v2.tauri.app), [React](https://react.dev), [Vite](https://vite.dev), [Tailwind CSS v4](https://tailwindcss.com), and [shadcn/ui](https://ui.shadcn.com).
 
-Packages can define custom commands beyond standard build/test/lint:
+### Available Targets
 
 ```bash
-# Run the custom build-base command for strings package
-npx nx run strings:build-base
+pnpm nx serve desktop        # Tauri dev mode (Vite + native window)
+pnpm nx build desktop        # Build the Vite frontend
+pnpm nx build:tauri desktop  # Full native app build (frontend + Rust bundle)
+pnpm nx test desktop         # Run Vitest unit tests
+pnpm nx lint desktop         # Run ESLint
+pnpm nx typecheck desktop    # TypeScript type-checking
+```
+
+### Adding shadcn/ui Components
+
+The desktop app is configured with shadcn/ui. Add components from the registry:
+
+```bash
+pnpm dlx shadcn@latest add button --cwd apps/desktop
+pnpm dlx shadcn@latest add dialog --cwd apps/desktop
+```
+
+Installed components land in `apps/desktop/src/components/ui/`. Use the `cn()` helper from `@/lib/utils` for conditional class names.
+
+## Packages
+
+All packages under `packages/` are buildable TypeScript libraries using Vite.
+
+| Package | Scope Tag | Description | Published |
+|---------|-----------|-------------|-----------|
+| `@pipefx/strings` | `scope:strings` | `capitalize`, `slugify`, and more | Yes |
+| `@pipefx/async` | `scope:async` | `asyncRetry` with configurable backoff | Yes |
+| `@pipefx/colors` | `scope:colors` | Hex/RGB/HSL conversion and manipulation | Yes |
+| `@pipefx/utils` | `scope:shared` | Internal shared helpers | No |
+
+### Working with a Package
+
+```bash
+# Build a single package
+pnpm nx build strings
+
+# Test a single package
+pnpm nx test async
+
+# Lint a single package
+pnpm nx lint colors
 
 # See all available targets for a project
-npx nx show project strings
+pnpm nx show project strings --web
 ```
 
-[Learn more about custom run commands →](https://nx.dev/concepts/executors-and-configurations)
+## Module Boundaries
 
-### 3. 🔧 Self-Healing CI
+Architectural constraints are enforced via ESLint and Nx tags:
 
-The CI pipeline includes `nx fix-ci` which automatically identifies and suggests fixes for common issues. To test it, you can make a change to `async-retry.spec.ts` so that it fails, and create a PR.
+| Package | Can Import From |
+|---------|----------------|
+| `@pipefx/utils` | Nothing (base library) |
+| `@pipefx/strings` | `scope:shared` |
+| `@pipefx/async` | `scope:shared` |
+| `@pipefx/colors` | `scope:shared` |
+
+Try violating a boundary — import `@pipefx/colors` into `@pipefx/strings` and run `pnpm nx lint strings` to see it fail.
+
+## Common Commands
 
 ```bash
-# Run tests and see the failure
-npx nx test async
+# Explore the workspace
+pnpm nx graph                              # Interactive dependency graph
+pnpm nx show projects                      # List all projects
+pnpm nx show project <name> --web          # View project details in browser
 
-# In CI, this command provides automated fixes
-npx nx fix-ci
-```
+# Run tasks
+pnpm nx run-many -t build test lint        # Multiple targets in parallel
+pnpm nx affected -t build                  # Only affected projects (great for CI)
 
-[Learn more about self-healing CI →](https://nx.dev/ci/features/self-healing-ci)
+# Release
+pnpm nx release --dry-run                  # Preview release changes
+pnpm nx release                            # Version and publish packages
 
-### 4. 📦 Package Publishing
-
-Manage releases and publishing with Nx Release:
-
-```bash
-# Dry run to see what would be published
-npx nx release --dry-run
-
-# Version and release packages
-npx nx release
-
-# Publish only specific packages
-npx nx release publish --projects=strings,colors
-```
-
-[Learn more about Nx Release →](https://nx.dev/features/manage-releases)
-
-## 📁 Project Structure
-
-```
-├── packages/
-│   ├── strings/     [scope:strings] - String utilities (publishable)
-│   ├── async/       [scope:async]   - Async utilities (publishable)
-│   ├── colors/      [scope:colors]  - Color utilities (publishable)
-│   └── utils/       [scope:shared]  - Shared utilities (private)
-├── nx.json          - Nx configuration
-├── tsconfig.json    - TypeScript configuration
-└── eslint.config.mjs - ESLint with module boundary rules
-```
-
-## 🏷️ Understanding Tags
-
-This repository uses tags to enforce module boundaries:
-
-| Package           | Tag             | Can Import From        |
-| ----------------- | --------------- | ---------------------- |
-| `@pipefx/utils`   | `scope:shared`  | Nothing (base library) |
-| `@pipefx/strings` | `scope:strings` | `scope:shared`         |
-| `@pipefx/async`   | `scope:async`   | `scope:shared`         |
-| `@pipefx/colors`  | `scope:colors`  | `scope:shared`         |
-
-The ESLint configuration enforces these boundaries, preventing circular dependencies and maintaining clean architecture.
-
-## 🧪 Testing Module Boundaries
-
-To see module boundary enforcement in action:
-
-1. Try importing `@pipefx/colors` into `@pipefx/strings`
-2. Run `npx nx lint strings`
-3. You'll see an error about violating module boundaries
-
-## 📚 Useful Commands
-
-```bash
-# Project exploration
-npx nx graph                                    # Interactive dependency graph
-npx nx list                                     # List installed plugins
-npx nx show project strings --web              # View project details
-
-# Development
-npx nx build strings                           # Build a specific package
-npx nx test async                              # Test a specific package
-npx nx lint colors                             # Lint a specific package
-
-# Running multiple tasks
-npx nx run-many -t build                       # Build all projects
-npx nx run-many -t test --parallel=3          # Test in parallel
-npx nx run-many -t lint test build            # Run multiple targets
-
-# Affected commands (great for CI)
-npx nx affected -t build                       # Build only affected projects
-npx nx affected -t test                        # Test only affected projects
-
-# Release management
-npx nx release --dry-run                       # Preview release changes
-npx nx release                                 # Create a new release
+# Format
+pnpm nx format --fix                       # Prettier formatting across the workspace
 ```
 
 ## Nx Cloud
 
-Nx Cloud ensures a [fast and scalable CI](https://nx.dev/ci/intro/why-nx-cloud?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects) pipeline. It includes features such as:
+This workspace is connected to [Nx Cloud](https://cloud.nx.app) for remote caching and CI acceleration.
 
-- [Remote caching](https://nx.dev/ci/features/remote-cache?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
-- [Task distribution across multiple machines](https://nx.dev/ci/features/distribute-task-execution?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
-- [Automated e2e test splitting](https://nx.dev/ci/features/split-e2e-tasks?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
-- [Task flakiness detection and rerunning](https://nx.dev/ci/features/flaky-tasks?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
+- **Remote caching** — build artifacts are shared across machines
+- **Distributed task execution** — parallelize CI across agents
+- **Flaky task detection** — automatic retries for non-deterministic tasks
 
-## 🔗 Learn More
+## Learn More
 
 - [Nx Documentation](https://nx.dev)
-- [Module Boundaries](https://nx.dev/features/enforce-module-boundaries)
-- [Custom Commands](https://nx.dev/concepts/executors-and-configurations)
-- [Self-Healing CI](https://nx.dev/ci/features/self-healing-ci)
-- [Releasing Packages](https://nx.dev/features/manage-releases)
-- [Nx Cloud](https://nx.dev/ci/intro/why-nx-cloud)
-
-## 💬 Community
-
-Join the Nx community:
-
-- [Discord](https://go.nx.dev/community)
-- [X (Twitter)](https://twitter.com/nxdevtools)
-- [LinkedIn](https://www.linkedin.com/company/nrwl)
-- [YouTube](https://www.youtube.com/@nxdevtools)
-- [Blog](https://nx.dev/blog)
+- [Tauri 2 Documentation](https://v2.tauri.app)
+- [React](https://react.dev)
+- [shadcn/ui Documentation](https://ui.shadcn.com)
+- [Tailwind CSS v4](https://tailwindcss.com/docs)
+- [Vite](https://vite.dev)

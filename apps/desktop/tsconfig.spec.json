@@ -11,7 +11,8 @@
       "vitest"
     ],
     "module": "esnext",
-    "moduleResolution": "bundler"
+    "moduleResolution": "bundler",
+    "jsx": "react-jsx"
   },
   "include": [
     "vite.config.ts",
