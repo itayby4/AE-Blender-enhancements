@@ -61,6 +61,11 @@
   "targetDefaults": {
     "test": {
       "dependsOn": ["^build"]
+    },
+    "@nx/esbuild:esbuild": {
+      "cache": true,
+      "dependsOn": ["^build"],
+      "inputs": ["production", "^production"]
     }
   },
   "nxCloudId": "6999c2670751f05e1ac16076",

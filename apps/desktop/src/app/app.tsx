@@ -23,7 +23,7 @@ import {
 import { Button } from '../components/ui/button';
 import { Card, CardContent } from '../components/ui/card';
 import { ScrollArea } from '../components/ui/scroll-area';
-import { Input } from '../components/ui/input';
+import { Textarea } from '../components/ui/textarea';
 
 interface ChatMessage {
   id: number;
@@ -78,10 +78,50 @@ export function App() {
   const [chatMessages, setChatMessages] = useState(INITIAL_CHAT);
   const [logs] = useState(INITIAL_LOGS);
 
-  const handleSendMessage = () => {
-    if (!chatInput.trim()) return;
-    setChatMessages([...chatMessages, { id: Date.now(), sender: 'user', text: chatInput }]);
+  const [isAiTyping, setIsAiTyping] = useState(false);
+
+  const handleSendMessage = async () => {
+    if (!chatInput.trim() || isAiTyping) return;
+    
+    const userText = chatInput;
+    const newChatMsg: ChatMessage = { id: Date.now(), sender: 'user', text: userText };
+    setChatMessages(prev => [...prev, newChatMsg]);
     setChatInput('');
+    setIsAiTyping(true);
+
+    try {
+      const response = await fetch('http://localhost:3001/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: userText })
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to connect to AI Engine');
+      }
+
+      const data = await response.json();
+      setChatMessages(prev => [...prev, { id: Date.now(), sender: 'ai', text: data.text }]);
+      
+      // Also add a log entry for completion
+      const newLog: LogEntry = {
+        id: Date.now(),
+        time: new Date().toLocaleTimeString('en-US', { hour12: false }),
+        level: 'success',
+        message: 'Successfully generated AI macro response'
+      };
+      // Note: we can't easily append logs here since we don't have a setLogs updater in this mock yet,
+      // but you can add it if you want.
+      
+    } catch (error) {
+      setChatMessages(prev => [...prev, { 
+        id: Date.now(), 
+        sender: 'ai', 
+        text: 'Sorry, I could not connect to the Backend AI Engine. Is it running?' 
+      }]);
+    } finally {
+      setIsAiTyping(false);
+    }
   }
 
   return (
@@ -102,7 +142,7 @@ export function App() {
       <header className="flex h-14 items-center justify-between border-b px-4 bg-card shrink-0">
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-md bg-gradient-to-br from-indigo-500 to-purple-600 text-white shadow-sm">
+            <div className="flex h-8 w-8 items-center justify-center rounded-md bg-primary text-primary-foreground shadow-sm">
               <MonitorPlay className="h-4 w-4" />
             </div>
             <div>
@@ -138,7 +178,7 @@ export function App() {
             <span className="text-[10px] text-muted-foreground">Studio 18.6</span>
           </div>
           <div className="flex h-6 w-6 items-center justify-center rounded-full bg-background border shadow-sm">
-            <div className={`h-2 w-2 rounded-full ${isConnected ? 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]' : 'bg-red-500'}`}></div>
+            <div className={`h-2 w-2 rounded-full ${isConnected ? 'bg-foreground shadow-[0_0_8px_rgba(255,255,255,0.4)]' : 'bg-muted-foreground'}`}></div>
           </div>
         </div>
       </header>
@@ -147,8 +187,8 @@ export function App() {
       <main className="flex flex-1 min-h-0 bg-muted/10">
         
         {/* Left Sidebar - Categories */}
-        <aside className="w-56 border-r bg-card/50 flex flex-col items-stretch space-y-1 p-3 shrink-0">
-          <div className="px-2 pb-2 mb-2 border-b">
+        <aside className="w-56 border-r bg-card/50 flex flex-col items-stretch space-y-1 p-3 shrink-0 min-h-0 overflow-y-auto">
+          <div className="px-2 pb-2 mb-2 border-b shrink-0">
             <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Macro Pages</h2>
           </div>
           
@@ -173,7 +213,7 @@ export function App() {
         </aside>
 
         {/* Center - Macro Grid */}
-        <ScrollArea className="flex-1 p-6 relative">
+        <ScrollArea className="flex-1 min-h-0 p-6 relative">
           <div className="max-w-4xl mx-auto pb-10">
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-xl font-bold tracking-tight">
@@ -225,8 +265,8 @@ export function App() {
         </ScrollArea>
 
         {/* Right Sidebar - AI Chat & Logs */}
-        <aside className="w-80 border-l bg-card flex flex-col shrink-0 shadow-[-10px_0_20px_rgba(0,0,0,0.02)] z-10">
-          <div className="flex shadow-sm bg-muted/30 p-1 m-2 rounded-lg border">
+        <aside className="w-80 border-l bg-card flex flex-col shrink-0 min-h-0 shadow-[-10px_0_20px_rgba(0,0,0,0.02)] z-10">
+          <div className="flex shadow-sm bg-muted/30 p-1 m-2 rounded-lg border shrink-0">
             <button
               onClick={() => setActiveRightTab('chat')}
               className={`flex-1 flex items-center justify-center gap-2 py-1.5 px-3 rounded-md text-xs font-medium transition-all ${
@@ -253,14 +293,14 @@ export function App() {
           
           {activeRightTab === 'chat' ? (
             <>
-              <ScrollArea className="flex-1 p-4">
+              <ScrollArea className="flex-1 min-h-0 p-4">
                 <div className="flex flex-col gap-4 pb-4">
                   {chatMessages.map(msg => (
                     <div key={msg.id} className={`flex gap-3 text-sm ${msg.sender === 'user' ? 'flex-row-reverse' : ''}`}>
                       <div className={`h-8 w-8 rounded-full flex items-center justify-center shrink-0 shadow-sm ${msg.sender === 'user' ? 'bg-primary text-primary-foreground' : 'bg-muted border border-border/50'}`}>
                         {msg.sender === 'user' ? <User className="h-4 w-4" /> : <Bot className="h-4 w-4" />}
                       </div>
-                      <div className={`py-2 px-3 rounded-xl max-w-[85%] leading-relaxed ${
+                      <div className={`py-2 px-3 rounded-xl max-w-[85%] leading-relaxed select-text cursor-text ${
                         msg.sender === 'user' 
                           ? 'bg-primary text-primary-foreground rounded-tr-sm shadow-sm' 
                           : 'bg-muted rounded-tl-sm border border-border/50 text-foreground shadow-sm'
@@ -269,29 +309,43 @@ export function App() {
                       </div>
                     </div>
                   ))}
+                  {isAiTyping && (
+                    <div className="flex gap-3 text-sm">
+                      <div className="h-8 w-8 rounded-full flex items-center justify-center shrink-0 shadow-sm bg-muted border border-border/50">
+                        <Bot className="h-4 w-4" />
+                      </div>
+                      <div className="py-2 px-3 rounded-xl max-w-[85%] bg-muted rounded-tl-sm border border-border/50 text-muted-foreground flex items-center gap-1 shadow-sm">
+                         <span className="w-1.5 h-1.5 rounded-full bg-current animate-bounce shrink-0" style={{ animationDelay: '0ms' }} />
+                         <span className="w-1.5 h-1.5 rounded-full bg-current animate-bounce shrink-0" style={{ animationDelay: '150ms' }} />
+                         <span className="w-1.5 h-1.5 rounded-full bg-current animate-bounce shrink-0" style={{ animationDelay: '300ms' }} />
+                      </div>
+                    </div>
+                  )}
                 </div>
               </ScrollArea>
               
-              <div className="p-4 border-t bg-muted/30">
-                <div className="relative flex items-center">
-                  <Input 
+              <div className="p-4 border-t bg-muted/30 shrink-0">
+                <div className="relative flex items-end">
+                  <Textarea 
                     value={chatInput}
-                    onChange={(e: ChangeEvent<HTMLInputElement>) => setChatInput(e.target.value)}
-                    onKeyDown={(e: KeyboardEvent<HTMLInputElement>) => { 
-                      if (e.key === 'Enter') {
+                    onChange={(e: ChangeEvent<HTMLTextAreaElement>) => setChatInput(e.target.value)}
+                    onKeyDown={(e: KeyboardEvent<HTMLTextAreaElement>) => { 
+                      if (e.key === 'Enter' && !e.shiftKey) {
                         e.preventDefault();
                         handleSendMessage();
                       } 
                     }}
-                    placeholder="Ask AI to create a macro..."
-                    className="pr-10 bg-background shadow-inner border-muted-foreground/20 focus-visible:ring-primary/50 h-9"
+                    placeholder="Ask AI to edit the timeline..."
+                    className="pr-10 bg-background shadow-inner border-muted-foreground/20 focus-visible:ring-primary/50 min-h-[40px] max-h-[150px] resize-none overflow-y-auto py-2 flex-1"
+                    disabled={isAiTyping}
                   />
                   <Button 
                     onClick={handleSendMessage}
                     size="icon" 
                     variant="ghost" 
-                    className="absolute right-1 top-1 h-7 w-7 text-primary hover:bg-primary/10 transition-colors"
+                    className="absolute right-1 bottom-1 h-7 w-7 text-primary hover:bg-primary/10 transition-colors"
                     title="Send message"
+                    disabled={isAiTyping}
                   >
                     <Send className="h-4 w-4" />
                   </Button>
@@ -302,15 +356,15 @@ export function App() {
               </div>
             </>
           ) : (
-            <ScrollArea className="flex-1">
+            <ScrollArea className="flex-1 min-h-0">
               <div className="flex flex-col p-2 space-y-1">
                 {logs.map(log => (
                   <div key={log.id} className="flex gap-2 text-[11px] p-2 rounded hover:bg-muted/50 font-mono">
                     <span className="text-muted-foreground shrink-0">[{log.time}]</span>
-                    <span className={`shrink-0 w-16 ${log.level === 'info' ? 'text-blue-500' : log.level === 'success' ? 'text-green-500' : 'text-red-500'}`}>
+                    <span className={`shrink-0 w-16 ${log.level === 'info' ? 'text-foreground' : log.level === 'success' ? 'text-foreground font-bold' : 'text-muted-foreground line-through'}`}>
                       {log.level.toUpperCase()}
                     </span>
-                    <span className="text-foreground break-all">{log.message}</span>
+                    <span className="text-foreground break-all select-text cursor-text">{log.message}</span>
                   </div>
                 ))}
               </div>
