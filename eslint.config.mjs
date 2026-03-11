@@ -37,6 +37,18 @@ export default [
               sourceTag: 'scope:strings',
               onlyDependOnLibsWithTags: ['scope:shared', 'scope:strings'],
             },
+            {
+              sourceTag: 'scope:mcp',
+              onlyDependOnLibsWithTags: ['scope:shared', 'scope:async', 'scope:mcp'],
+            },
+            {
+              sourceTag: 'scope:ai',
+              onlyDependOnLibsWithTags: ['scope:shared', 'scope:mcp', 'scope:ai'],
+            },
+            {
+              sourceTag: 'scope:backend',
+              onlyDependOnLibsWithTags: ['scope:shared', 'scope:mcp', 'scope:ai'],
+            },
           ],
         },
       ],

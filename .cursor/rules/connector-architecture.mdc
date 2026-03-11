@@ -1,0 +1,55 @@
+---
+description: Enforce connector architecture patterns for MCP integration and AI agent code
+globs:
+  - packages/mcp/**/*.ts
+  - packages/ai/**/*.ts
+  - apps/backend/**/*.ts
+---
+
+# Connector Architecture Rules
+
+## Core Principle
+
+All external application integrations go through the **Connector** abstraction in `@pipefx/mcp`. The AI agent in `@pipefx/ai` and the backend in `apps/backend` are both application-agnostic -- they must NEVER contain code specific to DaVinci Resolve, Premiere Pro, or any other target application.
+
+## `@pipefx/mcp` -- What belongs here
+
+- `Connector` interface and `createConnector()` factory.
+- `ConnectorRegistry` for managing multiple connectors.
+- `TransportConfig` types (stdio, SSE) and `createTransport()` factory.
+- Platform-aware helpers like `resolveVenvPython()`.
+
+What does NOT belong here:
+- Anything DaVinci Resolve-specific (paths, API calls, tool definitions).
+- Anything Gemini/AI-specific (prompt templates, model configuration).
+
+## `@pipefx/ai` -- What belongs here
+
+- `createAgent()` factory and the `Agent` interface.
+- The Gemini tool-call loop (send message -> handle functionCalls -> send functionResponse -> repeat).
+- `mapToolsToGemini()` -- converts MCP Tool schemas to Gemini function declarations.
+
+What does NOT belong here:
+- Hardcoded tool names or connector IDs.
+- Application-specific system prompts (these are passed via `AgentConfig`).
+- HTTP server code or request handling.
+
+## `apps/backend` -- What belongs here
+
+- `config.ts`: environment loading, connector config declarations, port config.
+- `main.ts`: HTTP server, connector registration, agent wiring.
+- System prompt text (it is backend configuration, not AI package logic).
+
+What does NOT belong here:
+- MCP client/transport implementation (use `@pipefx/mcp`).
+- AI model API calls or tool mapping (use `@pipefx/ai`).
+- Business logic of any kind.
+
+## Adding a New Connector
+
+When adding support for a new application:
+
+1. Create the MCP server app at `apps/mcp-<name>/`.
+2. Add a connector config entry in `apps/backend/src/config.ts`.
+3. Register it in `apps/backend/src/main.ts` via `registry.register(...)`.
+4. Do NOT modify `@pipefx/mcp` or `@pipefx/ai` -- they are application-agnostic.

@@ -1,0 +1,60 @@
+import { GoogleGenAI } from '@google/genai';
+import { mapToolsToGemini } from './tool-mapper.js';
+import type { Agent, AgentConfig } from './types.js';
+
+export function createAgent(config: AgentConfig): Agent {
+  const ai = new GoogleGenAI({ apiKey: config.apiKey });
+
+  return {
+    async chat(message: string): Promise<string> {
+      const tools = await config.registry.getAllTools();
+      const geminiTools = mapToolsToGemini(tools);
+
+      const chat = ai.chats.create({
+        model: config.model,
+        config: {
+          systemInstruction: config.systemPrompt,
+          tools: geminiTools,
+        },
+      });
+
+      let response = await chat.sendMessage({ message });
+
+      while (response.functionCalls && response.functionCalls.length > 0) {
+        const call = response.functionCalls[0];
+        const callName = call.name ?? 'unknown_tool';
+
+        try {
+          const result = await config.registry.callTool(
+            callName,
+            (call.args as Record<string, unknown>) ?? {}
+          );
+
+          response = await chat.sendMessage({
+            message: [
+              {
+                functionResponse: {
+                  name: call.name,
+                  response: { result: result.content },
+                },
+              },
+            ],
+          });
+        } catch (toolError) {
+          response = await chat.sendMessage({
+            message: [
+              {
+                functionResponse: {
+                  name: callName,
+                  response: { error: String(toolError) },
+                },
+              },
+            ],
+          });
+        }
+      }
+
+      return response.text ?? 'I processed your request, but I have no text response.';
+    },
+  };
+}

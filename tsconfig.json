@@ -20,6 +20,12 @@
     },
     {
       "path": "./apps/backend"
+    },
+    {
+      "path": "./packages/mcp"
+    },
+    {
+      "path": "./packages/ai"
     }
   ]
 }
