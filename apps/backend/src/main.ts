@@ -45,6 +45,7 @@ async function main() {
           }
 
           const text = await agent.chat(message, {
+            modelOverride: skill?.model,
             systemPromptOverride: skill?.systemInstruction,
             allowedTools: skill?.allowedTools,
           });

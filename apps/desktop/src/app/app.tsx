@@ -77,6 +77,13 @@ const SKILLS = [
     name: '✂️ Rough Cut Editor', 
     systemInstruction: "You are an expert video editor. First, call `get_timeline_transcript`. If successful, analyze the text to identify filler words, pauses, and stutters. Finally, call `apply_ripple_deletes` with the exact frame ranges of those filler words to remove them and tighten the edit.",
     allowedTools: ['get_timeline_transcript', 'apply_ripple_deletes']
+  },
+  {
+    id: 'hebrew-subtitles',
+    name: '🇮🇱 Hebrew Subtitles (Gemini Audio)',
+    model: 'gemini-1.5-pro',
+    systemInstruction: "You are an expert translator. First, call `render_timeline_audio` to extract the timeline audio. Then, listen to the returned audio file, transcribe it, and translate it from its source language to Hebrew. Finally, format it into subtitles and add the translated text to the timeline using the `add_timeline_subtitle` tool.",
+    allowedTools: ['render_timeline_audio', 'add_timeline_subtitle']
   }
 ];
 

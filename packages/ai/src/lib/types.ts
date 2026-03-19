@@ -8,6 +8,7 @@ export interface AgentConfig {
 }
 
 export interface ChatOptions {
+  modelOverride?: string;
   systemPromptOverride?: string;
   allowedTools?: string[];
 }

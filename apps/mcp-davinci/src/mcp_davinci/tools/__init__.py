@@ -3,6 +3,8 @@ from .markers import register as register_markers
 from .macros import register as register_macros
 from .transcript import register as register_transcript
 from .editing import register as register_editing
+from .subtitles import register as register_subtitles
+from .audio import register as register_audio
 
 
 def register_tools(mcp, connector):
@@ -12,3 +14,5 @@ def register_tools(mcp, connector):
     register_macros(mcp, connector)
     register_transcript(mcp, connector)
     register_editing(mcp, connector)
+    register_subtitles(mcp, connector)
+    register_audio(mcp, connector)
