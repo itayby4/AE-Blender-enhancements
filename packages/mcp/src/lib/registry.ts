@@ -30,7 +30,9 @@ export class ConnectorRegistry {
           console.log(`Connected to "${id}" (${connector.config.name})`);
         } catch (err) {
           console.error(`Failed to connect to "${id}":`, err);
-          throw err;
+          // Non-fatal: the backend keeps running; the connector
+          // will be skipped during getAllTools() and can auto-reconnect
+          // on the next tool call attempt.
         }
       })
     );

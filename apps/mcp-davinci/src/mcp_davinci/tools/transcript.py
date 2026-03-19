@@ -1,6 +1,6 @@
 import json
 
-from ..resolve_connector import NoTimelineError, NoProjectError
+from ..resolve_connector import NoTimelineError, NoProjectError, ResolveNotRunningError
 
 def register(mcp, connector):
     @mcp.tool()
@@ -18,6 +18,8 @@ def register(mcp, connector):
             return json.dumps({"error": "No active timeline found."})
         except NoProjectError:
             return json.dumps({"error": "No active project found."})
+        except ResolveNotRunningError as exc:
+            return json.dumps({"error": str(exc)})
 
         # Try to read the subtitle track
         subtitle_count = timeline.GetTrackCount("subtitle")

@@ -58,7 +58,11 @@ class ResolveConnector:
         if self._resolve and (now - self._resolve_time) < self._ttl:
             return self._resolve
 
-        bmd = self._load_module()
+        try:
+            bmd = self._load_module()
+        except FileNotFoundError as exc:
+            raise ResolveNotRunningError(str(exc)) from exc
+
         self._resolve = bmd.scriptapp("Resolve")
         self._resolve_time = now
 

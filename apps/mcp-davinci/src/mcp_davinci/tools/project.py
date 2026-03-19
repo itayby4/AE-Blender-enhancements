@@ -1,6 +1,6 @@
 import json
 
-from ..resolve_connector import NoProjectError
+from ..resolve_connector import NoProjectError, ResolveNotRunningError
 
 
 def register(mcp, connector):
@@ -9,8 +9,8 @@ def register(mcp, connector):
         """Get information about the currently open DaVinci Resolve project and timeline."""
         try:
             project = connector.get_project()
-        except NoProjectError:
-            return "No project is currently open in DaVinci Resolve."
+        except (NoProjectError, ResolveNotRunningError) as exc:
+            return str(exc)
 
         timeline = project.GetCurrentTimeline()
         timeline_name = timeline.GetName() if timeline else "No active timeline"

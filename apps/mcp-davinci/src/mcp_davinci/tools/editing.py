@@ -1,6 +1,6 @@
 import json
 
-from ..resolve_connector import NoTimelineError, NoProjectError
+from ..resolve_connector import NoTimelineError, NoProjectError, ResolveNotRunningError
 
 def register(mcp, connector):
     @mcp.tool()
@@ -25,6 +25,8 @@ def register(mcp, connector):
             return json.dumps({"error": "No active timeline found."})
         except NoProjectError:
             return json.dumps({"error": "No active project found."})
+        except ResolveNotRunningError as exc:
+            return json.dumps({"error": str(exc)})
 
         # To avoid shifting issues during editing, we must process edits from end to start
         cut_list.sort(key=lambda x: x.get('start_frame', 0), reverse=True)

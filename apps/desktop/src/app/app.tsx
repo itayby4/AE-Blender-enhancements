@@ -87,7 +87,7 @@ export function App() {
   const [isConnected] = useState(true);
   const [chatInput, setChatInput] = useState('');
   const [chatMessages, setChatMessages] = useState(INITIAL_CHAT);
-  const [logs] = useState(INITIAL_LOGS);
+  const [logs, setLogs] = useState<LogEntry[]>(INITIAL_LOGS);
   const [selectedSkillId, setSelectedSkillId] = useState('default');
 
   const [isAiTyping, setIsAiTyping] = useState(false);
@@ -125,14 +125,19 @@ export function App() {
         level: 'success',
         message: 'Successfully generated AI macro response'
       };
-      // Note: we can't easily append logs here since we don't have a setLogs updater in this mock yet,
-      // but you can add it if you want.
+      setLogs(prev => [...prev, newLog]);
       
     } catch (error) {
       setChatMessages(prev => [...prev, { 
         id: Date.now(), 
         sender: 'ai', 
         text: 'Sorry, I could not connect to the Backend AI Engine. Is it running?' 
+      }]);
+      setLogs(prev => [...prev, {
+        id: Date.now(),
+        time: new Date().toLocaleTimeString('en-US', { hour12: false }),
+        level: 'error',
+        message: String(error)
       }]);
     } finally {
       setIsAiTyping(false);

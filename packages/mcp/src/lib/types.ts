@@ -37,6 +37,7 @@ export interface Connector {
   readonly config: ConnectorConfig;
   connect(): Promise<void>;
   disconnect(): Promise<void>;
+  reconnect(): Promise<void>;
   listTools(): Promise<Tool[]>;
   callTool(name: string, args: Record<string, unknown>): Promise<ToolResult>;
   isConnected(): boolean;

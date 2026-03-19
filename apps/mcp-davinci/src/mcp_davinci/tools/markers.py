@@ -1,5 +1,5 @@
 from ..constants import VALID_MARKER_COLORS
-from ..resolve_connector import NoProjectError, NoTimelineError
+from ..resolve_connector import NoProjectError, NoTimelineError, ResolveNotRunningError
 
 
 def register(mcp, connector):
@@ -24,7 +24,7 @@ def register(mcp, connector):
         """
         try:
             timeline = connector.get_timeline()
-        except (NoProjectError, NoTimelineError) as exc:
+        except (NoProjectError, NoTimelineError, ResolveNotRunningError) as exc:
             return str(exc)
 
         success = timeline.AddMarker(frameId, color, name, note, duration)
