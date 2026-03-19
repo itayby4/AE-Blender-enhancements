@@ -1,20 +1,24 @@
 import { GoogleGenAI } from '@google/genai';
 import { mapToolsToGemini } from './tool-mapper.js';
-import type { Agent, AgentConfig } from './types.js';
+import type { Agent, AgentConfig, ChatOptions } from './types.js';
 
 export function createAgent(config: AgentConfig): Agent {
   const ai = new GoogleGenAI({ apiKey: config.apiKey });
 
   return {
-    async chat(message: string): Promise<string> {
-      const tools = await config.registry.getAllTools();
+    async chat(message: string, options?: ChatOptions): Promise<string> {
+      let tools = await config.registry.getAllTools();
+      if (options?.allowedTools) {
+        const allowed = new Set(options.allowedTools);
+        tools = tools.filter(t => allowed.has(t.name));
+      }
       const geminiTools = mapToolsToGemini(tools);
 
       const chat = ai.chats.create({
         model: config.model,
         config: {
-          systemInstruction: config.systemPrompt,
-          tools: geminiTools,
+          systemInstruction: options?.systemPromptOverride ?? config.systemPrompt,
+          tools: geminiTools.length > 0 ? geminiTools : undefined, // Gemini needs undefined if no tools
         },
       });
 

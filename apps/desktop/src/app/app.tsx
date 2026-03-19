@@ -70,6 +70,17 @@ const INITIAL_LOGS: LogEntry[] = [
   { id: 4, time: '10:00:06', level: 'info', message: 'Loaded 4 macro categories' },
 ];
 
+const SKILLS = [
+  { id: 'default', name: 'Default Assistant' },
+  { 
+    id: 'rough-cut', 
+    name: '✂️ Rough Cut Editor', 
+    systemInstruction: "You are an expert video editor. First, call `get_timeline_transcript`. If successful, analyze the text to identify filler words, pauses, and stutters. Finally, call `apply_ripple_deletes` with the exact frame ranges of those filler words to remove them and tighten the edit.",
+    allowedTools: ['get_timeline_transcript', 'apply_ripple_deletes']
+  }
+];
+
+
 export function App() {
   const [activeCategory, setActiveCategory] = useState('edit');
   const [activeRightTab, setActiveRightTab] = useState<'chat' | 'logs'>('chat');
@@ -77,6 +88,7 @@ export function App() {
   const [chatInput, setChatInput] = useState('');
   const [chatMessages, setChatMessages] = useState(INITIAL_CHAT);
   const [logs] = useState(INITIAL_LOGS);
+  const [selectedSkillId, setSelectedSkillId] = useState('default');
 
   const [isAiTyping, setIsAiTyping] = useState(false);
 
@@ -89,11 +101,14 @@ export function App() {
     setChatInput('');
     setIsAiTyping(true);
 
+    const activeSkill = SKILLS.find(s => s.id === selectedSkillId);
+    const skillPayload = activeSkill && activeSkill.id !== 'default' ? activeSkill : undefined;
+
     try {
       const response = await fetch('http://localhost:3001/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: userText })
+        body: JSON.stringify({ message: userText, skill: skillPayload })
       });
 
       if (!response.ok) {
@@ -324,7 +339,14 @@ export function App() {
                 </div>
               </ScrollArea>
               
-              <div className="p-4 border-t bg-muted/30 shrink-0">
+              <div className="p-4 border-t bg-muted/30 shrink-0 flex flex-col gap-2">
+                <select 
+                  className="bg-background text-xs border border-border/50 rounded-md p-1.5 focus:ring-1 focus:ring-primary/50 outline-none text-muted-foreground"
+                  value={selectedSkillId}
+                  onChange={(e) => setSelectedSkillId(e.target.value)}
+                >
+                  {SKILLS.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                </select>
                 <div className="relative flex items-end">
                   <Textarea 
                     value={chatInput}

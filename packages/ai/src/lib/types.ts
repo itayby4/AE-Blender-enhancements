@@ -7,6 +7,11 @@ export interface AgentConfig {
   registry: ConnectorRegistry;
 }
 
+export interface ChatOptions {
+  systemPromptOverride?: string;
+  allowedTools?: string[];
+}
+
 export interface Agent {
-  chat(message: string): Promise<string>;
+  chat(message: string, options?: ChatOptions): Promise<string>;
 }

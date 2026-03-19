@@ -1,5 +1,6 @@
 import * as dotenv from 'dotenv';
 import * as path from 'path';
+import * as fs from 'fs';
 import { resolveVenvPython } from '@pipefx/mcp';
 
 dotenv.config();
@@ -10,7 +11,11 @@ if (!rawKey) {
   process.exit(1);
 }
 
-const workspaceRoot = process.cwd();
+let currentDir = __dirname;
+while (!fs.existsSync(path.join(currentDir, 'nx.json')) && currentDir !== path.parse(currentDir).root) {
+  currentDir = path.dirname(currentDir);
+}
+const workspaceRoot = currentDir;
 
 export const config = {
   port: Number(process.env.PORT) || 3001,
@@ -37,14 +42,8 @@ Always be concise, professional, and friendly.`,
           path.join(workspaceRoot, 'apps', 'mcp-davinci', 'venv')
         ),
         args: [
-          path.join(
-            workspaceRoot,
-            'apps',
-            'mcp-davinci',
-            'src',
-            'mcp_davinci',
-            'server.py'
-          ),
+          '-m',
+          'mcp_davinci.server'
         ],
       },
     },

@@ -37,14 +37,17 @@ async function main() {
 
       req.on('end', async () => {
         try {
-          const { message } = JSON.parse(body);
+          const { message, skill } = JSON.parse(body);
           if (!message) {
             res.writeHead(400, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({ error: 'Message is required' }));
             return;
           }
 
-          const text = await agent.chat(message);
+          const text = await agent.chat(message, {
+            systemPromptOverride: skill?.systemInstruction,
+            allowedTools: skill?.allowedTools,
+          });
           res.writeHead(200, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({ text }));
         } catch (err: unknown) {
