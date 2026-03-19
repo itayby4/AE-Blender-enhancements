@@ -43,8 +43,13 @@ Always be concise, professional, and friendly.`,
         ),
         args: [
           '-m',
+<<<<<<< Updated upstream
           'mcp_davinci.server'
+=======
+          'mcp_davinci.server',
+>>>>>>> Stashed changes
         ],
+        cwd: path.join(workspaceRoot, 'apps', 'mcp-davinci', 'src'),
       },
     },
   },

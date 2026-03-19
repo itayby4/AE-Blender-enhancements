@@ -3,6 +3,7 @@ export interface StdioTransportConfig {
   command: string;
   args?: string[];
   env?: Record<string, string>;
+  cwd?: string;
 }
 
 export interface SseTransportConfig {

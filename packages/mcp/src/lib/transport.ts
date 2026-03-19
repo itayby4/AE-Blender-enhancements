@@ -23,6 +23,7 @@ export function createTransport(config: TransportConfig) {
         command: config.command,
         args: config.args,
         env: config.env as Record<string, string> | undefined,
+        cwd: config.cwd,
       });
 
     case 'sse':
