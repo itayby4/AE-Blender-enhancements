@@ -81,8 +81,7 @@ const SKILLS = [
   {
     id: 'hebrew-subtitles',
     name: '🇮🇱 Hebrew Subtitles (Gemini Audio)',
-    model: 'gemini-1.5-pro',
-    systemInstruction: "You are an expert translator. First, call `render_timeline_audio` to extract the timeline audio. Then, listen to the returned audio file, transcribe it, and translate it from its source language to Hebrew. Finally, format it into subtitles and add the translated text to the timeline using the `add_timeline_subtitle` tool.",
+    systemInstruction: "You are the orchestrator. Your ONLY job is to call the `render_timeline_audio` tool. If the user asks you to translate only a specific time frame (e.g. 'the first 2 minutes' or 'from 01:20 to 05:00'), you MUST extract those times in seconds and pass them as `start_seconds` and `end_seconds` parameters to the `render_timeline_audio` tool. Otherwise, call it without them for the whole timeline. The underlying Node.js PipeFX system has been upgraded to automatically intercept this, chunk the audio, transcribe it via Whisper, translate it via GPT-4o, and insert the Hebrew SRT into the timeline natively. Just call the `render_timeline_audio` tool and when it returns success, simply tell the user gracefully that the subtitles have been generated and imported.",
     allowedTools: ['render_timeline_audio', 'add_timeline_subtitle']
   }
 ];
@@ -119,7 +118,8 @@ export function App() {
       });
 
       if (!response.ok) {
-        throw new Error('Failed to connect to AI Engine');
+        const errData = await response.json().catch(() => null);
+        throw new Error(errData?.error || 'Failed to connect to AI Engine');
       }
 
       const data = await response.json();

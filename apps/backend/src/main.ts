@@ -14,6 +14,7 @@ async function main() {
   const agent = createAgent({
     model: config.geminiModel,
     apiKey: config.geminiApiKey,
+    openaiApiKey: config.openaiApiKey,
     systemPrompt: config.systemPrompt,
     registry,
   });

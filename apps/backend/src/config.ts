@@ -5,9 +5,15 @@ import { resolveVenvPython } from '@pipefx/mcp';
 
 dotenv.config();
 
-const rawKey = process.env.GEMINI_API_KEY;
-if (!rawKey) {
+const geminiRaw = process.env.GEMINI_API_KEY;
+if (!geminiRaw) {
   console.error('ERROR: GEMINI_API_KEY is not set in the environment variables.');
+  process.exit(1);
+}
+
+const openaiRaw = process.env.OPENAI_API_KEY;
+if (!openaiRaw) {
+  console.error('ERROR: OPENAI_API_KEY is not set in the environment variables.');
   process.exit(1);
 }
 
@@ -20,12 +26,17 @@ const workspaceRoot = currentDir;
 export const config = {
   port: Number(process.env.PORT) || 3001,
 
-  geminiApiKey: rawKey
+  geminiApiKey: geminiRaw
     .replace(/[\u0590-\u05FF]/g, '')
     .replace(/["']/g, '')
     .trim(),
 
   geminiModel: process.env.GEMINI_MODEL || 'gemini-2.5-flash',
+
+  openaiApiKey: openaiRaw
+    .replace(/[\u0590-\u05FF]/g, '')
+    .replace(/["']/g, '')
+    .trim(),
 
   systemPrompt: `You are the PipeFX AI, an expert video editing assistant natively connected to DaVinci Resolve via the Model Context Protocol.
 You have tools available to control DaVinci Resolve. When the user asks you to do something, use your tools to do it.

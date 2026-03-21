@@ -1,0 +1,4 @@
+[gemini-1.5-pro] HTTP 500: {"error":"{\"error\":{\"code\":404,\"message\":\"models/gemini-1.5-pro is not found for API version v1beta, or is not supported for generateContent. Call ListModels to see the list of available models and their supported methods.\",\"status\":\"NOT_FOUND\"}}"}
+[gemini-1.5-pro-latest] HTTP 500: {"error":"{\"error\":{\"code\":404,\"message\":\"models/gemini-1.5-pro-latest is not found for API version v1beta, or is not supported for generateContent. Call ListModels to see the list of available models and their supported methods.\",\"status\":\"NOT_FOUND\"}}"}
+[gemini-2.0-flash] HTTP 500: {"error":"{\"error\":{\"code\":404,\"message\":\"This model models/gemini-2.0-flash is no longer available to new users. Please update your code to use a newer model for the latest features and improvements.\",\"status\":\"NOT_FOUND\"}}"}
+[gemini-2.5-flash] HTTP 200: {"text":"Hello! How can I help you today?"}

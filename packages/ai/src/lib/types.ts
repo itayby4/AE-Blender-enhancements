@@ -3,6 +3,7 @@ import type { ConnectorRegistry } from '@pipefx/mcp';
 export interface AgentConfig {
   model: string;
   apiKey: string;
+  openaiApiKey: string;
   systemPrompt: string;
   registry: ConnectorRegistry;
 }

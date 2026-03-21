@@ -3,10 +3,13 @@ import { createTransport } from './transport.js';
 import type { Connector, ConnectorConfig, Tool, ToolResult } from './types.js';
 
 export function createConnector(config: ConnectorConfig): Connector {
+  const TOOL_TIMEOUT = 600_000; // 10 minutes
+
   let client = new Client(
     { name: `pipefx-${config.id}`, version: '1.0.0' },
     { capabilities: {} }
   );
+  client.onerror = (err) => console.error("MCP Client Error:", err);
 
   let connected = false;
 
@@ -45,6 +48,7 @@ export function createConnector(config: ConnectorConfig): Connector {
         { name: `pipefx-${config.id}`, version: '1.0.0' },
         { capabilities: {} }
       );
+      client.onerror = (err) => console.error(`MCP Client Error (${config.id}):`, err);
       await connectClient();
       console.log(`Reconnected to "${config.id}" (${config.name})`);
     },
@@ -61,10 +65,21 @@ export function createConnector(config: ConnectorConfig): Connector {
 
     async callTool(name: string, args: Record<string, unknown>): Promise<ToolResult> {
       const executeWithTimeout = (): Promise<any> => {
-        return Promise.race([
-          client.callTool({ name, arguments: args }).catch(e => { throw e; }),
-          new Promise((_, reject) => setTimeout(() => reject(new Error(`Tool call "${name}" timed out after 15s. DaVinci Resolve might be frozen.`)), 15000))
-        ]);
+        return new Promise((resolve, reject) => {
+          let timeoutId = setTimeout(() => {
+            reject(new Error(`Tool call "${name}" timed out after 600s (10 minutes). DaVinci Resolve might be frozen.`));
+          }, TOOL_TIMEOUT);
+          
+          client.callTool({ name, arguments: args }, undefined as any, { timeout: TOOL_TIMEOUT } as any)
+            .then(res => {
+              clearTimeout(timeoutId);
+              resolve(res);
+            })
+            .catch(err => {
+              clearTimeout(timeoutId);
+              reject(err);
+            });
+        });
       };
 
       try {
