@@ -5,6 +5,7 @@ from .transcript import register as register_transcript
 from .editing import register as register_editing
 from .subtitles import register as register_subtitles
 from .audio import register as register_audio
+from .xml_export import register as register_xml_export
 
 
 def register_tools(mcp, connector):
@@ -16,3 +17,4 @@ def register_tools(mcp, connector):
     register_editing(mcp, connector)
     register_subtitles(mcp, connector)
     register_audio(mcp, connector)
+    register_xml_export(mcp, connector)

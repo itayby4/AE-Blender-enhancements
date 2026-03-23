@@ -81,14 +81,20 @@ const SKILLS = [
   {
     id: 'hebrew-subtitles',
     name: '🇮🇱 Hebrew Subtitles (Gemini Audio)',
-    systemInstruction: "You are the orchestrator. Your ONLY job is to call the `render_timeline_audio` tool. If the user asks you to translate only a specific time frame (e.g. 'the first 2 minutes' or 'from 01:20 to 05:00'), you MUST extract those times in seconds and pass them as `start_seconds` and `end_seconds` parameters to the `render_timeline_audio` tool. Otherwise, call it without them for the whole timeline. The underlying Node.js PipeFX system has been upgraded to automatically intercept this, chunk the audio, transcribe it via Whisper, translate it via GPT-4o, and insert the Hebrew SRT into the timeline natively. Just call the `render_timeline_audio` tool and when it returns success, simply tell the user gracefully that the subtitles have been generated and imported.",
-    allowedTools: ['render_timeline_audio', 'add_timeline_subtitle']
+    systemInstruction: "You are the orchestrator. Your ONLY job is to call the `auto_generate_hebrew_subtitles` tool. If the user asks you to translate only a specific time frame (e.g. 'the first 2 minutes' or 'from 01:20 to 05:00'), extract those times in seconds and pass them as `start_seconds` and `end_seconds`. The backend will automatically orchestrate the extraction, Whisper transcription, GPT-4o translation, and DaVinci SRT insertion natively. When the tool returns success, gracefully tell the user the subtitles have been generated and imported.",
+    allowedTools: ['auto_generate_hebrew_subtitles']
+  },
+  {
+    id: 'reels-editor',
+    name: '📱 Reels Segmenter',
+    systemInstruction: 'You are an expert video editor. First, ASK THE USER to export their timeline subtitles as an SRT file and reply with the file path. Once provided, call `read_srt_file` with that path. Your goal is to chunk the video into ~90-second standalone segments suitable for Reels/TikToks. Analyze the text SILENTLY to find natural pauses or topic shifts near the 90-second marks. Calculate an exact start_seconds and duration_seconds for each segment. Then, compile a JSON array of segment objects like [{"start_seconds": 0.0, "duration_seconds": 88.5, "name": "Reel 1"}] and IMMEDIATELY call `split_timeline_from_srt_via_xml` with this JSON array as a string. This tool handles the pure-XML programmatic slicing and importing of the timelines. Only after the tool returns, reply with a VERY SHORT 1-2 sentence summary of what you did. DO NOT write essays.',
+    allowedTools: ['read_srt_file', 'split_timeline_from_srt_via_xml']
   }
 ];
 
 
 export function App() {
-  const [activeCategory, setActiveCategory] = useState('edit');
+  const [activeCategory, setActiveCategory] = useState('skills');
   const [activeRightTab, setActiveRightTab] = useState<'chat' | 'logs'>('chat');
   const [isConnected] = useState(true);
   const [chatInput, setChatInput] = useState('');
@@ -216,6 +222,21 @@ export function App() {
         {/* Left Sidebar - Categories */}
         <aside className="w-56 border-r bg-card/50 flex flex-col items-stretch space-y-1 p-3 shrink-0 min-h-0 overflow-y-auto">
           <div className="px-2 pb-2 mb-2 border-b shrink-0">
+            <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">AI Agents</h2>
+          </div>
+          <button
+            onClick={() => setActiveCategory('skills')}
+            className={`flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-all text-left ${
+              activeCategory === 'skills' 
+                ? 'bg-primary text-primary-foreground font-medium shadow-sm' 
+                : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+            }`}
+          >
+            <Bot className="h-4 w-4" />
+            Skills System
+          </button>
+
+          <div className="px-2 pb-2 mt-4 mb-2 border-b shrink-0">
             <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Macro Pages</h2>
           </div>
           
@@ -244,7 +265,7 @@ export function App() {
           <div className="max-w-4xl mx-auto pb-10">
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-xl font-bold tracking-tight">
-                {MACRO_CATEGORIES.find(c => c.id === activeCategory)?.name} Macros
+                {activeCategory === 'skills' ? 'AI Skills' : `${MACRO_CATEGORIES.find(c => c.id === activeCategory)?.name} Macros`}
               </h2>
               <Button size="sm" variant="outline" className="gap-2">
                 <Settings className="h-4 w-4" />
@@ -253,40 +274,86 @@ export function App() {
             </div>
 
             <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4">
-              {MACROS.filter(m => m.category === activeCategory).map(macro => {
-                const Icon = macro.icon;
-                return (
-                  <Card 
-                    key={macro.id} 
-                    className="group relative cursor-pointer active:scale-95 transition-all duration-200 border-border/60 hover:border-primary/50 hover:shadow-md bg-card/80 backdrop-blur-sm overflow-hidden"
-                  >
-                    <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
-                    <CardContent className="p-5 flex flex-col items-center justify-center text-center h-32 gap-3 relative z-10">
-                      <div className="h-10 w-10 rounded-full bg-muted flex items-center justify-center group-hover:bg-primary group-hover:text-primary-foreground transition-colors shadow-sm">
-                        <Icon className="h-5 w-5" />
-                      </div>
-                      <div>
+              {activeCategory === 'skills' ? (
+                <>
+                  {SKILLS.map(skill => (
+                    <Card 
+                      key={skill.id} 
+                      onClick={() => {
+                        setSelectedSkillId(skill.id);
+                        setChatInput(prev => {
+                          let newText = prev;
+                          for (const s of SKILLS) {
+                            if (newText.startsWith(`@${s.name} `)) {
+                              newText = newText.substring(`@${s.name} `.length);
+                              break;
+                            }
+                          }
+                          return `@${skill.name} ${newText}`;
+                        });
+                      }}
+                      className={`group relative cursor-pointer active:scale-95 transition-all duration-200 border-border/60 hover:border-primary/50 hover:shadow-md bg-card/80 backdrop-blur-sm overflow-hidden ${selectedSkillId === skill.id ? 'ring-2 ring-primary border-primary' : ''}`}
+                    >
+                      <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                      <CardContent className="p-5 flex flex-col items-center justify-center text-center h-32 gap-3 relative z-10">
+                        <div className="h-10 w-10 rounded-full bg-muted flex items-center justify-center group-hover:bg-primary group-hover:text-primary-foreground transition-colors shadow-sm">
+                          <Bot className="h-5 w-5" />
+                        </div>
                         <div className="font-semibold text-sm leading-tight group-hover:text-primary transition-colors">
-                          {macro.name}
+                          {skill.name}
                         </div>
-                        <div className="text-[10px] uppercase font-mono tracking-wider text-muted-foreground mt-1 bg-muted px-1.5 py-0.5 rounded inline-block">
-                          {macro.hotkey}
-                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                  
+                  {/* Add New Skill Button */}
+                  <Card className="cursor-pointer border-dashed border-2 hover:border-primary/50 hover:bg-primary/5 transition-colors bg-transparent">
+                    <CardContent className="p-5 flex flex-col items-center justify-center text-center h-32 text-muted-foreground hover:text-primary">
+                      <div className="h-10 w-10 rounded-full border-2 border-current border-dashed flex items-center justify-center mb-2">
+                        <span className="text-xl leading-none">+</span>
                       </div>
+                      <div className="font-medium text-sm">Add Skill</div>
                     </CardContent>
                   </Card>
-                );
-              })}
+                </>
+              ) : (
+                <>
+                  {MACROS.filter(m => m.category === activeCategory).map(macro => {
+                    const Icon = macro.icon;
+                    return (
+                      <Card 
+                        key={macro.id} 
+                        className="group relative cursor-pointer active:scale-95 transition-all duration-200 border-border/60 hover:border-primary/50 hover:shadow-md bg-card/80 backdrop-blur-sm overflow-hidden"
+                      >
+                        <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                        <CardContent className="p-5 flex flex-col items-center justify-center text-center h-32 gap-3 relative z-10">
+                          <div className="h-10 w-10 rounded-full bg-muted flex items-center justify-center group-hover:bg-primary group-hover:text-primary-foreground transition-colors shadow-sm">
+                            <Icon className="h-5 w-5" />
+                          </div>
+                          <div>
+                            <div className="font-semibold text-sm leading-tight group-hover:text-primary transition-colors">
+                              {macro.name}
+                            </div>
+                            <div className="text-[10px] uppercase font-mono tracking-wider text-muted-foreground mt-1 bg-muted px-1.5 py-0.5 rounded inline-block">
+                              {macro.hotkey}
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    );
+                  })}
 
-              {/* Add New Macro Button */}
-              <Card className="cursor-pointer border-dashed border-2 hover:border-primary/50 hover:bg-primary/5 transition-colors bg-transparent">
-                <CardContent className="p-5 flex flex-col items-center justify-center text-center h-32 text-muted-foreground hover:text-primary">
-                  <div className="h-10 w-10 rounded-full border-2 border-current border-dashed flex items-center justify-center mb-2">
-                    <span className="text-xl leading-none">+</span>
-                  </div>
-                  <div className="font-medium text-sm">Add Macro</div>
-                </CardContent>
-              </Card>
+                  {/* Add New Macro Button */}
+                  <Card className="cursor-pointer border-dashed border-2 hover:border-primary/50 hover:bg-primary/5 transition-colors bg-transparent">
+                    <CardContent className="p-5 flex flex-col items-center justify-center text-center h-32 text-muted-foreground hover:text-primary">
+                      <div className="h-10 w-10 rounded-full border-2 border-current border-dashed flex items-center justify-center mb-2">
+                        <span className="text-xl leading-none">+</span>
+                      </div>
+                      <div className="font-medium text-sm">Add Macro</div>
+                    </CardContent>
+                  </Card>
+                </>
+              )}
             </div>
           </div>
         </ScrollArea>

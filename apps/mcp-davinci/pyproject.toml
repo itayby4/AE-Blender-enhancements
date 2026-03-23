@@ -5,6 +5,7 @@ description = "MCP server for DaVinci Resolve"
 requires-python = ">=3.10"
 dependencies = [
     "mcp[cli]",
+    "opentimelineio"
 ]
 
 [project.scripts]
