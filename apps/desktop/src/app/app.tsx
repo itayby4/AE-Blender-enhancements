@@ -1,4 +1,4 @@
-import { useState, type ChangeEvent, type KeyboardEvent } from 'react';
+import { useState, useEffect, type ChangeEvent, type KeyboardEvent } from 'react';
 import {
   MonitorPlay,
   Scissors,
@@ -18,12 +18,14 @@ import {
   User,
   Bot,
   Sparkles,
-  Terminal
+  Terminal,
+  Trash2
 } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Card, CardContent } from '../components/ui/card';
 import { ScrollArea } from '../components/ui/scroll-area';
 import { Textarea } from '../components/ui/textarea';
+import { loadSkills, type Skill } from '../lib/load-skills';
 
 interface ChatMessage {
   id: number;
@@ -70,27 +72,7 @@ const INITIAL_LOGS: LogEntry[] = [
   { id: 4, time: '10:00:06', level: 'info', message: 'Loaded 4 macro categories' },
 ];
 
-const SKILLS = [
-  { id: 'default', name: 'Default Assistant' },
-  { 
-    id: 'rough-cut', 
-    name: '✂️ Rough Cut Editor', 
-    systemInstruction: "You are an expert video editor. First, call `get_timeline_transcript`. If successful, analyze the text to identify filler words, pauses, and stutters. Finally, call `apply_ripple_deletes` with the exact frame ranges of those filler words to remove them and tighten the edit.",
-    allowedTools: ['get_timeline_transcript', 'apply_ripple_deletes']
-  },
-  {
-    id: 'hebrew-subtitles',
-    name: '🇮🇱 Hebrew Subtitles (Gemini Audio)',
-    systemInstruction: "You are the orchestrator. Your ONLY job is to call the `auto_generate_hebrew_subtitles` tool. If the user asks you to translate only a specific time frame (e.g. 'the first 2 minutes' or 'from 01:20 to 05:00'), extract those times in seconds and pass them as `start_seconds` and `end_seconds`. The backend will automatically orchestrate the extraction, Whisper transcription, GPT-4o translation, and DaVinci SRT insertion natively. When the tool returns success, gracefully tell the user the subtitles have been generated and imported.",
-    allowedTools: ['auto_generate_hebrew_subtitles']
-  },
-  {
-    id: 'reels-editor',
-    name: '📱 Reels Segmenter',
-    systemInstruction: 'You are an expert video editor. First, ASK THE USER to export their timeline subtitles as an SRT file and reply with the file path. Once provided, call `read_srt_file` with that path. Your goal is to chunk the video into ~90-second standalone segments suitable for Reels/TikToks. Analyze the text SILENTLY to find natural pauses or topic shifts near the 90-second marks. Calculate an exact start_seconds and duration_seconds for each segment. Then, compile a JSON array of segment objects like [{"start_seconds": 0.0, "duration_seconds": 88.5, "name": "Reel 1"}] and IMMEDIATELY call `split_timeline_from_srt_via_xml` with this JSON array as a string. This tool handles the pure-XML programmatic slicing and importing of the timelines. Only after the tool returns, reply with a VERY SHORT 1-2 sentence summary of what you did. DO NOT write essays.',
-    allowedTools: ['read_srt_file', 'split_timeline_from_srt_via_xml']
-  }
-];
+const DEFAULT_SKILLS: Skill[] = [{ id: 'default', name: 'Default Assistant' }];
 
 
 export function App() {
@@ -101,8 +83,13 @@ export function App() {
   const [chatMessages, setChatMessages] = useState(INITIAL_CHAT);
   const [logs, setLogs] = useState<LogEntry[]>(INITIAL_LOGS);
   const [selectedSkillId, setSelectedSkillId] = useState('default');
+  const [skills, setSkills] = useState<Skill[]>(DEFAULT_SKILLS);
 
   const [isAiTyping, setIsAiTyping] = useState(false);
+
+  useEffect(() => {
+    loadSkills().then(setSkills);
+  }, []);
 
   const handleSendMessage = async () => {
     if (!chatInput.trim() || isAiTyping) return;
@@ -113,14 +100,21 @@ export function App() {
     setChatInput('');
     setIsAiTyping(true);
 
-    const activeSkill = SKILLS.find(s => s.id === selectedSkillId);
+    const activeSkill = skills.find(s => s.id === selectedSkillId);
     const skillPayload = activeSkill && activeSkill.id !== 'default' ? activeSkill : undefined;
+
+    const historyPayload = chatMessages
+      .filter(m => m.id > 3)
+      .map(m => ({
+        role: m.sender === 'user' ? 'user' : 'model',
+        parts: [{ text: m.text }]
+      }));
 
     try {
       const response = await fetch('http://localhost:3001/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: userText, skill: skillPayload })
+        body: JSON.stringify({ message: userText, skill: skillPayload, history: historyPayload })
       });
 
       if (!response.ok) {
@@ -276,14 +270,14 @@ export function App() {
             <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4">
               {activeCategory === 'skills' ? (
                 <>
-                  {SKILLS.map(skill => (
+                  {skills.map(skill => (
                     <Card 
                       key={skill.id} 
                       onClick={() => {
                         setSelectedSkillId(skill.id);
                         setChatInput(prev => {
                           let newText = prev;
-                          for (const s of SKILLS) {
+                          for (const s of skills) {
                             if (newText.startsWith(`@${s.name} `)) {
                               newText = newText.substring(`@${s.name} `.length);
                               break;
@@ -419,13 +413,24 @@ export function App() {
               </ScrollArea>
               
               <div className="p-4 border-t bg-muted/30 shrink-0 flex flex-col gap-2">
-                <select 
-                  className="bg-background text-xs border border-border/50 rounded-md p-1.5 focus:ring-1 focus:ring-primary/50 outline-none text-muted-foreground"
-                  value={selectedSkillId}
-                  onChange={(e) => setSelectedSkillId(e.target.value)}
-                >
-                  {SKILLS.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-                </select>
+                <div className="flex gap-2">
+                  <select 
+                    className="flex-1 bg-background text-xs border border-border/50 rounded-md p-1.5 focus:ring-1 focus:ring-primary/50 outline-none text-muted-foreground"
+                    value={selectedSkillId}
+                    onChange={(e) => setSelectedSkillId(e.target.value)}
+                  >
+                    {skills.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                  </select>
+                  <Button 
+                    onClick={() => setChatMessages(INITIAL_CHAT)}
+                    variant="outline" 
+                    size="icon" 
+                    className="h-[30px] w-[30px] shrink-0 text-muted-foreground hover:text-destructive"
+                    title="Clear Conversation"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
                 <div className="relative flex items-end">
                   <Textarea 
                     value={chatInput}

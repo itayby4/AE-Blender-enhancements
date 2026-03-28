@@ -18,7 +18,8 @@ def register(mcp, connector):
 
         Args:
             intervals_json: A JSON string representing an array of segments to slice.
-                            Format: '[{"start_seconds": 0.0, "duration_seconds": 90.0, "name": "Reel 1"}]'
+                            Each segment contains an array of disjoint sub-cuts to assemble.
+                            Format: '[{"name": "Reel 1", "cuts": [{"start_seconds": 10.0, "end_seconds": 15.0}, {"start_seconds": 45.0, "end_seconds": 55.0}]}]'
         """
         try:
             intervals = json.loads(intervals_json)
@@ -60,14 +61,19 @@ def register(mcp, connector):
         imported_timelines = []
         
         for idx, chunk in enumerate(intervals):
-            start_sec = float(chunk.get("start_seconds", 0))
-            duration_sec = float(chunk.get("duration_seconds", 90))
             name = str(chunk.get("name", f"{safe_name}_Part_{idx+1}"))
+            cuts = chunk.get("cuts")
+            
+            if not cuts or not isinstance(cuts, list):
+                # Fallback to old format if AI messes up
+                start_sec = float(chunk.get("start_seconds", 0))
+                duration_sec = float(chunk.get("duration_seconds", 90))
+                cuts = [{"start_seconds": start_sec, "end_seconds": start_sec + duration_sec}]
             
             sliced_path = os.path.join(temp_dir, f"{name}.fcpxml")
             
             try:
-                slice_fcpxml(export_path, sliced_path, start_sec, duration_sec)
+                slice_fcpxml(export_path, sliced_path, cuts)
             except Exception as e:
                 return f"Error mathematically slicing FCPXML for chunk {idx}: {str(e)}"
                 

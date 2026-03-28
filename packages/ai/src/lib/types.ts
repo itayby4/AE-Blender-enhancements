@@ -12,6 +12,7 @@ export interface ChatOptions {
   modelOverride?: string;
   systemPromptOverride?: string;
   allowedTools?: string[];
+  history?: any[];
 }
 
 export interface Agent {
