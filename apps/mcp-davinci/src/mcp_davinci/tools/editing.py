@@ -65,3 +65,84 @@ def register(mcp, connector):
             "edits_received": len(cut_list),
             "errors": errors
         }, indent=2)
+
+    @mcp.tool()
+    def razor_cut_timeline(frame_id: int) -> str:
+        """
+        Moves the DaVinci Resolve playhead to the given frame_id and simulates the 'Ctrl + \\' 
+        keyboard shortcut to perform a Razor Cut on the timeline.
+        """
+        import time
+        import json
+        try:
+            import pyautogui
+        except ImportError:
+            return json.dumps({"error": "PyAutoGUI is not installed. Please run 'pip install pyautogui'."})
+            
+        try:
+            resolve = connector.get_resolve()
+            timeline = connector.get_timeline()
+            project = connector.get_project()
+        except NoTimelineError:
+            return json.dumps({"error": "No active timeline found."})
+        except Exception as exc:
+            return json.dumps({"error": str(exc)})
+
+        try:
+            fps_setting = project.GetSetting("timelineFrameRate")
+            fps = float(fps_setting) if fps_setting else 24.0
+            
+            start_frame = timeline.GetStartFrame()
+            end_frame = timeline.GetEndFrame()
+            
+            if frame_id < start_frame:
+                frame_id = start_frame + frame_id
+                
+            if frame_id > end_frame:
+                one_hour = int(fps * 3600)
+                if frame_id >= one_hour and (frame_id - one_hour) <= end_frame:
+                    frame_id = frame_id - one_hour
+                
+            h = int(frame_id // (fps * 3600))
+            m = int((frame_id % (fps * 3600)) // (fps * 60))
+            s = int((frame_id % (fps * 60)) // fps)
+            f = int(frame_id % fps)
+            timecode = f"{h:02d}:{m:02d}:{s:02d}:{f:02d}"
+            
+            resolve.OpenPage("edit")
+            time.sleep(0.5)
+            
+            # Force focus on DaVinci Resolve Window using WScript.Shell
+            try:
+                import subprocess
+                # 0x08000000 = CREATE_NO_WINDOW to avoid flashing terminal
+                subprocess.run(
+                    ["powershell", "-c", "(New-Object -ComObject WScript.Shell).AppActivate('DaVinci Resolve')"], 
+                    creationflags=0x08000000
+                )
+                time.sleep(0.5)
+            except Exception as e:
+                pass # Ignore focus failed, attempt anyway
+                
+            success = timeline.SetCurrentTimecode(timecode)
+            
+            if not success:
+                return json.dumps({"error": f"Failed to set current timecode to {timecode}."})
+                
+            time.sleep(0.5)
+            
+            # DaVinci Resolve UI bug: playhead doesn't visually update until timeline is clicked or nudged.
+            pyautogui.press('left')
+            time.sleep(0.1)
+            pyautogui.press('right')
+            time.sleep(0.2)
+            
+            # Perform Razor Cut (try both standard shortcuts)
+            pyautogui.hotkey('ctrl', '\\')
+            time.sleep(0.2)
+            pyautogui.hotkey('ctrl', 'b')
+            time.sleep(0.2)
+            
+            return json.dumps({"success": True, "message": f"Performed razor cut at frame {frame_id} ({timecode})."})
+        except Exception as e:
+            return json.dumps({"error": f"Error performing razor cut: {e}"})

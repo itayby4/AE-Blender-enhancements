@@ -66,7 +66,7 @@ export function createConnector(config: ConnectorConfig): Connector {
     async callTool(name: string, args: Record<string, unknown>): Promise<ToolResult> {
       const executeWithTimeout = (): Promise<any> => {
         return new Promise((resolve, reject) => {
-          let timeoutId = setTimeout(() => {
+          const timeoutId = setTimeout(() => {
             reject(new Error(`Tool call "${name}" timed out after 600s (10 minutes). DaVinci Resolve might be frozen.`));
           }, TOOL_TIMEOUT);
           

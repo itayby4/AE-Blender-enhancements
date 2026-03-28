@@ -2,12 +2,17 @@ import { ConnectorRegistry } from '@pipefx/mcp';
 import { createAgent } from '@pipefx/ai';
 import { createServer } from 'http';
 import { config } from './config.js';
+import { registerLocalWorkflows } from './workflows/index.js';
 
 async function main() {
   console.log('Starting PipeFX AI Engine...');
 
   const registry = new ConnectorRegistry();
   registry.register(config.connectors.resolve);
+  registerLocalWorkflows(registry, {
+    geminiApiKey: config.geminiApiKey,
+    openaiApiKey: config.openaiApiKey,
+  });
 
   await registry.connectAll();
 
@@ -38,7 +43,7 @@ async function main() {
 
       req.on('end', async () => {
         try {
-          const { message, skill } = JSON.parse(body);
+          const { message, skill, history } = JSON.parse(body);
           if (!message) {
             res.writeHead(400, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({ error: 'Message is required' }));
@@ -49,6 +54,7 @@ async function main() {
             modelOverride: skill?.model,
             systemPromptOverride: skill?.systemInstruction,
             allowedTools: skill?.allowedTools,
+            history: history,
           });
           res.writeHead(200, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({ text }));
