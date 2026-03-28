@@ -1,4 +1,4 @@
-import { useState, useEffect, type ChangeEvent, type KeyboardEvent } from 'react';
+import { useState, useEffect, useRef, type ChangeEvent, type KeyboardEvent } from 'react';
 import {
   MonitorPlay,
   Scissors,
@@ -86,6 +86,12 @@ export function App() {
   const [skills, setSkills] = useState<Skill[]>(DEFAULT_SKILLS);
 
   const [isAiTyping, setIsAiTyping] = useState(false);
+
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [chatMessages, isAiTyping]);
 
   useEffect(() => {
     loadSkills().then(setSkills);
@@ -409,6 +415,7 @@ export function App() {
                       </div>
                     </div>
                   )}
+                  <div ref={messagesEndRef} />
                 </div>
               </ScrollArea>
               
