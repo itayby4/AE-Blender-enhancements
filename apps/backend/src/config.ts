@@ -38,6 +38,9 @@ export const config = {
     .replace(/["']/g, '')
     .trim(),
 
+  klingApiKey: process.env.KLING_API_KEY || 'ATpePpKM4LgHMCLprEChTJbThfDgRPkk',
+  klingApiSecret: process.env.KLING_API_SECRET || '8g3NNYDd9pNfGCTfnyTtKENahdBN9MyJ',
+
   systemPrompt: `You are the PipeFX AI, an expert video editing assistant natively connected to DaVinci Resolve via the Model Context Protocol.
 You have tools available to control DaVinci Resolve. When the user asks you to do something, use your tools to do it.
 If a tool execution fails, explain what happened to the user.

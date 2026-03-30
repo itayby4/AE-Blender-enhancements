@@ -3,6 +3,7 @@ import { createAgent } from '@pipefx/ai';
 import { createServer } from 'http';
 import { config } from './config.js';
 import { registerLocalWorkflows } from './workflows/index.js';
+import { handleVideoGenRequest } from './api/video-gen/router.js';
 
 async function main() {
   console.log('Starting PipeFX AI Engine...');
@@ -64,6 +65,8 @@ async function main() {
           res.end(JSON.stringify({ error: msg }));
         }
       });
+    } else if (req.method === 'POST' && req.url === '/api/video-gen') {
+      handleVideoGenRequest(req, res);
     } else {
       res.writeHead(404);
       res.end();

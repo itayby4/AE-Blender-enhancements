@@ -3,7 +3,9 @@
   "version": "0.0.1",
   "private": true,
   "nx": {
-    "tags": ["scope:backend"],
+    "tags": [
+      "scope:backend"
+    ],
     "targets": {
       "build": {
         "executor": "@nx/esbuild:esbuild",
@@ -99,10 +101,14 @@
     }
   },
   "dependencies": {
-    "@pipefx/mcp": "workspace:*",
-    "@pipefx/ai": "workspace:*",
-    "dotenv": "^17.3.1",
     "@google/genai": "^1.46.0",
+    "@pipefx/ai": "workspace:*",
+    "@pipefx/mcp": "workspace:*",
+    "dotenv": "^17.3.1",
+    "jsonwebtoken": "^9.0.3",
     "openai": "^6.32.0"
+  },
+  "devDependencies": {
+    "@types/jsonwebtoken": "^9.0.10"
   }
 }

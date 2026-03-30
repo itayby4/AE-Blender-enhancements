@@ -19,13 +19,15 @@ import {
   Bot,
   Sparkles,
   Terminal,
-  Trash2
+  Trash2,
+  Video
 } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Card, CardContent } from '../components/ui/card';
 import { ScrollArea } from '../components/ui/scroll-area';
 import { Textarea } from '../components/ui/textarea';
 import { loadSkills, type Skill } from '../lib/load-skills';
+import { VideoGenDashboard } from '../features/video-gen/VideoGenDashboard';
 
 interface ChatMessage {
   id: number;
@@ -236,6 +238,18 @@ export function App() {
             Skills System
           </button>
 
+          <button
+            onClick={() => setActiveCategory('video-gen')}
+            className={`flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-all text-left mt-1 ${
+              activeCategory === 'video-gen' 
+                ? 'bg-primary text-primary-foreground font-medium shadow-sm' 
+                : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+            }`}
+          >
+            <Video className="h-4 w-4" />
+            Video Studio
+          </button>
+
           <div className="px-2 pb-2 mt-4 mb-2 border-b shrink-0">
             <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Macro Pages</h2>
           </div>
@@ -260,8 +274,13 @@ export function App() {
           })}
         </aside>
 
-        {/* Center - Macro Grid */}
-        <ScrollArea className="flex-1 min-h-0 p-6 relative">
+        {/* Center - Content Area */}
+        {activeCategory === 'video-gen' ? (
+          <div className="flex-1 min-h-0 flex flex-col relative w-full h-full">
+            <VideoGenDashboard />
+          </div>
+        ) : (
+          <ScrollArea className="flex-1 min-h-0 p-6 relative">
           <div className="max-w-4xl mx-auto pb-10">
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-xl font-bold tracking-tight">
@@ -357,6 +376,7 @@ export function App() {
             </div>
           </div>
         </ScrollArea>
+        )}
 
         {/* Right Sidebar - AI Chat & Logs */}
         <aside className="w-80 border-l bg-card flex flex-col shrink-0 min-h-0 shadow-[-10px_0_20px_rgba(0,0,0,0.02)] z-10">
