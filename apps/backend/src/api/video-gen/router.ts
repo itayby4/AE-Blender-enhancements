@@ -1,7 +1,7 @@
 import type { IncomingMessage, ServerResponse } from 'http';
 import { generateWithKling } from './providers/kling.js';
 import { generateWithSeedDance } from './providers/seeddance.js';
-import { generateWithNanoBanana } from './providers/nanobanana.js';
+import { generateWithGemini } from './providers/gemini.js';
 
 export async function handleVideoGenRequest(req: IncomingMessage, res: ServerResponse) {
   let body = '';
@@ -28,8 +28,8 @@ export async function handleVideoGenRequest(req: IncomingMessage, res: ServerRes
         case 'seeddance2':
           result = await generateWithSeedDance(prompt, imageRef);
           break;
-        case 'nanobanana2':
-          result = await generateWithNanoBanana(prompt, imageRef);
+        case 'gemini2':
+          result = await generateWithGemini(prompt, imageRef);
           break;
         default:
           res.writeHead(400, { 'Content-Type': 'application/json' });

@@ -20,7 +20,8 @@ import {
   Sparkles,
   Terminal,
   Trash2,
-  Video
+  Video,
+  ImageIcon
 } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Card, CardContent } from '../components/ui/card';
@@ -28,6 +29,7 @@ import { ScrollArea } from '../components/ui/scroll-area';
 import { Textarea } from '../components/ui/textarea';
 import { loadSkills, type Skill } from '../lib/load-skills';
 import { VideoGenDashboard } from '../features/video-gen/VideoGenDashboard';
+import { ImageGenDashboard } from '../features/image-gen/ImageGenDashboard';
 
 interface ChatMessage {
   id: number;
@@ -250,6 +252,18 @@ export function App() {
             Video Studio
           </button>
 
+          <button
+            onClick={() => setActiveCategory('image-gen')}
+            className={`flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-all text-left mt-1 ${
+              activeCategory === 'image-gen' 
+                ? 'bg-primary text-primary-foreground font-medium shadow-sm' 
+                : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+            }`}
+          >
+            <ImageIcon className="h-4 w-4" />
+            Image Studio
+          </button>
+
           <div className="px-2 pb-2 mt-4 mb-2 border-b shrink-0">
             <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Macro Pages</h2>
           </div>
@@ -278,6 +292,10 @@ export function App() {
         {activeCategory === 'video-gen' ? (
           <div className="flex-1 min-h-0 flex flex-col relative w-full h-full">
             <VideoGenDashboard />
+          </div>
+        ) : activeCategory === 'image-gen' ? (
+          <div className="flex-1 min-h-0 flex flex-col relative w-full h-full">
+            <ImageGenDashboard />
           </div>
         ) : (
           <ScrollArea className="flex-1 min-h-0 p-6 relative">

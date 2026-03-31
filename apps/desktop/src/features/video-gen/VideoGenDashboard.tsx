@@ -22,7 +22,8 @@ export function VideoGenDashboard() {
   const [imageRef, setImageRef] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
-  const [generatedVideo, setGeneratedVideo] = useState<{ url?: string; status: string } | null>(null);
+  const [outputType, setOutputType] = useState('video'); // 'video' | 'image'
+  const [generatedResult, setGeneratedResult] = useState<{ url?: string; status: string; type?: string } | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const handleDragOver = (e: React.DragEvent) => {
@@ -68,7 +69,7 @@ export function VideoGenDashboard() {
 
     setIsGenerating(true);
     setError(null);
-    setGeneratedVideo(null);
+    setGeneratedResult(null);
 
     try {
       const response = await fetch('http://localhost:3001/api/video-gen', {
@@ -83,6 +84,7 @@ export function VideoGenDashboard() {
           resolution,
           aspectRatio,
           imageRef,
+          outputType,
         }),
       });
 
@@ -92,7 +94,7 @@ export function VideoGenDashboard() {
       }
 
       const data = await response.json();
-      setGeneratedVideo(data);
+      setGeneratedResult(data);
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     } finally {
@@ -101,16 +103,17 @@ export function VideoGenDashboard() {
   };
 
   const handleDownload = async () => {
-    if (!generatedVideo?.url) return;
+    if (!generatedResult?.url) return;
     try {
       // Fetch the blob to force a download silently to the Downloads folder
-      const resp = await fetch(generatedVideo.url);
+      const resp = await fetch(generatedResult.url);
       const blob = await resp.blob();
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.style.display = 'none';
       a.href = url;
-      a.download = `pipefx_video_${Date.now()}.mp4`;
+      const extension = generatedResult.type === 'image' ? 'jpg' : 'mp4';
+      a.download = `pipefx_${generatedResult.type || 'video'}_${Date.now()}.${extension}`;
       document.body.appendChild(a);
       a.click();
       window.URL.revokeObjectURL(url);
@@ -122,9 +125,10 @@ export function VideoGenDashboard() {
       console.error('Failed to fetch blob, falling back to new tab:', err);
       // Fallback if CORS prevents blob download
       const a = document.createElement('a');
-      a.href = generatedVideo.url;
+      a.href = generatedResult.url;
       a.target = '_blank';
-      a.download = `pipefx_video_${Date.now()}.mp4`;
+      const extension = generatedResult.type === 'image' ? 'jpg' : 'mp4';
+      a.download = `pipefx_${generatedResult.type || 'video'}_${Date.now()}.${extension}`;
       a.click();
     }
   };
@@ -176,10 +180,10 @@ export function VideoGenDashboard() {
           <Card className="shadow-sm border-border/50 flex-1 flex flex-col min-h-0">
             <CardContent className="p-4 flex flex-col h-full gap-3 overflow-y-auto">
               <div className="space-y-2 flex-1 flex flex-col min-h-[100px]">
-                <Label htmlFor="prompt" className="text-xs uppercase tracking-wider text-muted-foreground shrink-0">Video Prompt</Label>
+                <Label htmlFor="prompt" className="text-xs uppercase tracking-wider text-muted-foreground shrink-0">{outputType === 'image' ? 'Image Prompt' : 'Video Prompt'}</Label>
                 <Textarea 
                   id="prompt"
-                  placeholder="Describe the video you want to generate in detail..."
+                  placeholder={`Describe the ${outputType === 'image' ? 'image' : 'video'} you want to generate in detail...`}
                   className="flex-1 resize-none bg-muted/20 min-h-[80px]"
                   value={prompt}
                   disabled={isGenerating}
@@ -217,6 +221,30 @@ export function VideoGenDashboard() {
 
               {/* Higgsfield-style Pills */}
               <div className="flex items-center gap-2 mt-2 flex-wrap">
+                
+                {/* Output Type Picker (only for Nano Banana currently) */}
+                {selectedModel === 'nanobanana2' && (
+                  <div className="inline-flex bg-secondary p-1 rounded-xl border border-border/50 items-center">
+                    <Button 
+                      variant={outputType === 'video' ? 'default' : 'ghost'} 
+                      size="sm" 
+                      onClick={() => setOutputType('video')}
+                      className={`h-7 px-3 rounded-lg text-xs font-medium ${outputType === 'video' ? 'shadow-sm' : ''}`}
+                    >
+                      <Video className="w-3 h-3 mr-1" />
+                      Video
+                    </Button>
+                    <Button 
+                      variant={outputType === 'image' ? 'default' : 'ghost'} 
+                      size="sm" 
+                      onClick={() => setOutputType('image')}
+                      className={`h-7 px-3 rounded-lg text-xs font-medium ${outputType === 'image' ? 'shadow-sm' : ''}`}
+                    >
+                      <ImageIcon className="w-3 h-3 mr-1" />
+                      Image
+                    </Button>
+                  </div>
+                )}
                 
                 {/* Duration Picker */}
                 <Popover>
@@ -287,12 +315,12 @@ export function VideoGenDashboard() {
                 {isGenerating ? (
                   <>
                     <Loader2 className="h-4 w-4 animate-spin" />
-                    Generating Video...
+                    Generating {outputType === 'image' ? 'Image' : 'Video'}...
                   </>
                 ) : (
                   <>
                     <Sparkles className="h-4 w-4" />
-                    Generate Video
+                    Generate {outputType === 'image' ? 'Image' : 'Video'}
                   </>
                 )}
               </Button>
@@ -324,27 +352,40 @@ export function VideoGenDashboard() {
                 This might take a few moments depending on the complexity of your prompt.
               </p>
             </div>
-          ) : generatedVideo ? (
+          ) : generatedResult ? (
             <div className="absolute inset-0 flex flex-col bg-background/80">
               <div className="flex-1 flex items-center justify-center bg-black/5 p-4">
                  <div className="w-full h-full max-w-3xl max-h-[80%] rounded-lg overflow-hidden shadow-2xl relative border-border/50 border bg-black group flex items-center justify-center">
-                    {/* Placeholder video player since actual URL might be blocked or mock */}
-                    <Video className="h-16 w-16 text-white/20 absolute" />
-                    <video 
-                      src={generatedVideo.url} 
-                      controls 
-                      autoPlay 
-                      className="w-full h-full object-contain relative z-10"
-                    >
-                      Your browser does not support the video tag.
-                    </video>
+                    {/* Placeholder media player */}
+                    {generatedResult.type === 'image' ? (
+                      <ImageIcon className="h-16 w-16 text-white/20 absolute" />
+                    ) : (
+                      <Video className="h-16 w-16 text-white/20 absolute" />
+                    )}
+                    {generatedResult.type === 'image' ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img 
+                        src={generatedResult.url} 
+                        alt="Generated"
+                        className="w-full h-full object-contain relative z-10" 
+                      />
+                    ) : (
+                      <video 
+                        src={generatedResult.url} 
+                        controls 
+                        autoPlay 
+                        className="w-full h-full object-contain relative z-10"
+                      >
+                        Your browser does not support the video tag.
+                      </video>
+                    )}
                  </div>
               </div>
               <div className="h-16 border-t bg-card shrink-0 flex items-center px-4 justify-between">
                 <div className="text-sm text-muted-foreground">
                   Model: <span className="font-medium text-foreground">{MODELS.find(m => m.id === selectedModel)?.name}</span>
                 </div>
-                <Button variant="outline" size="sm" onClick={handleDownload}>Download MP4</Button>
+                <Button variant="outline" size="sm" onClick={handleDownload}>Download {generatedResult.type === 'image' ? 'Image' : 'MP4'}</Button>
               </div>
             </div>
           ) : (
