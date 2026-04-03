@@ -21,7 +21,8 @@ import {
   Terminal,
   Trash2,
   Video,
-  ImageIcon
+  ImageIcon,
+  Network
 } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Card, CardContent } from '../components/ui/card';
@@ -30,6 +31,8 @@ import { Textarea } from '../components/ui/textarea';
 import { loadSkills, type Skill } from '../lib/load-skills';
 import { VideoGenDashboard } from '../features/video-gen/VideoGenDashboard';
 import { ImageGenDashboard } from '../features/image-gen/ImageGenDashboard';
+import { NodeSystemDashboard } from '../features/node-system/NodeSystemDashboard';
+import { dispatchPipelineActions } from '../lib/pipeline-actions';
 
 interface ChatMessage {
   id: number;
@@ -135,12 +138,19 @@ export function App() {
       const data = await response.json();
       setChatMessages(prev => [...prev, { id: Date.now(), sender: 'ai', text: data.text }]);
       
+      // If the AI returned pipeline actions, dispatch them to the node editor
+      if (data.actions && Array.isArray(data.actions) && data.actions.length > 0) {
+        dispatchPipelineActions(data.actions);
+        // Switch to node editor tab so user sees the actions happen
+        setActiveCategory('node-system');
+      }
+      
       // Also add a log entry for completion
       const newLog: LogEntry = {
         id: Date.now(),
         time: new Date().toLocaleTimeString('en-US', { hour12: false }),
         level: 'success',
-        message: 'Successfully generated AI macro response'
+        message: data.actions?.length ? `AI executed ${data.actions.length} pipeline action(s)` : 'Successfully generated AI macro response'
       };
       setLogs(prev => [...prev, newLog]);
       
@@ -264,6 +274,18 @@ export function App() {
             Image Studio
           </button>
 
+          <button
+            onClick={() => setActiveCategory('node-system')}
+            className={`flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-all text-left mt-1 ${
+              activeCategory === 'node-system' 
+                ? 'bg-primary text-primary-foreground font-medium shadow-sm' 
+                : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+            }`}
+          >
+            <Network className="h-4 w-4" />
+            Node Editor
+          </button>
+
           <div className="px-2 pb-2 mt-4 mb-2 border-b shrink-0">
             <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Macro Pages</h2>
           </div>
@@ -289,15 +311,16 @@ export function App() {
         </aside>
 
         {/* Center - Content Area */}
-        {activeCategory === 'video-gen' ? (
-          <div className="flex-1 min-h-0 flex flex-col relative w-full h-full">
-            <VideoGenDashboard />
-          </div>
-        ) : activeCategory === 'image-gen' ? (
-          <div className="flex-1 min-h-0 flex flex-col relative w-full h-full">
-            <ImageGenDashboard />
-          </div>
-        ) : (
+        <div className={`flex-1 min-h-0 flex-col relative w-full h-full ${activeCategory === 'node-system' ? 'flex' : 'hidden'}`}>
+          <NodeSystemDashboard />
+        </div>
+        <div className={`flex-1 min-h-0 flex-col relative w-full h-full ${activeCategory === 'video-gen' ? 'flex' : 'hidden'}`}>
+          <VideoGenDashboard />
+        </div>
+        <div className={`flex-1 min-h-0 flex-col relative w-full h-full ${activeCategory === 'image-gen' ? 'flex' : 'hidden'}`}>
+          <ImageGenDashboard />
+        </div>
+        <div className={`flex-1 min-h-0 flex-col relative w-full h-full ${!['node-system', 'video-gen', 'image-gen'].includes(activeCategory) ? 'flex' : 'hidden'}`}>
           <ScrollArea className="flex-1 min-h-0 p-6 relative">
           <div className="max-w-4xl mx-auto pb-10">
             <div className="flex items-center justify-between mb-6">
@@ -394,7 +417,7 @@ export function App() {
             </div>
           </div>
         </ScrollArea>
-        )}
+        </div>
 
         {/* Right Sidebar - AI Chat & Logs */}
         <aside className="w-80 border-l bg-card flex flex-col shrink-0 min-h-0 shadow-[-10px_0_20px_rgba(0,0,0,0.02)] z-10">

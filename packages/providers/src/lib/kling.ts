@@ -1,13 +1,17 @@
-import { config } from '../../../config.js';
 import jwt from 'jsonwebtoken';
 
 function generateKlingToken(): string {
+  const apiKey = process.env.KLING_API_KEY;
+  const apiSecret = process.env.KLING_API_SECRET;
+  if (!apiKey || !apiSecret) {
+    throw new Error('KLING_API_KEY or KLING_API_SECRET missing');
+  }
   const payload = {
-    iss: config.klingApiKey,
+    iss: apiKey,
     exp: Math.floor(Date.now() / 1000) + 1800, // Valid for 30 minutes
     nbf: Math.floor(Date.now() / 1000) - 5
   };
-  return jwt.sign(payload, config.klingApiSecret, { algorithm: 'HS256', header: { alg: 'HS256', typ: 'JWT' } });
+  return jwt.sign(payload, apiSecret, { algorithm: 'HS256', header: { alg: 'HS256', typ: 'JWT' } });
 }
 
 export async function generateWithKling(prompt: string, imageRef?: string, duration: string = '5', resolution: string = '720p', aspectRatio: string = '16:9'): Promise<{ url?: string; status: string; id: string }> {

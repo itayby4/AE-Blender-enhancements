@@ -1,9 +1,12 @@
 import type { IncomingMessage, ServerResponse } from 'http';
-import { generateWithKling } from './providers/kling.js';
-import { generateWithSeedDance } from './providers/seeddance.js';
-import { generateWithGemini } from './providers/gemini.js';
+import {
+  generateWithKling,
+  generateWithSeedDance,
+  generateWithGemini,
+  generateWithSeedDream
+} from '@pipefx/providers';
 
-export async function handleVideoGenRequest(req: IncomingMessage, res: ServerResponse) {
+export async function handleAiModelRequest(req: IncomingMessage, res: ServerResponse) {
   let body = '';
   req.on('data', (chunk: Buffer) => {
     body += chunk.toString();
@@ -12,7 +15,7 @@ export async function handleVideoGenRequest(req: IncomingMessage, res: ServerRes
   req.on('end', async () => {
     try {
       const payload = JSON.parse(body);
-      const { model, prompt, imageRef, duration, resolution, aspectRatio } = payload;
+      const { model, prompt, imageRef, imageRefs, duration, resolution, aspectRatio } = payload;
       
       if (!prompt) {
         res.writeHead(400, { 'Content-Type': 'application/json' });
@@ -29,7 +32,10 @@ export async function handleVideoGenRequest(req: IncomingMessage, res: ServerRes
           result = await generateWithSeedDance(prompt, imageRef);
           break;
         case 'gemini2':
-          result = await generateWithGemini(prompt, imageRef);
+          result = await generateWithGemini(prompt, imageRefs || (imageRef ? [imageRef] : []));
+          break;
+        case 'seeddream45':
+          result = await generateWithSeedDream(prompt, imageRef);
           break;
         default:
           res.writeHead(400, { 'Content-Type': 'application/json' });

@@ -72,7 +72,7 @@ export function VideoGenDashboard() {
     setGeneratedResult(null);
 
     try {
-      const response = await fetch('http://localhost:3001/api/video-gen', {
+      const response = await fetch('http://localhost:3001/api/ai-models', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

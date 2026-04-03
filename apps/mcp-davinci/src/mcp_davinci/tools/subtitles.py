@@ -9,7 +9,7 @@ from .subtitle_xml_builder import build_synced_subtitle_fcpxml, build_subtitle_f
 
 def register(mcp, connector):
     @mcp.tool()
-    def add_timeline_subtitle(subtitles_json: str) -> str:
+    def add_timeline_subtitle(subtitles_json: str, animation: bool = False) -> str:
         """
         Takes a JSON string representing translated subtitles.
         Each element should be a dictionary with 'start_seconds', 'end_seconds', and 'text'.
@@ -118,6 +118,7 @@ def register(mcp, connector):
                     subtitles=normalised,
                     output_path=fcpxml_path,
                     timeline_name=sub_timeline_name,
+                    animation=animation,
                 )
             except Exception as e:
                 exported = False  # Fall through to fallback
@@ -141,6 +142,7 @@ def register(mcp, connector):
                     timeline_name=sub_timeline_name,
                     output_dir=temp_dir,
                     tc_start=tc_start,
+                    animation=animation,
                 )
             except Exception as e:
                 return json.dumps({

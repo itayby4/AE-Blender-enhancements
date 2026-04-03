@@ -92,13 +92,20 @@ def _extract_timeline_info(source_fcpxml_path: str) -> dict:
     }
 
 
-def _add_effect_resource(resources: ET.Element, effect_id: str) -> None:
-    """Add a Basic Title effect resource."""
-    ET.SubElement(resources, "effect", {
-        "id": effect_id,
-        "name": "Basic Title",
-        "uid": ".../Titles.localized/Build In:Out.localized/Basic Title.localized/Basic Title.moti",
-    })
+def _add_effect_resource(resources: ET.Element, effect_id: str, animation: bool = False) -> None:
+    """Add a Title effect resource."""
+    if animation:
+        ET.SubElement(resources, "effect", {
+            "id": effect_id,
+            "name": "Text+",
+            "uid": ".../Titles.localized/Text+.moti",
+        })
+    else:
+        ET.SubElement(resources, "effect", {
+            "id": effect_id,
+            "name": "Basic Title",
+            "uid": ".../Titles.localized/Build In:Out.localized/Basic Title.localized/Basic Title.moti",
+        })
 
 
 def _build_title_element(
@@ -162,6 +169,7 @@ def build_synced_subtitle_fcpxml(
     subtitles: list[dict],
     output_path: str,
     timeline_name: str = "Subtitles",
+    animation: bool = False,
 ) -> str:
     """
     Build a subtitle FCPXML that is synced with the original timeline.
@@ -192,7 +200,7 @@ def build_synced_subtitle_fcpxml(
     })
 
     effect_id = "r2"
-    _add_effect_resource(resources, effect_id)
+    _add_effect_resource(resources, effect_id, animation)
 
     # Library > Event > Project > Sequence
     library = ET.SubElement(fcpxml, "library")
@@ -250,6 +258,7 @@ def build_subtitle_fcpxml(
     timeline_name: str = "Subtitles",
     output_dir: str | None = None,
     tc_start: float = 0.0,
+    animation: bool = False,
 ) -> str:
     """
     Build a standalone FCPXML 1.8 file with <title> elements.
@@ -285,7 +294,7 @@ def build_subtitle_fcpxml(
     })
 
     effect_id = "r2"
-    _add_effect_resource(resources, effect_id)
+    _add_effect_resource(resources, effect_id, animation)
 
     max_end = max(s.get("end_seconds", 0) for s in subtitles)
     total_duration_str = _float_to_fraction(max_end, den)

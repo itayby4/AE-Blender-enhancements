@@ -3,7 +3,8 @@ import { createAgent } from '@pipefx/ai';
 import { createServer } from 'http';
 import { config } from './config.js';
 import { registerLocalWorkflows } from './workflows/index.js';
-import { handleVideoGenRequest } from './api/video-gen/router.js';
+import { handleAiModelRequest } from './api/ai-models/router.js';
+import { handleSaveRenderRequest } from './api/save-render.js';
 
 async function main() {
   console.log('Starting PipeFX AI Engine...');
@@ -57,16 +58,34 @@ async function main() {
             allowedTools: skill?.allowedTools,
             history: history,
           });
+
+          // Extract pipeline actions from AI response if present
+          let cleanText = text;
+          let actions: any[] = [];
+          const actionBlockRegex = /```pipeline_actions\s*\n([\s\S]*?)\n```/g;
+          let match;
+          while ((match = actionBlockRegex.exec(text)) !== null) {
+            try {
+              const parsed = JSON.parse(match[1]);
+              if (Array.isArray(parsed)) actions.push(...parsed);
+            } catch (e) {
+              console.warn('[CHAT] Failed to parse pipeline actions block:', e);
+            }
+            cleanText = cleanText.replace(match[0], '').trim();
+          }
+
           res.writeHead(200, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ text }));
+          res.end(JSON.stringify({ text: cleanText, actions }));
         } catch (err: unknown) {
           const msg = err instanceof Error ? err.message : String(err);
           res.writeHead(500, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({ error: msg }));
         }
       });
-    } else if (req.method === 'POST' && req.url === '/api/video-gen') {
-      handleVideoGenRequest(req, res);
+    } else if (req.method === 'POST' && req.url === '/api/ai-models') {
+      handleAiModelRequest(req, res);
+    } else if (req.method === 'POST' && req.url === '/api/save-render') {
+      handleSaveRenderRequest(req, res);
     } else {
       res.writeHead(404);
       res.end();

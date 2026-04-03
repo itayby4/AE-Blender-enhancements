@@ -8,7 +8,8 @@ export const hebrewSubtitlesWorkflow: WorkflowDefinition = {
     type: 'OBJECT',
     properties: {
       start_seconds: { type: 'NUMBER', description: 'Optional: only process from this second' },
-      end_seconds: { type: 'NUMBER', description: 'Optional: only process until this second' }
+      end_seconds: { type: 'NUMBER', description: 'Optional: only process until this second' },
+      animation: { type: 'BOOLEAN', description: 'Optional: generate fast-paced word-by-word animated subtitles' }
     }
   },
   execute: async (args, context) => {
@@ -47,7 +48,7 @@ export const hebrewSubtitlesWorkflow: WorkflowDefinition = {
                 if (transcription.segments && transcription.segments.length > 0) {
                   // --- Batched translation via Gemini ---
                   const BATCH_SIZE = 30;
-                  const MAX_WORDS = 5;
+                  const MAX_WORDS = args.animation ? 1 : 5;
                   const rawSegments = transcription.segments;
                   console.log(`Translating ${rawSegments.length} segments via Gemini (batches of ${BATCH_SIZE})...`);
                   
@@ -131,7 +132,10 @@ export const hebrewSubtitlesWorkflow: WorkflowDefinition = {
           console.log(`Translation completed! Processed ${allSegments.length} segments.`);
           // Import to Timeline feature
           try {
-            const subResult = await registry.callTool('add_timeline_subtitle', { subtitles_json: JSON.stringify(allSegments) });
+            const subResult = await registry.callTool('add_timeline_subtitle', { 
+              subtitles_json: JSON.stringify(allSegments),
+              animation: Boolean(args.animation)
+            });
             console.log('Subtitles imported successfully:', subResult.content);
             return JSON.stringify({
               success: true,
