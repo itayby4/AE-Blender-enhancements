@@ -1,76 +1,67 @@
-import { GoogleGenAI } from '@google/genai';
-
 export async function generateWithSeedDream(prompt: string, imageRef?: string): Promise<{ url?: string; status: string; id: string; type: string }> {
-  console.log(`[IMAGE-GEN] Calling SeedDream 4.5 (Gemini Image) with prompt: "${prompt}"`);
+  console.log(`[IMAGE-GEN] Calling SeedDream 5 with prompt: "${prompt}"`);
 
-  const apiKey = process.env.GEMINI_API_KEY;
+  const apiKey = process.env.BYTEPLUS_API_KEY;
 
   if (!apiKey) {
-    throw new Error('GEMINI_API_KEY is not configured in the environment variables.');
+    throw new Error('BYTEPLUS_API_KEY is not configured in the environment variables.');
   }
 
   try {
-    const ai = new GoogleGenAI({ apiKey });
+    const url = 'https://ark.ap-southeast.bytepluses.com/api/v3/images/generations';
+    
+    const endpointId = process.env.BYTEPLUS_SEEDDREAM_ENDPOINT;
 
-    const contents: Array<{ text: string } | { inlineData: { mimeType: string; data: string } }> = [
-      { text: prompt }
-    ];
-
-    if (imageRef && imageRef.startsWith('data:')) {
-      const match = imageRef.match(/^data:(image\/\w+);base64,(.+)$/s);
-      if (match) {
-        contents.push({
-          inlineData: {
-            mimeType: match[1],
-            data: match[2],
-          }
-        });
-        console.log(`[IMAGE-GEN] Attached image reference as inline data (${match[1]})`);
-      }
+    if (!endpointId) {
+      throw new Error('BYTEPLUS_SEEDDREAM_ENDPOINT is not configured in .env. You must create an Endpoint in ModelArk and put its ID (usually starts with ep-) here.');
     }
 
-    const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash-preview-image-generation',
-      contents: contents,
-      config: {
-        responseModalities: ['TEXT', 'IMAGE'],
-      }
+    // Using the Endpoint ID deployed in BytePlus ModelArk
+    const requestBody: any = {
+      model: endpointId, 
+      prompt: prompt,
+    };
+
+    if (imageRef) {
+      // If an image reference is provided (e.g. for image-to-image or styles), we assume it's passed as 'image' parameter
+      // based on typical Vision models. If BytePlus uses a different key, it can be adjusted here.
+      requestBody.image = imageRef; 
+    }
+
+    console.log(`[IMAGE-GEN] Sending request to BytePlus API...`);
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(requestBody)
     });
 
-    const parts = response.candidates?.[0]?.content?.parts;
+    const data = await response.json() as any;
 
-    if (!parts || parts.length === 0) {
-      throw new Error('SeedDream API returned no parts. The prompt may have been blocked by safety filters.');
+    if (!response.ok) {
+        throw new Error(`SeedDream API Error: ${JSON.stringify(data)}`);
     }
 
-    let textResponse = '';
-    let imageDataUrl: string | null = null;
-
-    for (const part of parts) {
-      if (part.text) {
-        textResponse += part.text;
-      } else if (part.inlineData) {
-        const mimeType = part.inlineData.mimeType || 'image/png';
-        const b64 = part.inlineData.data;
-        imageDataUrl = `data:${mimeType};base64,${b64}`;
-      }
+    const imageData = data.data?.[0];
+    
+    if (!imageData || (!imageData.url && !imageData.b64_json)) {
+       throw new Error('SeedDream returned an empty image list');
+    }
+    
+    let imageUrl = imageData.url;
+    if (imageData.b64_json) {
+        imageUrl = `data:image/png;base64,${imageData.b64_json}`;
     }
 
-    if (textResponse) {
-      console.log(`[IMAGE-GEN] Model text response: ${textResponse.slice(0, 200)}`);
-    }
-
-    if (!imageDataUrl) {
-      throw new Error(`SeedDream did not return an image. Model response: "${textResponse.slice(0, 300)}"`);
-    }
-
-    console.log(`[IMAGE-GEN] SeedDream 4.5 image generated successfully!`);
+    console.log(`[IMAGE-GEN] SeedDream 5 image generated successfully!`);
 
     return {
       id: `seeddream-${Date.now()}`,
       status: 'completed',
       type: 'image',
-      url: imageDataUrl,
+      url: imageUrl,
     };
   } catch (error) {
     console.error(`[IMAGE-GEN] SeedDream generation failed:`, error);

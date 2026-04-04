@@ -62,16 +62,40 @@ async function main() {
           // Extract pipeline actions from AI response if present
           let cleanText = text;
           let actions: any[] = [];
-          const actionBlockRegex = /```pipeline_actions\s*\n([\s\S]*?)\n```/g;
+          
+          // First, try to extract from markdown blocks
+          const actionBlockRegex = /```(?:pipeline_actions|json)?\s*\n([\s\S]*?)```/g;
           let match;
           while ((match = actionBlockRegex.exec(text)) !== null) {
             try {
-              const parsed = JSON.parse(match[1]);
-              if (Array.isArray(parsed)) actions.push(...parsed);
+              // Strip JS-style line comments (//) and trailing commas
+              const jsonString = match[1].replace(/^\s*\/\/.*$/gm, '').replace(/,\s*([\]}])/g, '$1');
+              const parsed = JSON.parse(jsonString);
+              if (Array.isArray(parsed) && parsed.length > 0 && parsed[0].type) {
+                actions.push(...parsed);
+                cleanText = cleanText.replace(match[0], '').trim();
+              }
             } catch (e) {
-              console.warn('[CHAT] Failed to parse pipeline actions block:', e);
+              // Ignore block parse errors
             }
-            cleanText = cleanText.replace(match[0], '').trim();
+          }
+
+          // Fallback: search for a JSON array natively in the raw text if no blocks matched
+          if (actions.length === 0) {
+            try {
+              const jsonString = text.replace(/^\s*\/\/.*$/gm, '').replace(/,\s*([\]}])/g, '$1');
+              const arrStart = jsonString.indexOf('[');
+              const arrEnd = jsonString.lastIndexOf(']');
+              if (arrStart !== -1 && arrEnd !== -1 && arrEnd > arrStart) {
+                const parsed = JSON.parse(jsonString.substring(arrStart, arrEnd + 1));
+                if (Array.isArray(parsed) && parsed.length > 0 && parsed[0].type) {
+                  actions.push(...parsed);
+                  cleanText = cleanText.replace(text.substring(arrStart, arrEnd + 1), '').trim();
+                }
+              }
+            } catch (e) {
+              console.warn('[CHAT] Fallback raw JSON parse failed:', e);
+            }
           }
 
           res.writeHead(200, { 'Content-Type': 'application/json' });

@@ -2,7 +2,7 @@
 export interface PipelineAction {
   type: 'add_node' | 'remove_node' | 'connect_nodes' | 'set_prompt' | 'execute_pipeline' | 'clear_canvas';
   // add_node
-  nodeType?: 'modelNode' | 'promptNode' | 'triggerNode';
+  nodeType?: 'modelNode' | 'promptNode' | 'triggerNode' | 'nullNode' | 'mediaNode';
   model?: string;
   label?: string;
   prompt?: string;

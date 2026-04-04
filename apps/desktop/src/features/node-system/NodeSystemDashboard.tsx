@@ -188,16 +188,28 @@ function NodeSystemFlow() {
     const unsubscribe = onPipelineActions((actions: PipelineAction[]) => {
       let lastAddedId: string | null = null;
       const idMap: Record<string, string> = {}; // maps AI-suggested temp IDs to real IDs
+      const colCounts: Record<string, number> = {}; // tracks Y positions for each X column
 
       for (const action of actions) {
         switch (action.type) {
           case 'add_node': {
             const newId = getId();
-            const yOffset = 100 * Object.keys(idMap).length;
+            const type = action.nodeType || 'modelNode';
+            
+            // Smart auto-layout based on node type
+            let xPos = 100;
+            if (type === 'triggerNode' || type === 'nullNode' || type === 'mediaNode') xPos = 100;
+            else if (type === 'promptNode') xPos = 500;
+            else if (type === 'modelNode') xPos = 900;
+            
+            const colKey = String(xPos);
+            colCounts[colKey] = (colCounts[colKey] || 0) + 1;
+            const yPos = 100 + (colCounts[colKey] - 1) * 220; // 220px vertical spacing
+
             const newNode: Node = {
               id: newId,
-              type: action.nodeType || 'modelNode',
-              position: { x: 250 + Math.random() * 100, y: 100 + yOffset },
+              type,
+              position: { x: xPos, y: yPos },
               data: {
                 label: action.label || action.model || 'New Node',
                 model: action.model || '',
@@ -339,17 +351,17 @@ function NodeSystemFlow() {
               </div>
             </div>
 
-            {/* SeedDream 4.5 Node Item */}
+            {/* SeedDream 5 Node Item */}
             <div 
               className="p-3 border rounded-lg bg-background shadow-sm flex items-start gap-3 cursor-grab hover:border-rose-500/50 transition-colors active:cursor-grabbing hover:bg-muted/30 [&>*]:pointer-events-none"
               draggable={true}
-              onDragStart={(e) => onDragStart(e, 'modelNode', 'seeddream', 'SeedDream 4.5', 'High-quality image generation & editing')}
-              onClick={() => onClickAdd('modelNode', 'seeddream', 'SeedDream 4.5', 'High-quality image generation & editing')}
+              onDragStart={(e) => onDragStart(e, 'modelNode', 'seeddream', 'SeedDream 5', 'High-quality image generation & editing')}
+              onClick={() => onClickAdd('modelNode', 'seeddream', 'SeedDream 5', 'High-quality image generation & editing')}
             >
               <GripVertical className="w-4 h-4 mt-0.5 text-muted-foreground opacity-50 shrink-0 pointer-events-none" />
               <div className="pointer-events-none">
                 <div className="font-medium text-sm flex items-center gap-1.5">
-                  <Palette className="w-3.5 h-3.5 text-rose-500" /> SeedDream 4.5
+                  <Palette className="w-3.5 h-3.5 text-rose-500" /> SeedDream 5
                 </div>
                 <div className="text-[10px] text-muted-foreground mt-1 leading-snug">Drag or click to add</div>
               </div>
@@ -473,11 +485,11 @@ function NodeSystemFlow() {
                  <span className="font-medium">SeedDance 2</span>
                </button>
                <button 
-                 onClick={() => addNodeFromMenu('modelNode', 'seeddream', 'SeedDream 4.5', 'High-quality image generation & editing')}
+                 onClick={() => addNodeFromMenu('modelNode', 'seeddream', 'SeedDream 5', 'High-quality image generation & editing')}
                  className="w-full flex items-center gap-2 px-2 py-2 text-sm hover:bg-muted rounded-md transition-colors text-left group mt-0.5"
                >
                  <Palette className="h-4 w-4 text-rose-500 group-hover:scale-110 transition-transform" /> 
-                 <span className="font-medium">SeedDream 4.5</span>
+                 <span className="font-medium">SeedDream 5</span>
                </button>
                <div className="h-px w-full bg-border/50 my-1"></div>
                <button 

@@ -15,6 +15,8 @@ import {
 
 export function ImageGenDashboard() {
   const [prompt, setPrompt] = useState('remove him from the shot and his towel');
+  const [selectedModel, setSelectedModel] = useState<'seeddream45' | 'gemini2'>('seeddream45');
+  const [showModelMenu, setShowModelMenu] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedImages, setGeneratedImages] = useState<string[]>([]);
   const [imageRef, setImageRef] = useState<string | null>('https://picsum.photos/400/300'); // Mock initial image
@@ -71,7 +73,7 @@ export function ImageGenDashboard() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          model: 'gemini2',
+          model: selectedModel,
           prompt,
           imageRef,
         })
@@ -227,11 +229,51 @@ export function ImageGenDashboard() {
               {/* Row 2: Settings Pills */}
               <div className="flex items-center flex-wrap gap-2 text-[12px] font-medium text-muted-foreground w-full pt-0.5">
                 
-                <button className="flex items-center gap-1.5 h-8 px-3 rounded-full bg-secondary hover:bg-secondary/80 hover:text-foreground transition-colors border border-border/40 shadow-sm">
-                  <span className="text-primary font-black text-[10px] w-4 h-4 rounded bg-primary/10 flex items-center justify-center">G</span>
-                  <span>Gemini 3 Pro</span>
-                  <ChevronRight className="w-3 h-3 opacity-50 ml-1" />
-                </button>
+                <div className="relative">
+                  <button 
+                    onClick={() => setShowModelMenu(!showModelMenu)}
+                    className="flex items-center gap-1.5 h-8 px-3 rounded-full bg-secondary hover:bg-secondary/80 hover:text-foreground transition-colors border border-border/40 shadow-sm"
+                  >
+                    {selectedModel === 'seeddream45' ? (
+                      <>
+                        <span className="text-rose-500 font-black text-[10px] w-4 h-4 rounded bg-rose-500/10 flex items-center justify-center">S</span>
+                        <span>SeedDream 5</span>
+                      </>
+                    ) : (
+                      <>
+                        <span className="text-[#FFD700] font-black text-[10px] w-4 h-4 rounded bg-[#FFD700]/10 flex items-center justify-center">N</span>
+                        <span>Nano Banana</span>
+                      </>
+                    )}
+                    <ChevronRight className={`w-3 h-3 opacity-50 ml-1 transition-transform duration-200 ${showModelMenu ? '-rotate-90' : ''}`} />
+                  </button>
+
+                  {showModelMenu && (
+                    <div className="absolute bottom-full left-0 mb-2 w-[180px] bg-card border border-border rounded-xl shadow-xl overflow-hidden z-50 flex flex-col py-1 pointer-events-auto">
+                      <button 
+                        onClick={() => { setSelectedModel('seeddream45'); setShowModelMenu(false); }}
+                        className={`flex items-center gap-3 px-3 py-2 text-sm hover:bg-muted transition-colors text-left ${selectedModel === 'seeddream45' ? 'bg-muted/50' : ''}`}
+                      >
+                        <span className="text-rose-500 font-black text-[10px] w-5 h-5 shrink-0 rounded bg-rose-500/10 flex items-center justify-center">S</span>
+                        <div className="flex flex-col leading-snug">
+                          <span className="font-medium text-foreground">SeedDream 5</span>
+                          <span className="text-[10px] text-muted-foreground font-normal">ByteDance Vision</span>
+                        </div>
+                      </button>
+                      
+                      <button 
+                        onClick={() => { setSelectedModel('gemini2'); setShowModelMenu(false); }}
+                        className={`flex items-center gap-3 px-3 py-2 text-sm hover:bg-muted transition-colors text-left border-t border-border/50 ${selectedModel === 'gemini2' ? 'bg-muted/50' : ''}`}
+                      >
+                        <span className="text-[#FFD700] font-black text-[10px] w-5 h-5 shrink-0 rounded bg-[#FFD700]/10 flex items-center justify-center">N</span>
+                        <div className="flex flex-col leading-snug">
+                          <span className="font-medium text-foreground">Nano Banana</span>
+                          <span className="text-[10px] text-muted-foreground font-normal">Fast AI model</span>
+                        </div>
+                      </button>
+                    </div>
+                  )}
+                </div>
 
                 <div className="w-px h-4 bg-border mx-1"></div>
 

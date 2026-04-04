@@ -44,7 +44,7 @@ export function MediaNode({ data }: { data: any }) {
 
       {/* Preview */}
       <CardContent className="p-0">
-        <div className="relative w-full bg-black flex items-center justify-center overflow-hidden h-32">
+        <div className="relative w-full bg-black/90 rounded-b-md flex items-center justify-center overflow-hidden h-48 p-1">
           {hasError || !url ? (
             <div className="flex flex-col items-center justify-center gap-1.5 text-muted-foreground/30">
               <IconComponent className="h-8 w-8 stroke-[1.5]" />
@@ -54,7 +54,7 @@ export function MediaNode({ data }: { data: any }) {
             <img
               src={url}
               alt={fileName}
-              className="w-full h-full object-cover"
+              className="w-full h-full object-contain drop-shadow-md"
               onError={() => setHasError(true)}
             />
           ) : mediaType === 'video' ? (

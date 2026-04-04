@@ -17,7 +17,7 @@ export function PromptNode({ data }: { data: any }) {
   };
 
   return (
-    <Card className="w-64 shadow-xl bg-card/95 backdrop-blur-md border-2 border-violet-500/50 hover:border-violet-500 transition-all duration-300 overflow-hidden">
+    <Card className="min-w-64 w-fit max-w-[800px] shadow-xl bg-card/95 backdrop-blur-md border-2 border-violet-500/50 hover:border-violet-500 transition-all duration-300 overflow-hidden">
       <CardHeader className="p-2.5 pb-2 border-b border-border/50 bg-violet-500/10">
         <CardTitle className="text-sm font-bold flex items-center gap-2 text-violet-400">
           <div className="p-1 rounded bg-violet-500/20 text-violet-400">
@@ -28,7 +28,7 @@ export function PromptNode({ data }: { data: any }) {
       </CardHeader>
       <CardContent className="p-3">
         <textarea
-          className="nodrag w-full text-xs min-h-[80px] max-h-[200px] resize-y p-2 bg-background border border-border/50 rounded-md focus:outline-none focus:ring-1 focus:ring-violet-500 shadow-inner text-foreground placeholder-muted-foreground font-mono leading-relaxed"
+          className="nodrag min-w-[200px] text-xs min-h-[80px] max-h-[600px] resize p-2 bg-background border border-border/50 rounded-md focus:outline-none focus:ring-1 focus:ring-violet-500 shadow-inner text-foreground placeholder-muted-foreground font-mono leading-relaxed"
           placeholder="Write your prompt here..."
           value={prompt}
           onChange={handlePromptChange}
