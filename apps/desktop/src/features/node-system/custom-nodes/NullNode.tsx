@@ -24,13 +24,14 @@ export function NullNode({ data, selected }: { data: any, selected?: boolean }) 
   }
 
   return (
-    <Card className={`shadow-md bg-card/50 backdrop-blur-md border border-muted-foreground/30 hover:border-muted-foreground/60 opacity-80 transition-all duration-300 overflow-hidden flex flex-col justify-center items-center w-32 h-20 ${isExpanded ? 'scale-[1.5] origin-center shadow-[0_0_30px_rgba(255,255,255,0.1)]' : ''}`}>
+    <div className={`relative w-32 h-20 ${isExpanded ? 'scale-[1.5] origin-center shadow-[0_0_30px_rgba(255,255,255,0.1)] z-50' : ''}`}>
       {/* Input Handle */}
       <Handle
         type="target"
         position={Position.Left}
-        className="w-3 h-3 bg-muted border-2 border-muted-foreground/50 hover:border-foreground transition-colors"
+        className="absolute w-5 h-5 bg-muted border-2 border-muted-foreground/50 hover:border-foreground transition-colors -left-2.5 top-1/2 -translate-y-1/2 z-[100]"
       />
+      <Card className="shadow-md bg-card/50 backdrop-blur-md border border-muted-foreground/30 hover:border-muted-foreground/60 opacity-80 transition-all duration-300 overflow-hidden flex flex-col justify-center items-center w-full h-full">
       
       <div className="flex flex-col items-center gap-1.5 opacity-60">
         <CircleDashed className="text-muted-foreground h-5 w-5" />
@@ -39,12 +40,14 @@ export function NullNode({ data, selected }: { data: any, selected?: boolean }) 
         </span>
       </div>
 
+      </Card>
+      
       {/* Output Handle */}
       <Handle
         type="source"
         position={Position.Right}
-        className="w-3 h-3 bg-muted border-2 border-muted-foreground/50 hover:border-foreground transition-colors"
+        className="absolute w-5 h-5 bg-muted border-2 border-muted-foreground/50 hover:border-foreground transition-colors -right-2.5 top-1/2 -translate-y-1/2 z-[100]"
       />
-    </Card>
+    </div>
   );
 }

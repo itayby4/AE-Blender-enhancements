@@ -50,7 +50,9 @@ export function ModelNode({ data, selected }: { data: any, selected?: boolean })
     return (
       <div onDoubleClick={() => setIsExpanded(true)} className="w-[580px] h-[140px] bg-[#2a2a2a] border-4 border-[#111] rounded-lg shadow-2xl flex items-center justify-center relative hover:bg-[#333] transition-colors cursor-pointer">
         <div className={`absolute bottom-0 left-0 right-0 h-4 opacity-80 ${style.bgColor.replace('/20', '')}`} />
-        <Handle type="target" position={Position.Left} className="w-12 h-12 bg-gray-200 border-4 border-[#111] rounded-none -ml-6" />
+        <Handle id="trigger" type="target" position={Position.Left} className="top-[40px] w-12 h-12 bg-gray-200 border-4 border-[#111] rounded-none -ml-6" />
+        {/* Compact Mode Image Reference Handle */}
+        <Handle id="imageRef" type="target" position={Position.Left} className="top-[100px] w-12 h-12 bg-cyan-600 border-4 border-[#111] rounded-none -ml-6" />
         <span className="text-gray-200 text-5xl font-extrabold tracking-wider px-8 truncate block text-center w-full">{data.label}</span>
         <Handle type="source" position={Position.Right} className="w-12 h-12 bg-gray-200 border-4 border-[#111] rounded-none -mr-6" />
         {isGenerating && <div className="absolute -top-4 -right-4 w-12 h-12 bg-yellow-500 rounded-full animate-pulse shadow-sm" />}
@@ -59,16 +61,28 @@ export function ModelNode({ data, selected }: { data: any, selected?: boolean })
   }
 
   return (
-    <Card className={`shadow-xl bg-card/95 backdrop-blur-md border-2 overflow-hidden transition-all duration-300 hover:shadow-2xl ${style.borderColor} ${isGenerating ? 'ring-2 ring-primary ring-offset-2 ring-offset-background' : ''} w-72 ${isExpanded ? 'scale-[1.5] origin-center shadow-[0_0_30px_rgba(0,0,0,0.5)]' : ''}`}>
+    <div className={`relative w-72 ${isExpanded ? 'scale-[1.5] origin-center z-50' : ''}`}>
       
-      {/* Input Handle for upstream dependency */}
+      {/* Input Handle for trigger/pipeline dependency */}
       <Handle 
+        id="trigger"
         type="target" 
         position={Position.Left} 
-        className="top-[28px] w-3.5 h-3.5 bg-background border-2 border-muted-foreground/50 hover:border-foreground transition-colors" 
+        className="absolute top-[28px] -left-2.5 w-5 h-5 bg-background border-2 border-muted-foreground/50 hover:border-foreground transition-colors z-[100]" 
+        title="Trigger / Execute"
+      />
+      {/* Input Handle for Image Reference (First Frame) */}
+      <Handle 
+        id="imageRef"
+        type="target" 
+        position={Position.Left} 
+        className="absolute top-[85px] -left-2.5 w-5 h-5 bg-background border-2 border-cyan-500/50 hover:border-cyan-500 transition-colors z-[100]" 
+        title="First Frame Visual Reference"
       />
       
-      {/* Node Header */}
+      <Card className={`shadow-xl bg-card/95 backdrop-blur-md border-2 overflow-hidden transition-all duration-300 hover:shadow-2xl w-full h-full ${style.borderColor} ${isGenerating ? 'ring-2 ring-primary ring-offset-2 ring-offset-background' : ''} ${isExpanded ? 'shadow-[0_0_30px_rgba(0,0,0,0.5)]' : ''}`}>
+        
+        {/* Node Header */}
       <CardHeader className="border-b border-border/50 bg-muted/30 p-2.5 pb-2">
         <CardTitle className="font-semibold flex items-center justify-between text-sm">
           <div className="flex items-center gap-2">
@@ -126,20 +140,56 @@ export function ModelNode({ data, selected }: { data: any, selected?: boolean })
               <label className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground/80 pl-0.5 flex cursor-pointer select-none">
                 Generation Prompt
               </label>
-              <select
-                className="nodrag text-[9px] bg-background border border-border/50 rounded px-1.5 py-0.5 min-w-[50px] focus:outline-none focus:border-primary text-muted-foreground uppercase font-bold tracking-wider cursor-pointer"
-                value={data.ratio || '16:9'}
-                onChange={(e) => {
-                  if (!nodeId) return;
-                  setNodes((nds) =>
-                    nds.map((n) => (n.id === nodeId ? { ...n, data: { ...n.data, ratio: e.target.value } } : n))
-                  );
-                }}
-              >
-                <option value="16:9">16:9</option>
-                <option value="9:16">9:16</option>
-                <option value="1:1">1:1</option>
-              </select>
+              <div className="flex items-center gap-1.5">
+                {['kling', 'nanobanana', 'seeddance'].includes(data.model) && (
+                  <select
+                    className="nodrag text-[9px] bg-background border border-border/50 rounded px-1.5 py-0.5 min-w-[35px] focus:outline-none focus:border-primary text-muted-foreground uppercase font-bold tracking-wider cursor-pointer"
+                    value={data.duration || '5'}
+                    title="Video Duration (Seconds)"
+                    onChange={(e) => {
+                      if (!nodeId) return;
+                      setNodes((nds) =>
+                        nds.map((n) => (n.id === nodeId ? { ...n, data: { ...n.data, duration: e.target.value } } : n))
+                      );
+                    }}
+                  >
+                    <option value="5">5S</option>
+                    <option value="10">10S</option>
+                    <option value="15">15S</option>
+                  </select>
+                )}
+                <select
+                  className="nodrag text-[9px] bg-background border border-border/50 rounded px-1.5 py-0.5 min-w-[50px] focus:outline-none focus:border-primary text-muted-foreground uppercase font-bold tracking-wider cursor-pointer"
+                  value={data.ratio || '16:9'}
+                  title="Aspect Ratio"
+                  onChange={(e) => {
+                    if (!nodeId) return;
+                    setNodes((nds) =>
+                      nds.map((n) => (n.id === nodeId ? { ...n, data: { ...n.data, ratio: e.target.value } } : n))
+                    );
+                  }}
+                >
+                  <option value="16:9">16:9</option>
+                  <option value="9:16">9:16</option>
+                  <option value="1:1">1:1</option>
+                </select>
+                {['kling', 'nanobanana', 'seeddance'].includes(data.model) && (
+                  <select
+                    className="nodrag text-[9px] bg-background border border-border/50 rounded px-1.5 py-0.5 min-w-[50px] focus:outline-none focus:border-primary text-muted-foreground uppercase font-bold tracking-wider cursor-pointer"
+                    value={data.resolution || '720p'}
+                    title="Resolution"
+                    onChange={(e) => {
+                      if (!nodeId) return;
+                      setNodes((nds) =>
+                        nds.map((n) => (n.id === nodeId ? { ...n, data: { ...n.data, resolution: e.target.value } } : n))
+                      );
+                    }}
+                  >
+                    <option value="720p">720P</option>
+                    <option value="1080p">1080P</option>
+                  </select>
+                )}
+              </div>
             </div>
             <textarea
               className="nodrag w-full text-xs min-h-[60px] max-h-[150px] resize-y p-2 bg-background border border-border/50 rounded-md focus:outline-none focus:ring-1 focus:ring-primary shadow-inner text-foreground placeholder-muted-foreground relative z-10 font-mono"
@@ -165,13 +215,14 @@ export function ModelNode({ data, selected }: { data: any, selected?: boolean })
           </div>
         </div>
       </CardContent>
+    </Card>
 
-      {/* Output Handle */}
+    {/* Output Handle */}
       <Handle 
         type="source" 
         position={Position.Right} 
-        className="w-3.5 h-3.5 bg-background border-2 border-muted-foreground/50 hover:border-foreground transition-colors top-auto bottom-[22px]"
+        className="absolute top-auto bottom-[22px] -right-2.5 w-5 h-5 bg-background border-2 border-muted-foreground/50 hover:border-foreground transition-colors z-[100]"
       />
-    </Card>
+    </div>
   );
 }

@@ -35,8 +35,9 @@ export function PromptNode({ data, selected }: { data: any, selected?: boolean }
   }
 
   return (
-    <Card className={`min-w-64 w-fit max-w-[800px] shadow-xl bg-card/95 backdrop-blur-md border-2 border-violet-500/50 hover:border-violet-500 transition-all duration-300 overflow-hidden ${isExpanded ? 'scale-[1.5] origin-center shadow-[0_0_30px_rgba(139,92,246,0.3)]' : ''}`}>
-      <CardHeader className="p-2.5 pb-2 border-b border-border/50 bg-violet-500/10">
+    <div className={`relative min-w-64 w-fit max-w-[800px] ${isExpanded ? 'scale-[1.5] origin-center shadow-[0_0_30px_rgba(139,92,246,0.3)] z-50' : ''}`}>
+      <Card className="shadow-xl bg-card/95 backdrop-blur-md border-2 border-violet-500/50 hover:border-violet-500 transition-all duration-300 overflow-hidden w-full h-full">
+        <CardHeader className="p-2.5 pb-2 border-b border-border/50 bg-violet-500/10">
         <CardTitle className="text-sm font-bold flex items-center gap-2 text-violet-400">
           <div className="p-1 rounded bg-violet-500/20 text-violet-400">
             <Type className="h-3.5 w-3.5" />
@@ -57,12 +58,13 @@ export function PromptNode({ data, selected }: { data: any, selected?: boolean }
           }}
         />
       </CardContent>
-      {/* Output Handle — connects prompt text to a model node */}
+    </Card>
+    {/* Output Handle — connects prompt text to a model node */}
       <Handle
         type="source"
         position={Position.Right}
-        className="w-3.5 h-3.5 bg-background border-2 border-violet-500/50 hover:border-violet-500 transition-colors"
+        className="absolute w-5 h-5 bg-background border-2 border-violet-500/50 hover:border-violet-500 transition-colors -right-2.5 top-1/2 -translate-y-1/2 z-[100]"
       />
-    </Card>
+    </div>
   );
 }

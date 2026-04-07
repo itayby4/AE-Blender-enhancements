@@ -91,6 +91,7 @@ export function App() {
   const [logs, setLogs] = useState<LogEntry[]>(INITIAL_LOGS);
   const [selectedSkillId, setSelectedSkillId] = useState('default');
   const [skills, setSkills] = useState<Skill[]>(DEFAULT_SKILLS);
+  const [selectedLlmModel, setSelectedLlmModel] = useState('gemini-3.1-pro-preview');
 
   const [isAiTyping, setIsAiTyping] = useState(false);
 
@@ -127,7 +128,7 @@ export function App() {
       const response = await fetch('http://localhost:3001/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: userText, skill: skillPayload, history: historyPayload })
+        body: JSON.stringify({ message: userText, skill: skillPayload, history: historyPayload, llmModel: selectedLlmModel })
       });
 
       if (!response.ok) {
@@ -164,7 +165,7 @@ export function App() {
       setChatMessages(prev => [...prev, { 
         id: Date.now(), 
         sender: 'ai', 
-        text: 'Sorry, I could not connect to the Backend AI Engine. Is it running?' 
+        text: `Error connecting to AI: ${String(error)}` 
       }]);
       setLogs(prev => [...prev, {
         id: Date.now(),
@@ -487,6 +488,17 @@ export function App() {
               </ScrollArea>
               
               <div className="p-4 border-t bg-muted/30 shrink-0 flex flex-col gap-2">
+                <div className="flex gap-2">
+                  <select 
+                    className="flex-1 bg-background text-xs border border-border/50 rounded-md p-1.5 focus:ring-1 focus:ring-primary/50 outline-none text-muted-foreground"
+                    value={selectedLlmModel}
+                    onChange={(e) => setSelectedLlmModel(e.target.value)}
+                  >
+                    <option value="gemini-3.1-pro-preview">Gemini 3.1 Pro Preview</option>
+                    <option value="gpt-5.4">OpenAI GPT-5.4</option>
+                    <option value="claude-sonnet-4.6">Claude Sonnet 4.6</option>
+                  </select>
+                </div>
                 <div className="flex gap-2">
                   <select 
                     className="flex-1 bg-background text-xs border border-border/50 rounded-md p-1.5 focus:ring-1 focus:ring-primary/50 outline-none text-muted-foreground"

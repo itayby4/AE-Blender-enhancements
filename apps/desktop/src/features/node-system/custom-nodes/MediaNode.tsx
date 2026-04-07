@@ -43,13 +43,14 @@ export function MediaNode({ data, selected }: { data: any, selected?: boolean })
   }
 
   return (
-    <Card className={`shadow-xl bg-card/95 backdrop-blur-md border-2 overflow-hidden transition-all duration-300 hover:shadow-2xl ${style.border} w-64 ${isExpanded ? 'scale-[1.5] origin-center shadow-[0_0_30px_rgba(0,200,255,0.3)]' : ''}`}>
+    <div className={`relative w-64 ${isExpanded ? 'scale-[1.5] origin-center shadow-[0_0_30px_rgba(0,200,255,0.3)] z-50' : ''}`}>
       {/* Input Handle */}
       <Handle
         type="target"
         position={Position.Left}
-        className="top-[28px] w-3.5 h-3.5 bg-background border-2 border-muted-foreground/50 hover:border-foreground transition-colors"
+        className="absolute top-[28px] w-5 h-5 bg-background border-2 border-muted-foreground/50 hover:border-foreground transition-colors -left-2.5 z-[100]"
       />
+      <Card className={`shadow-xl bg-card/95 backdrop-blur-md border-2 overflow-hidden transition-all duration-300 hover:shadow-2xl ${style.border} w-full h-full`}>
 
       {/* Header */}
       <CardHeader className={`p-2.5 pb-2 border-b border-border/50 ${style.bg}`}>
@@ -109,13 +110,14 @@ export function MediaNode({ data, selected }: { data: any, selected?: boolean })
           <span>Media Out →</span>
         </div>
       </CardContent>
+    </Card>
 
-      {/* Output Handle */}
+    {/* Output Handle */}
       <Handle
         type="source"
         position={Position.Right}
-        className="top-auto bottom-[18px] w-3.5 h-3.5 bg-background border-2 border-muted-foreground/50 hover:border-foreground transition-colors"
+        className="absolute top-auto bottom-[18px] w-5 h-5 bg-background border-2 border-muted-foreground/50 hover:border-foreground transition-colors -right-2.5 z-[100]"
       />
-    </Card>
+    </div>
   );
 }

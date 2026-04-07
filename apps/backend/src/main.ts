@@ -22,6 +22,7 @@ async function main() {
     model: config.geminiModel,
     apiKey: config.geminiApiKey,
     openaiApiKey: config.openaiApiKey,
+    anthropicApiKey: config.anthropicApiKey,
     systemPrompt: config.systemPrompt,
     registry,
   });
@@ -45,7 +46,7 @@ async function main() {
 
       req.on('end', async () => {
         try {
-          const { message, skill, history } = JSON.parse(body);
+          const { message, skill, history, llmModel } = JSON.parse(body);
           if (!message) {
             res.writeHead(400, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({ error: 'Message is required' }));
@@ -53,6 +54,7 @@ async function main() {
           }
 
           const text = await agent.chat(message, {
+            providerOverride: llmModel,
             modelOverride: skill?.model,
             systemPromptOverride: skill?.systemInstruction,
             allowedTools: skill?.allowedTools,

@@ -105,14 +105,15 @@ export function DownloadNode({ data, selected }: { data: any, selected?: boolean
   }
 
   return (
-    <Card className={`shadow-xl bg-card/95 backdrop-blur-md border-2 transition-all duration-300 group ${isDownloading ? 'border-primary shadow-primary/20' : 'border-sky-500/50 hover:border-sky-500'} w-52 ${isExpanded ? 'scale-[1.5] origin-center shadow-[0_0_30px_rgba(14,165,233,0.3)] z-50' : ''}`}>
+    <div className={`relative w-52 ${isExpanded ? 'scale-[1.5] origin-center shadow-[0_0_30px_rgba(14,165,233,0.3)] z-50' : ''}`}>
       <Handle 
         type="target" 
         position={Position.Left} 
-        className="top-auto bottom-[22px] w-4 h-4 bg-background border-2 border-sky-500/50 hover:border-sky-500 transition-colors" 
+        className="absolute top-auto bottom-[22px] w-5 h-5 bg-background border-2 border-sky-500/50 hover:border-sky-500 transition-colors -left-2.5 z-[100]" 
       />
       
-      <CardHeader className="p-2.5 pb-2 border-b border-border/50 bg-sky-500/10">
+      <Card className={`shadow-xl bg-card/95 backdrop-blur-md border-2 transition-all duration-300 group ${isDownloading ? 'border-primary shadow-primary/20' : 'border-sky-500/50 hover:border-sky-500'} w-full overflow-hidden`}>
+        <CardHeader className="p-2.5 pb-2 border-b border-border/50 bg-sky-500/10">
         <CardTitle className="text-sm font-bold flex items-center justify-between text-sky-500">
           <div className="flex items-center gap-2">
              <HardDriveDownload className="h-4 w-4" />
@@ -141,6 +142,7 @@ export function DownloadNode({ data, selected }: { data: any, selected?: boolean
            {isDownloading ? 'Saving...' : 'Download All'}
          </Button>
       </CardFooter>
-    </Card>
+      </Card>
+    </div>
   );
 }

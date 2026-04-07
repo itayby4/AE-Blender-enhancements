@@ -73,11 +73,13 @@ export function usePipelineExecutor() {
       // We only actively "execute" modelNodes
       if (!currentNode || currentNode.type !== 'modelNode') return;
 
-      const { model, ratio } = currentNode.data;
+      const { model, ratio, duration, resolution } = currentNode.data;
 
       // Extract required data (prompts, references) from upstream parents
       let resolvedPrompt = currentNode.data.prompt || '';
       const selectedRatio = ratio || '16:9';
+      const selectedDuration = duration || '5';
+      const selectedResolution = resolution || '720p';
       const incomingImageRefs: string[] = [];
       const searchQueue = [executionId];
       const visitedParents = new Set<string>([executionId]);
@@ -117,7 +119,7 @@ export function usePipelineExecutor() {
       
       try {
         await pipelineLimiter.acquire();
-        console.log(`[Pipeline] Triggering node ${executionId} (${backendModel}) with prompt: ${prompt} | ratio: ${selectedRatio}`);
+        console.log(`[Pipeline] Triggering node ${executionId} (${backendModel}) with prompt: ${prompt} | ratio: ${selectedRatio} | duration: ${selectedDuration}s | resolution: ${selectedResolution}`);
         
         const response = await fetch('http://localhost:3001/api/ai-models', {
 
@@ -129,6 +131,8 @@ export function usePipelineExecutor() {
             imageRef: incomingImageRefs.length > 0 ? incomingImageRefs[0] : undefined,
             imageRefs: incomingImageRefs,
             aspectRatio: selectedRatio,
+            duration: selectedDuration,
+            resolution: selectedResolution,
           }),
         });
 
