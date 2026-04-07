@@ -6,6 +6,8 @@ import { Textarea } from '../../components/ui/textarea';
 import { Label } from '../../components/ui/label';
 import { Popover, PopoverContent, PopoverTrigger } from '../../components/ui/popover';
 import { Input } from '../../components/ui/input';
+import { save } from '@tauri-apps/plugin-dialog';
+import { writeFile } from '@tauri-apps/plugin-fs';
 
 const MODELS = [
   { id: 'kling3', name: 'Kling 3.0', description: 'High-fidelity realistic generation' },
@@ -30,37 +32,38 @@ export function VideoGenDashboard() {
   const [resolution, setResolution] = useState('720p');
   const [aspectRatio, setAspectRatio] = useState('16:9');
   const [imageRef, setImageRef] = useState<string | null>(null);
-  const [isDragging, setIsDragging] = useState(false);
+  const [lastFrameRef, setLastFrameRef] = useState<string | null>(null);
+  const [isDragImageRef, setIsDragImageRef] = useState(false);
+  const [isDragLastFrameRef, setIsDragLastFrameRef] = useState(false);
   const [batchSize, setBatchSize] = useState<number>(1);
   const [generations, setGenerations] = useState<VideoGeneration[]>([]);
   const [expandedVideo, setExpandedVideo] = useState<VideoGeneration | null>(null);
 
   const pendingCount = generations.filter(g => g.status === 'pending').length;
 
-  const handleDragOver = (e: React.DragEvent) => {
+  const handleDropImageRef = async (e: React.DragEvent) => {
     e.preventDefault();
-    setIsDragging(true);
-  };
-
-  const handleDragLeave = (e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragging(false);
-  };
-
-  const handleDrop = async (e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragging(false);
+    setIsDragImageRef(false);
     const file = e.dataTransfer.files[0];
     if (file && file.type.startsWith('image/')) {
       const reader = new FileReader();
-      reader.onload = (e) => {
-        setImageRef(e.target?.result as string);
-      };
+      reader.onload = (e) => setImageRef(e.target?.result as string);
       reader.readAsDataURL(file);
     }
   };
 
-  const handleImageClick = () => {
+  const handleDropLastFrameRef = async (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragLastFrameRef(false);
+    const file = e.dataTransfer.files[0];
+    if (file && file.type.startsWith('image/')) {
+      const reader = new FileReader();
+      reader.onload = (e) => setLastFrameRef(e.target?.result as string);
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const openImagePicker = (setter: (val: string | null) => void) => {
     const input = document.createElement('input');
     input.type = 'file';
     input.accept = 'image/*';
@@ -68,7 +71,7 @@ export function VideoGenDashboard() {
       const file = (e.target as HTMLInputElement).files?.[0];
       if (file) {
         const reader = new FileReader();
-        reader.onload = (e) => setImageRef(e.target?.result as string);
+        reader.onload = (e) => setter(e.target?.result as string);
         reader.readAsDataURL(file);
       }
     };
@@ -104,6 +107,7 @@ export function VideoGenDashboard() {
             resolution,
             aspectRatio,
             imageRef,
+            lastFrameRef,
           }),
         });
 
@@ -127,21 +131,30 @@ export function VideoGenDashboard() {
   const handleDownload = async (video: VideoGeneration) => {
     if (!video.url) return;
     try {
-      // Fetch the blob to force a download silently to the Downloads folder
+      const isImage = video.type === 'image';
+      const extension = isImage ? 'jpg' : 'mp4';
+      const fileType = isImage ? 'Image' : 'Video';
+      
+      const filePath = await save({
+        filters: [{
+          name: `${fileType} File`,
+          extensions: [extension]
+        }],
+        defaultPath: `pipefx_${video.type || 'video'}_${video.id.slice(0,6)}.${extension}`
+      });
+
+      if (!filePath) return; // User canceled the save dialog
+
+      // Fetch the file data
       const resp = await fetch(video.url);
-      const blob = await resp.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.style.display = 'none';
-      a.href = url;
-      const extension = video.type === 'image' ? 'jpg' : 'mp4';
-      a.download = `pipefx_${video.type || 'video'}_${video.id.slice(0,6)}.${extension}`;
-      document.body.appendChild(a);
-      a.click();
-      window.URL.revokeObjectURL(url);
-      document.body.removeChild(a);
+      const arrayBuffer = await resp.arrayBuffer();
+      const uint8Array = new Uint8Array(arrayBuffer);
+      
+      // Write natively
+      await writeFile(filePath, uint8Array);
+
     } catch (err) {
-      console.error('Failed to fetch blob, falling back to new tab:', err);
+      console.error('Failed to fetch and write file, falling back to new tab:', err);
       // Fallback if CORS prevents blob download
       const a = document.createElement('a');
       a.href = video.url;
@@ -155,20 +168,21 @@ export function VideoGenDashboard() {
   return (
     <div className="flex flex-col h-full bg-background border-l relative overflow-hidden">
       {/* Dashboard Area */}
-      <div className="p-6 pb-2 border-b flex items-center justify-between shrink-0 bg-card/50">
+      <div className="p-4 md:p-6 pb-2 md:pb-2 border-b flex items-center justify-between shrink-0 bg-card/50">
         <div>
           <h2 className="text-xl font-bold flex items-center gap-2">
             <Sparkles className="h-5 w-5 text-primary" />
             AI Video Studio
           </h2>
-          <p className="text-sm text-muted-foreground mt-1">Generate stunning videos using state-of-the-art AI models</p>
+          <p className="text-xs md:text-sm text-muted-foreground mt-1">Generate stunning videos using state-of-the-art AI models</p>
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-6 flex flex-col md:flex-row gap-6">
+      <div className="flex-1 overflow-hidden flex flex-col md:flex-row relative">
         
         {/* Left Control Panel */}
-        <div className="flex flex-col gap-6 w-full md:w-[400px] shrink-0">
+        <div className="w-full md:w-[320px] lg:w-[380px] shrink-0 flex flex-col border-b md:border-b-0 md:border-r border-border/50 bg-card/10 overflow-y-auto custom-scrollbar">
+          <div className="p-4 md:p-6 flex flex-col gap-4 md:gap-6">
           <Card className="shadow-sm border-border/50">
             <CardContent className="p-4 space-y-4">
               <div className="space-y-2">
@@ -196,9 +210,9 @@ export function VideoGenDashboard() {
             </CardContent>
           </Card>
 
-          <Card className="shadow-sm border-border/50 flex-1 flex flex-col min-h-0">
-            <CardContent className="p-4 flex flex-col h-full gap-3 overflow-y-auto">
-              <div className="space-y-2 flex-1 flex flex-col min-h-[100px]">
+          <Card className="shadow-sm border-border/50 flex flex-col">
+            <CardContent className="p-4 flex flex-col gap-4">
+              <div className="space-y-2 flex flex-col">
                 <Label htmlFor="prompt" className="text-xs uppercase tracking-wider text-muted-foreground shrink-0">Video Prompt</Label>
                 <Textarea 
                   id="prompt"
@@ -209,32 +223,62 @@ export function VideoGenDashboard() {
                 />
               </div>
 
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <Label className="text-xs uppercase tracking-wider text-muted-foreground">Image Reference (Optional)</Label>
-                </div>
-                {imageRef ? (
-                  <div className="relative h-20 rounded-lg overflow-hidden group">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={imageRef} alt="Reference" className="w-full h-full object-cover" />
-                    <div className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                      <Button variant="destructive" size="sm" onClick={() => setImageRef(null)}>Remove Image</Button>
+              <div className="flex gap-4">
+                <div className="space-y-2 flex-1">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-xs uppercase tracking-wider text-muted-foreground">First Frame (Optional)</Label>
+                  </div>
+                  {imageRef ? (
+                    <div className="relative h-20 rounded-lg overflow-hidden group border border-border/50">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={imageRef} alt="Reference" className="w-full h-full object-cover" />
+                      <div className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                        <Button variant="destructive" size="sm" onClick={() => setImageRef(null)}>Remove</Button>
+                      </div>
                     </div>
+                  ) : (
+                    <div 
+                      className={`h-20 border-2 border-dashed rounded-lg flex flex-col items-center justify-center transition-all cursor-pointer ${
+                        isDragImageRef ? 'border-primary bg-primary/10 text-primary' : 'border-border bg-muted/10 hover:bg-muted/20 text-muted-foreground'
+                      }`}
+                      onDragOver={(e) => { e.preventDefault(); setIsDragImageRef(true); }}
+                      onDragLeave={(e) => { e.preventDefault(); setIsDragImageRef(false); }}
+                      onDrop={handleDropImageRef}
+                      onClick={() => openImagePicker(setImageRef)}
+                    >
+                      <ImageIcon className="h-5 w-5 mb-1 opacity-50" />
+                      <span className="text-[10px] font-medium px-2 text-center">Drag or Click to Upload</span>
+                    </div>
+                  )}
+                </div>
+
+                <div className="space-y-2 flex-1">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-xs uppercase tracking-wider text-muted-foreground">Last Frame (Optional)</Label>
                   </div>
-                ) : (
-                  <div 
-                    className={`h-20 border-2 border-dashed rounded-lg flex flex-col items-center justify-center transition-all cursor-pointer ${
-                      isDragging ? 'border-primary bg-primary/10 text-primary' : 'border-border bg-muted/10 hover:bg-muted/20 text-muted-foreground'
-                    }`}
-                    onDragOver={handleDragOver}
-                    onDragLeave={handleDragLeave}
-                    onDrop={handleDrop}
-                    onClick={handleImageClick}
-                  >
-                    <ImageIcon className="h-6 w-6 mb-2 opacity-50" />
-                    <span className="text-xs font-medium">Click or Drag & Drop Image Here</span>
-                  </div>
-                )}
+                  {lastFrameRef ? (
+                    <div className="relative h-20 rounded-lg overflow-hidden group border border-border/50">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={lastFrameRef} alt="Reference" className="w-full h-full object-cover" />
+                      <div className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                        <Button variant="destructive" size="sm" onClick={() => setLastFrameRef(null)}>Remove</Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div 
+                      className={`h-20 border-2 border-dashed rounded-lg flex flex-col items-center justify-center transition-all cursor-pointer ${
+                        isDragLastFrameRef ? 'border-primary bg-primary/10 text-primary' : 'border-border bg-muted/10 hover:bg-muted/20 text-muted-foreground'
+                      }`}
+                      onDragOver={(e) => { e.preventDefault(); setIsDragLastFrameRef(true); }}
+                      onDragLeave={(e) => { e.preventDefault(); setIsDragLastFrameRef(false); }}
+                      onDrop={handleDropLastFrameRef}
+                      onClick={() => openImagePicker(setLastFrameRef)}
+                    >
+                      <ImageIcon className="h-5 w-5 mb-1 opacity-50" />
+                      <span className="text-[10px] font-medium px-2 text-center">Drag or Click to Upload</span>
+                    </div>
+                  )}
+                </div>
               </div>
 
               {/* Higgsfield-style Pills */}
@@ -327,7 +371,7 @@ export function VideoGenDashboard() {
 
               <Button 
                 onClick={handleGenerate} 
-                className="w-full gap-2 mt-auto h-10 font-medium rounded-lg"
+                className="w-full gap-2 mt-2 min-h-[44px] font-medium rounded-lg shrink-0"
                 disabled={!prompt.trim() || pendingCount >= 8}
               >
                 <Sparkles className="h-4 w-4" />
@@ -335,10 +379,11 @@ export function VideoGenDashboard() {
               </Button>
             </CardContent>
           </Card>
+          </div>
         </div>
 
         {/* Right Preview Panel - Gallery Grid */}
-        <div className="flex-1 flex flex-col bg-muted/10 rounded-xl border border-border/50 overflow-y-auto relative shadow-inner p-4 min-h-[400px]">
+        <div className="flex-1 flex flex-col bg-muted/10 overflow-y-auto relative p-4 md:p-6">
           {generations.length === 0 ? (
             <div className="absolute inset-0 flex flex-col items-center justify-center text-muted-foreground opacity-50">
               <Video className="h-16 w-16 mb-4 stroke-[1.5]" />
@@ -346,7 +391,7 @@ export function VideoGenDashboard() {
               <p className="text-xs mt-1">Select a model and enter a prompt to begin</p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 xl:grid-cols-2 lg:gap-4 gap-4 auto-rows-max">
+            <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-4 auto-rows-max">
               {generations.map((gen) => (
                 <div 
                   key={gen.id} 

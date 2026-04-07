@@ -136,13 +136,19 @@ export function App() {
       }
 
       const data = await response.json();
-      setChatMessages(prev => [...prev, { id: Date.now(), sender: 'ai', text: data.text }]);
+      
+      const responseText = data.text?.trim() 
+        ? data.text 
+        : (data.actions?.length ? `Generated ${data.actions.length} pipeline actions in the Node Editor.` : 'Done.');
+
+      setChatMessages(prev => [...prev, { id: Date.now(), sender: 'ai', text: responseText }]);
       
       // If the AI returned pipeline actions, dispatch them to the node editor
       if (data.actions && Array.isArray(data.actions) && data.actions.length > 0) {
-        dispatchPipelineActions(data.actions);
-        // Switch to node editor tab so user sees the actions happen
+        // Switch to node editor tab
         setActiveCategory('node-system');
+        // Dispatch immediately - our new queue system guarantees it won't be lost even if the tab is still loading
+        dispatchPipelineActions(data.actions);
       }
       
       // Also add a log entry for completion

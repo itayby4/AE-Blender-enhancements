@@ -1,10 +1,5 @@
 import type { IncomingMessage, ServerResponse } from 'http';
-import {
-  generateWithKling,
-  generateWithSeedDance,
-  generateWithGemini,
-  generateWithSeedDream
-} from '@pipefx/providers';
+import { providerRegistry } from '@pipefx/providers';
 
 export async function handleAiModelRequest(req: IncomingMessage, res: ServerResponse) {
   let body = '';
@@ -15,7 +10,7 @@ export async function handleAiModelRequest(req: IncomingMessage, res: ServerResp
   req.on('end', async () => {
     try {
       const payload = JSON.parse(body);
-      const { model, prompt, imageRef, imageRefs, duration, resolution, aspectRatio } = payload;
+      const { model, prompt, imageRef, lastFrameRef, imageRefs, duration, resolution, aspectRatio } = payload;
       
       if (!prompt) {
         res.writeHead(400, { 'Content-Type': 'application/json' });
@@ -24,23 +19,31 @@ export async function handleAiModelRequest(req: IncomingMessage, res: ServerResp
       }
       
       let result;
-      switch (model) {
-        case 'kling3':
-          result = await generateWithKling(prompt, imageRef, duration || '5', resolution || '720p', aspectRatio || '16:9');
-          break;
-        case 'seeddance2':
-          result = await generateWithSeedDance(prompt, imageRef);
-          break;
-        case 'gemini2':
-          result = await generateWithGemini(prompt, imageRefs || (imageRef ? [imageRef] : []));
-          break;
-        case 'seeddream45':
-          result = await generateWithSeedDream(prompt, imageRef);
-          break;
-        default:
+      
+      // Check video providers first
+      const videoProvider = providerRegistry.getVideoProvider(model);
+      if (videoProvider) {
+        result = await videoProvider.generate(prompt, {
+          imageRef,
+          imageTailRef: lastFrameRef,
+          duration,
+          resolution,
+          aspectRatio
+        });
+      } else {
+        // Fallback to image providers
+        const imageProvider = providerRegistry.getImageProvider(model);
+        if (imageProvider) {
+          result = await imageProvider.generate(prompt, {
+            imageRefs: imageRefs || (imageRef ? [imageRef] : undefined),
+            aspectRatio
+          });
+        } else {
+          // No provider found
           res.writeHead(400, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({ error: `Unknown model: ${model}` }));
           return;
+        }
       }
       
       res.writeHead(200, { 'Content-Type': 'application/json' });

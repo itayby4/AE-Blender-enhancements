@@ -12,17 +12,25 @@ import {
   type Edge,
   type Node,
   ReactFlowProvider,
-  useReactFlow
+  useReactFlow,
+  SelectionMode
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
-import { Workflow, Play, Save, Settings2, Sparkles, Video, GripVertical, Plus, PlaySquare, Type, Wand2, Palette, Upload } from 'lucide-react';
+import {
+  Workflow, Save, Settings2, Play, GripVertical, Plus, 
+  Sparkles, Video, Image as ImageIcon, Wand2, PlaySquare, Type, Palette, ChevronRight, ChevronDown, Upload, HardDriveDownload, Loader2, PanelLeftClose, PanelLeft, Brain
+} from 'lucide-react';
 import { Button } from '../../components/ui/button';
 import { ModelNode } from './custom-nodes/ModelNode';
 import { TriggerNode } from './custom-nodes/TriggerNode';
 import { PromptNode } from './custom-nodes/PromptNode';
 import { MediaNode } from './custom-nodes/MediaNode';
 import { NullNode } from './custom-nodes/NullNode';
+import { DownloadNode } from './custom-nodes/DownloadNode';
 import { onPipelineActions, type PipelineAction } from '../../lib/pipeline-actions';
+import { usePipelineExecutor } from './usePipelineExecutor';
+import { save } from '@tauri-apps/plugin-dialog';
+import { writeTextFile } from '@tauri-apps/plugin-fs';
 
 const nodeTypes = {
   modelNode: ModelNode,
@@ -30,7 +38,29 @@ const nodeTypes = {
   promptNode: PromptNode,
   mediaNode: MediaNode,
   nullNode: NullNode,
+  downloadNode: DownloadNode,
 };
+
+export const VIDEO_MODELS = [
+  { type: 'modelNode', model: 'kling', label: 'Kling 3.0', desc: 'High-fidelity cinematic video generation', icon: Sparkles, color: 'text-primary' },
+  { type: 'modelNode', model: 'seeddance', label: 'SeedDance 2', desc: 'Dance & motion-driven video generation', icon: Wand2, color: 'text-emerald-500' },
+];
+
+export const IMAGE_MODELS = [
+  { type: 'modelNode', model: 'seeddream', label: 'SeedDream 5', desc: 'High-quality image generation & editing', icon: Palette, color: 'text-rose-500' },
+  { type: 'modelNode', model: 'nanobanana', label: 'Nano Banana 2', desc: 'Fast experimental model for stylized motion', icon: Video, color: 'text-amber-500' },
+];
+
+export const LLM_MODELS = [
+  { type: 'modelNode', model: 'anthropic', label: 'Claude 3.5 Sonnet', desc: 'Advanced reasoning and text generation', icon: Brain, color: 'text-purple-500' },
+];
+
+export const TOOLS_NODES = [
+  { type: 'triggerNode', model: 'trigger', label: 'Start Trigger', desc: 'Connect to pipeline start', icon: PlaySquare, color: 'text-indigo-500', bg: 'bg-indigo-500/10' },
+  { type: 'promptNode', model: 'prompt', label: 'Prompt Node', desc: 'Text input for models', icon: Type, color: 'text-violet-400', bg: 'bg-violet-500/10' },
+  { type: 'downloadNode', model: 'download', label: 'Download Node', desc: 'Save upstream media', icon: HardDriveDownload, color: 'text-sky-500', bg: 'bg-sky-500/10' },
+  { type: 'nullNode', model: 'null', label: 'Null Node', desc: 'Pass-through proxy node', icon: Type, isNull: true, color: 'text-muted-foreground', bg: 'bg-muted/10' },
+];
 
 let id = 0;
 const getId = () => `node_${id++}`;
@@ -41,7 +71,19 @@ function NodeSystemFlow() {
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
   const [draggedNode, setDraggedNode] = useState<{ type: string; model: string; label: string; desc: string } | null>(null);
   const [menu, setMenu] = useState<{ clientX: number, clientY: number, top: number, left: number } | null>(null);
-  const { screenToFlowPosition } = useReactFlow();
+  const { screenToFlowPosition, getNodes, getEdges } = useReactFlow();
+  
+  const { executePipeline, isGlobalExecuting } = usePipelineExecutor();
+  
+  // Section states
+  const [openSections, setOpenSections] = useState({ video: true, image: true, llm: true, tools: true });
+  const toggleSection = (s: keyof typeof openSections) => setOpenSections(o => ({ ...o, [s]: !o[s] }));
+  
+  // Responsive sidebar state
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+
+  // Clipboard for Copy & Paste
+  const clipboardRef = useRef<{nodes: Node[], edges: Edge[]} | null>(null);
 
   const onConnect = useCallback(
     (params: Connection | Edge) => setEdges((eds) => addEdge(params, eds)),
@@ -186,100 +228,243 @@ function NodeSystemFlow() {
   // === Pipeline Action Handler (Chat → Node Editor) ===
   useEffect(() => {
     const unsubscribe = onPipelineActions((actions: PipelineAction[]) => {
-      let lastAddedId: string | null = null;
-      const idMap: Record<string, string> = {}; // maps AI-suggested temp IDs to real IDs
-      const colCounts: Record<string, number> = {}; // tracks Y positions for each X column
-
+      // Functional setState completely ignores React Flow internal store timing issues
+      // But we MUST pre-calculate the idMap synchronously outside the setters
+      // so both setNodes and setEdges share the exact same generated IDs!
+      const idMap: Record<string, string> = {}; 
+      
       for (const action of actions) {
-        switch (action.type) {
-          case 'add_node': {
-            const newId = getId();
-            const type = action.nodeType || 'modelNode';
-            
-            // Smart auto-layout based on node type
-            let xPos = 100;
-            if (type === 'triggerNode' || type === 'nullNode' || type === 'mediaNode') xPos = 100;
-            else if (type === 'promptNode') xPos = 500;
-            else if (type === 'modelNode') xPos = 900;
-            
-            const colKey = String(xPos);
-            colCounts[colKey] = (colCounts[colKey] || 0) + 1;
-            const yPos = 100 + (colCounts[colKey] - 1) * 220; // 220px vertical spacing
-
-            const newNode: Node = {
-              id: newId,
-              type,
-              position: { x: xPos, y: yPos },
-              data: {
-                label: action.label || action.model || 'New Node',
-                model: action.model || '',
-                description: '',
-                prompt: action.prompt || '',
-              },
-            };
-            setNodes((nds) => nds.concat(newNode));
-            // Track for connections
-            if (action.nodeId) idMap[action.nodeId] = newId;
-            lastAddedId = newId;
-            break;
-          }
-          case 'connect_nodes': {
-            if (action.sourceId && action.targetId) {
-              const realSource = idMap[action.sourceId] || action.sourceId;
-              const realTarget = idMap[action.targetId] || action.targetId;
-              setEdges((eds) => addEdge({
-                id: `e_${realSource}_${realTarget}`,
-                source: realSource,
-                target: realTarget,
-              }, eds));
-            }
-            break;
-          }
-          case 'set_prompt': {
-            const realId = action.nodeId ? (idMap[action.nodeId] || action.nodeId) : lastAddedId;
-            if (realId && action.prompt) {
-              setNodes((nds) => nds.map(n => 
-                n.id === realId ? { ...n, data: { ...n.data, prompt: action.prompt } } : n
-              ));
-            }
-            break;
-          }
-          case 'remove_node': {
-            const realId = action.nodeId ? (idMap[action.nodeId] || action.nodeId) : null;
-            if (realId) {
-              setNodes((nds) => nds.filter(n => n.id !== realId));
-              setEdges((eds) => eds.filter(e => e.source !== realId && e.target !== realId));
-            }
-            break;
-          }
-          case 'clear_canvas': {
-            setNodes([]);
-            setEdges([]);
-            break;
-          }
-          case 'execute_pipeline': {
-            // Find any trigger node and simulate clicking it
-            // (The trigger node handles execution internally)
-            console.log('[Pipeline] AI requested pipeline execution');
-            break;
-          }
+        if (action.type === 'add_node' && action.nodeId) {
+          idMap[action.nodeId] = getId();
         }
       }
+
+      let lastAddedId: string | null = null;
+      const colCounts: Record<string, number> = {}; 
+
+      setNodes((currentNodes) => {
+        let updatedNodes = [...currentNodes];
+        
+        for (const action of actions) {
+          switch (action.type) {
+            case 'clear_canvas': {
+              updatedNodes = [];
+              break;
+            }
+            case 'add_node': {
+              // Use the pre-calculated ID if available, otherwise generate a new one
+              const newId = (action.nodeId && idMap[action.nodeId]) ? idMap[action.nodeId] : getId();
+              const type = action.nodeType || 'modelNode';
+              
+              let xPos = 100;
+              if (type === 'triggerNode' || type === 'nullNode' || type === 'mediaNode' || type === 'downloadNode') xPos = 100;
+              else if (type === 'promptNode') xPos = 500;
+              else if (type === 'modelNode') xPos = 900;
+              
+              const colKey = String(xPos);
+              colCounts[colKey] = (colCounts[colKey] || 0) + 1;
+              const yPos = 100 + (colCounts[colKey] - 1) * 220; 
+
+              const newNode: Node = {
+                id: newId,
+                type,
+                position: { x: xPos, y: yPos },
+                data: {
+                  label: action.label || action.model || 'New Node',
+                  model: action.model || '',
+                  description: '',
+                  prompt: action.prompt || '',
+                },
+              };
+              updatedNodes.push(newNode);
+              
+              lastAddedId = newId;
+              break;
+            }
+            case 'set_prompt': {
+              const realId = action.nodeId ? (idMap[action.nodeId] || action.nodeId) : lastAddedId;
+              if (realId && action.prompt) {
+                updatedNodes = updatedNodes.map(n => 
+                  n.id === realId ? { ...n, data: { ...n.data, prompt: action.prompt } } : n
+                );
+              }
+              break;
+            }
+            case 'remove_node': {
+              const realId = action.nodeId ? (idMap[action.nodeId] || action.nodeId) : null;
+              if (realId) {
+                updatedNodes = updatedNodes.filter(n => n.id !== realId);
+              }
+              break;
+            }
+          }
+        }
+        return updatedNodes;
+      });
+
+      setEdges((currentEdges) => {
+        let updatedEdges = [...currentEdges];
+        
+        for (const action of actions) {
+          switch (action.type) {
+            case 'clear_canvas': {
+              updatedEdges = [];
+              break;
+            }
+            case 'connect_nodes': {
+              if (action.sourceId && action.targetId) {
+                const realSource = idMap[action.sourceId] || action.sourceId;
+                const realTarget = idMap[action.targetId] || action.targetId;
+                updatedEdges.push({
+                  id: `e_${realSource}_${realTarget}`,
+                  source: realSource,
+                  target: realTarget,
+                });
+              }
+              break;
+            }
+            case 'remove_node': {
+              const realId = action.nodeId ? (idMap[action.nodeId] || action.nodeId) : null;
+              if (realId) {
+                updatedEdges = updatedEdges.filter(e => e.source !== realId && e.target !== realId);
+              }
+              break;
+            }
+          }
+        }
+        return updatedEdges;
+      });
     });
     return unsubscribe;
   }, [setNodes, setEdges]);
+
+  // === Keyboard Shortcuts Handler ===
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Don't intercept if user is typing in an input/textarea
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+
+      const isCtrl = e.ctrlKey || e.metaKey;
+      
+      // Select All (Ctrl+A)
+      if (isCtrl && (e.code === 'KeyA' || e.key.toLowerCase() === 'a')) {
+        e.preventDefault();
+        setNodes(nds => nds.map(n => ({ ...n, selected: true })));
+        setEdges(eds => eds.map(edge => ({ ...edge, selected: true })));
+        return;
+      }
+
+      // Copy (Ctrl+C)
+      if (isCtrl && (e.code === 'KeyC' || e.key.toLowerCase() === 'c')) {
+        const currentNodes = getNodes();
+        const currentEdges = getEdges();
+        const selectedNodes = currentNodes.filter(n => n.selected);
+        if (selectedNodes.length === 0) return;
+
+        e.preventDefault();
+        
+        const selectedNodeIds = new Set(selectedNodes.map(n => n.id));
+        const selectedEdges = currentEdges.filter(edge => 
+          selectedNodeIds.has(edge.source) && selectedNodeIds.has(edge.target)
+        );
+
+        clipboardRef.current = { nodes: selectedNodes, edges: selectedEdges };
+      }
+      
+      // Paste (Ctrl+V)
+      if (isCtrl && (e.code === 'KeyV' || e.key.toLowerCase() === 'v')) {
+        const clipboard = clipboardRef.current;
+        if (!clipboard || clipboard.nodes.length === 0) return;
+
+        e.preventDefault();
+
+        const idMap: Record<string, string> = {};
+        
+        // Increment position slightly so they don't perfectly stack
+        const newNodes = clipboard.nodes.map(node => {
+          const newId = getId();
+          idMap[node.id] = newId;
+          return {
+            ...node,
+            id: newId,
+            selected: true, // Auto-select newly pasted nodes
+            position: { 
+              x: node.position.x + 40 + (Math.random() * 20), 
+              y: node.position.y + 40 + (Math.random() * 20) 
+            }
+          };
+        });
+
+        const newEdges = clipboard.edges.map(edge => ({
+          ...edge,
+          id: `e_${idMap[edge.source]}_${idMap[edge.target]}_${getId()}`,
+          source: idMap[edge.source],
+          target: idMap[edge.target],
+          selected: false
+        }));
+        
+        setNodes(nds => [
+          ...nds.map(n => ({ ...n, selected: false })), // Deselect existing nodes
+          ...newNodes
+        ]);
+        
+        setEdges(eds => [...eds, ...newEdges]);
+        
+        // Update clipboard positions to allow repeated pasting offsets
+        clipboardRef.current = { nodes: newNodes, edges: newEdges };
+      }
+    };
+    
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [getNodes, getEdges, setNodes, setEdges]);
+
+  // === Export / Save Graph ===
+  const handleSaveGraph = useCallback(async () => {
+    const graphData = {
+      nodes,
+      edges,
+      version: 1,
+      exportedAt: new Date().toISOString()
+    };
+    
+    try {
+      const filePath = await save({
+        filters: [{
+          name: 'JSON File',
+          extensions: ['json']
+        }],
+        defaultPath: `pipefx_pipeline_${Math.floor(Date.now() / 1000)}.json`
+      });
+
+      if (filePath) {
+        await writeTextFile(filePath, JSON.stringify(graphData, null, 2));
+      }
+    } catch (err) {
+      console.error('Failed to export graph:', err);
+    }
+  }, [nodes, edges]);
 
   return (
     <div className="flex flex-col h-full w-full bg-background relative overflow-hidden text-foreground border-l">
       {/* Top Toolbar */}
       <div className="h-14 border-b bg-card/50 flex items-center justify-between px-4 shrink-0 z-10 shadow-sm backdrop-blur-md">
         <div className="flex items-center gap-2">
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            className="h-8 w-8 mr-1 text-muted-foreground hover:text-foreground"
+            onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+            title="Toggle Sidebar"
+          >
+            {isSidebarOpen ? <PanelLeftClose className="h-4 w-4" /> : <PanelLeft className="h-4 w-4" />}
+          </Button>
           <Workflow className="h-5 w-5 text-primary" />
-          <h2 className="font-semibold text-sm">Pipeline Editor</h2>
+          <h2 className="font-semibold text-sm max-md:hidden">Pipeline Editor</h2>
         </div>
         
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" className="h-8 gap-1.5 text-xs">
+          <Button variant="outline" size="sm" className="h-8 gap-1.5 text-xs" onClick={handleSaveGraph}>
             <Save className="h-3.5 w-3.5" />
             Save Graph
           </Button>
@@ -287,132 +472,160 @@ function NodeSystemFlow() {
             <Settings2 className="h-3.5 w-3.5" />
             Properties
           </Button>
-          <Button size="sm" className="h-8 gap-1.5 text-xs bg-primary hover:bg-primary/90 text-primary-foreground">
-            <Play className="h-3.5 w-3.5 shrink-0 fill-current" />
-            Execute Pipeline
+          <Button 
+            size="sm" 
+            className="h-8 gap-1.5 text-xs bg-primary hover:bg-primary/90 text-primary-foreground"
+            onClick={() => executePipeline()}
+            disabled={isGlobalExecuting}
+          >
+            {isGlobalExecuting ? (
+              <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin" />
+            ) : (
+              <Play className="h-3.5 w-3.5 shrink-0 fill-current" />
+            )}
+            {isGlobalExecuting ? 'Executing...' : 'Execute Pipeline'}
           </Button>
         </div>
       </div>
 
       <div className="flex flex-1 w-full h-full min-h-0 relative">
         {/* Sidebar / Node Palette */}
-        <div className="w-64 border-r bg-card/50 flex flex-col p-4 shrink-0 overflow-y-auto">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">AI Nodes</h3>
-            <Button variant="ghost" size="icon" className="h-6 w-6" title="Click nodes to add or drag"><Plus className="w-3 h-3" /></Button>
-          </div>
+        {isSidebarOpen && (
+          <div className="w-64 max-md:absolute max-md:z-40 max-md:h-full max-md:border-r max-md:shadow-2xl border-r bg-card/95 backdrop-blur-md md:bg-card/50 flex flex-col p-4 shrink-0 overflow-y-auto transition-all animate-in slide-in-from-left-8 duration-200">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">AI Nodes</h3>
+              <Button variant="ghost" size="icon" className="h-6 w-6" title="Click nodes to add or drag"><Plus className="w-3 h-3" /></Button>
+            </div>
           
-          <div className="space-y-3">
-            {/* Kling Node Item */}
-            <div 
-              className="p-3 border rounded-lg bg-background shadow-sm flex items-start gap-3 cursor-grab hover:border-primary/50 transition-colors active:cursor-grabbing hover:bg-muted/30 [&>*]:pointer-events-none"
-              draggable={true}
-              onDragStart={(e) => onDragStart(e, 'modelNode', 'kling', 'Kling 3.0', 'High-fidelity cinematic video generation')}
-              onClick={() => onClickAdd('modelNode', 'kling', 'Kling 3.0', 'High-fidelity cinematic video generation')}
-            >
-              <GripVertical className="w-4 h-4 mt-0.5 text-muted-foreground opacity-50 shrink-0 pointer-events-none" />
-              <div className="pointer-events-none">
-                <div className="font-medium text-sm flex items-center gap-1.5">
-                  <Sparkles className="w-3.5 h-3.5 text-primary" /> Kling 3.0
+          <div className="space-y-4">
+            {/* Video Models */}
+            <div>
+              <button 
+                onClick={() => toggleSection('video')}
+                className="flex items-center justify-between w-full text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2 hover:text-foreground transition-colors outline-hidden"
+              >
+                <span>Video Models</span>
+                {openSections.video ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+              </button>
+              {openSections.video && (
+                <div className="space-y-2">
+                  {VIDEO_MODELS.map(node => (
+                    <div 
+                      key={node.model}
+                      className="p-3 border rounded-lg bg-background shadow-sm flex items-start gap-3 cursor-grab hover:border-primary/50 transition-colors active:cursor-grabbing hover:bg-muted/30 [&>*]:pointer-events-none"
+                      draggable={true}
+                      onDragStart={(e) => onDragStart(e, node.type, node.model, node.label, node.desc)}
+                      onClick={() => onClickAdd(node.type, node.model, node.label, node.desc)}
+                    >
+                      <GripVertical className="w-4 h-4 mt-0.5 text-muted-foreground opacity-50 shrink-0 pointer-events-none" />
+                      <div className="pointer-events-none">
+                        <div className="font-medium text-sm flex items-center gap-1.5">
+                          <node.icon className={`w-3.5 h-3.5 ${node.color}`} /> {node.label}
+                        </div>
+                        <div className="text-[10px] text-muted-foreground mt-1 leading-snug">{node.desc}</div>
+                      </div>
+                    </div>
+                  ))}
                 </div>
-                <div className="text-[10px] text-muted-foreground mt-1 leading-snug">Drag or click to add</div>
-              </div>
+              )}
             </div>
 
-            {/* Nano Banana Node Item */}
-            <div 
-              className="p-3 border rounded-lg bg-background shadow-sm flex items-start gap-3 cursor-grab hover:border-amber-500/50 transition-colors active:cursor-grabbing hover:bg-muted/30 [&>*]:pointer-events-none"
-              draggable={true}
-              onDragStart={(e) => onDragStart(e, 'modelNode', 'nanobanana', 'Nano Banana 2', 'Fast experimental model for stylized motion')}
-              onClick={() => onClickAdd('modelNode', 'nanobanana', 'Nano Banana 2', 'Fast experimental model for stylized motion')}
-            >
-              <GripVertical className="w-4 h-4 mt-0.5 text-muted-foreground opacity-50 shrink-0 pointer-events-none" />
-              <div className="pointer-events-none">
-                <div className="font-medium text-sm flex items-center gap-1.5">
-                  <Video className="w-3.5 h-3.5 text-amber-500" /> Nano Banana 2
+            {/* Image Models */}
+            <div>
+              <button 
+                onClick={() => toggleSection('image')}
+                className="flex items-center justify-between w-full text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2 mt-4 hover:text-foreground transition-colors outline-hidden"
+              >
+                <span>Image Models</span>
+                {openSections.image ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+              </button>
+              {openSections.image && (
+                <div className="space-y-2">
+                  {IMAGE_MODELS.map(node => (
+                    <div 
+                      key={node.model}
+                      className="p-3 border rounded-lg bg-background shadow-sm flex items-start gap-3 cursor-grab hover:border-primary/50 transition-colors active:cursor-grabbing hover:bg-muted/30 [&>*]:pointer-events-none"
+                      draggable={true}
+                      onDragStart={(e) => onDragStart(e, node.type, node.model, node.label, node.desc)}
+                      onClick={() => onClickAdd(node.type, node.model, node.label, node.desc)}
+                    >
+                      <GripVertical className="w-4 h-4 mt-0.5 text-muted-foreground opacity-50 shrink-0 pointer-events-none" />
+                      <div className="pointer-events-none">
+                        <div className="font-medium text-sm flex items-center gap-1.5">
+                          <node.icon className={`w-3.5 h-3.5 ${node.color}`} /> {node.label}
+                        </div>
+                        <div className="text-[10px] text-muted-foreground mt-1 leading-snug">{node.desc}</div>
+                      </div>
+                    </div>
+                  ))}
                 </div>
-                <div className="text-[10px] text-muted-foreground mt-1 leading-snug">Drag or click to add</div>
-              </div>
+              )}
             </div>
 
-            {/* SeedDance 2 Node Item */}
-            <div 
-              className="p-3 border rounded-lg bg-background shadow-sm flex items-start gap-3 cursor-grab hover:border-emerald-500/50 transition-colors active:cursor-grabbing hover:bg-muted/30 [&>*]:pointer-events-none"
-              draggable={true}
-              onDragStart={(e) => onDragStart(e, 'modelNode', 'seeddance', 'SeedDance 2', 'Dance & motion-driven video generation')}
-              onClick={() => onClickAdd('modelNode', 'seeddance', 'SeedDance 2', 'Dance & motion-driven video generation')}
-            >
-              <GripVertical className="w-4 h-4 mt-0.5 text-muted-foreground opacity-50 shrink-0 pointer-events-none" />
-              <div className="pointer-events-none">
-                <div className="font-medium text-sm flex items-center gap-1.5">
-                  <Wand2 className="w-3.5 h-3.5 text-emerald-500" /> SeedDance 2
+            {/* LLM Models */}
+            <div>
+              <button 
+                onClick={() => toggleSection('llm')}
+                className="flex items-center justify-between w-full text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2 mt-4 hover:text-foreground transition-colors outline-hidden"
+              >
+                <span>LLM Models</span>
+                {openSections.llm ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+              </button>
+              {openSections.llm && (
+                <div className="space-y-2">
+                  {LLM_MODELS.map(node => (
+                    <div 
+                      key={node.model}
+                      className="p-3 border rounded-lg bg-background shadow-sm flex items-start gap-3 cursor-grab hover:border-primary/50 transition-colors active:cursor-grabbing hover:bg-muted/30 [&>*]:pointer-events-none"
+                      draggable={true}
+                      onDragStart={(e) => onDragStart(e, node.type, node.model, node.label, node.desc)}
+                      onClick={() => onClickAdd(node.type, node.model, node.label, node.desc)}
+                    >
+                      <GripVertical className="w-4 h-4 mt-0.5 text-muted-foreground opacity-50 shrink-0 pointer-events-none" />
+                      <div className="pointer-events-none">
+                        <div className="font-medium text-sm flex items-center gap-1.5">
+                          <node.icon className={`w-3.5 h-3.5 ${node.color}`} /> {node.label}
+                        </div>
+                        <div className="text-[10px] text-muted-foreground mt-1 leading-snug">{node.desc}</div>
+                      </div>
+                    </div>
+                  ))}
                 </div>
-                <div className="text-[10px] text-muted-foreground mt-1 leading-snug">Drag or click to add</div>
-              </div>
+              )}
             </div>
 
-            {/* SeedDream 5 Node Item */}
-            <div 
-              className="p-3 border rounded-lg bg-background shadow-sm flex items-start gap-3 cursor-grab hover:border-rose-500/50 transition-colors active:cursor-grabbing hover:bg-muted/30 [&>*]:pointer-events-none"
-              draggable={true}
-              onDragStart={(e) => onDragStart(e, 'modelNode', 'seeddream', 'SeedDream 5', 'High-quality image generation & editing')}
-              onClick={() => onClickAdd('modelNode', 'seeddream', 'SeedDream 5', 'High-quality image generation & editing')}
-            >
-              <GripVertical className="w-4 h-4 mt-0.5 text-muted-foreground opacity-50 shrink-0 pointer-events-none" />
-              <div className="pointer-events-none">
-                <div className="font-medium text-sm flex items-center gap-1.5">
-                  <Palette className="w-3.5 h-3.5 text-rose-500" /> SeedDream 5
+            {/* Tools */}
+            <div>
+              <button 
+                onClick={() => toggleSection('tools')}
+                className="flex items-center justify-between w-full text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2 mt-4 hover:text-foreground transition-colors outline-hidden"
+              >
+                <span>Tools</span>
+                {openSections.tools ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+              </button>
+              {openSections.tools && (
+                <div className="space-y-2">
+                  {TOOLS_NODES.map(node => (
+                    <div 
+                      key={node.model}
+                      className={`p-3 border rounded-lg ${node.bg || 'bg-background'} border-border/30 shadow-sm flex items-start gap-3 cursor-grab hover:brightness-95 transition-all active:cursor-grabbing hover:border-foreground/20 [&>*]:pointer-events-none`}
+                      draggable={true}
+                      onDragStart={(e) => onDragStart(e, node.type, node.model, node.label, node.desc)}
+                      onClick={() => onClickAdd(node.type, node.model, node.label, node.desc)}
+                    >
+                      <GripVertical className={`w-4 h-4 mt-0.5 ${node.color} opacity-50 shrink-0 pointer-events-none`} />
+                      <div className="pointer-events-none">
+                        <div className={`font-bold text-sm flex items-center gap-1.5 ${node.color}`}>
+                          {node.isNull && <div className="w-3.5 h-3.5 rounded-full border-2 border-dashed border-muted-foreground" />}
+                          {!node.isNull && <node.icon className="w-3.5 h-3.5" />} 
+                          {node.label}
+                        </div>
+                        <div className="text-[10px] text-muted-foreground/80 mt-1 leading-snug">{node.desc}</div>
+                      </div>
+                    </div>
+                  ))}
                 </div>
-                <div className="text-[10px] text-muted-foreground mt-1 leading-snug">Drag or click to add</div>
-              </div>
-            </div>
-
-            {/* Trigger Node Item */}
-            <div 
-              className="p-3 border rounded-lg bg-indigo-500/10 border-indigo-500/30 shadow-sm flex items-start gap-3 cursor-grab hover:bg-indigo-500/20 hover:border-indigo-500/50 transition-colors active:cursor-grabbing [&>*]:pointer-events-none mt-4"
-              draggable={true}
-              onDragStart={(e) => onDragStart(e, 'triggerNode', 'trigger', 'Start Pipeline', 'Pushes execution down the chain.')}
-              onClick={() => onClickAdd('triggerNode', 'trigger', 'Start Pipeline', 'Pushes execution down the chain.')}
-            >
-              <GripVertical className="w-4 h-4 mt-0.5 text-indigo-500 opacity-50 shrink-0 pointer-events-none" />
-              <div className="pointer-events-none">
-                <div className="font-bold text-sm flex items-center gap-1.5 text-indigo-500">
-                  <PlaySquare className="w-3.5 h-3.5" /> Start Trigger
-                </div>
-                <div className="text-[10px] text-muted-foreground/80 mt-1 leading-snug">Connect to pipeline start</div>
-              </div>
-            </div>
-
-            {/* Prompt Node Item */}
-            <div 
-              className="p-3 border rounded-lg bg-violet-500/10 border-violet-500/30 shadow-sm flex items-start gap-3 cursor-grab hover:bg-violet-500/20 hover:border-violet-500/50 transition-colors active:cursor-grabbing [&>*]:pointer-events-none"
-              draggable={true}
-              onDragStart={(e) => onDragStart(e, 'promptNode', 'prompt', 'Prompt', 'Text prompt input for generation')}
-              onClick={() => onClickAdd('promptNode', 'prompt', 'Prompt', 'Text prompt input for generation')}
-            >
-              <GripVertical className="w-4 h-4 mt-0.5 text-violet-400 opacity-50 shrink-0 pointer-events-none" />
-              <div className="pointer-events-none">
-                <div className="font-bold text-sm flex items-center gap-1.5 text-violet-400">
-                  <Type className="w-3.5 h-3.5" /> Prompt
-                </div>
-                <div className="text-[10px] text-muted-foreground/80 mt-1 leading-snug">Text input for models</div>
-              </div>
-            </div>
-
-            {/* Null Node Item */}
-            <div 
-              className="p-3 border rounded-lg bg-muted/10 border-muted/30 shadow-sm flex items-start gap-3 cursor-grab hover:bg-muted/20 hover:border-muted-foreground/50 transition-colors active:cursor-grabbing [&>*]:pointer-events-none"
-              draggable={true}
-              onDragStart={(e) => onDragStart(e, 'nullNode', 'null', 'Null', 'Pass-through proxy node')}
-              onClick={() => onClickAdd('nullNode', 'null', 'Null', 'Pass-through proxy node')}
-            >
-              <GripVertical className="w-4 h-4 mt-0.5 text-muted-foreground opacity-50 shrink-0 pointer-events-none" />
-              <div className="pointer-events-none">
-                <div className="font-bold text-sm flex items-center gap-1.5 text-muted-foreground">
-                  <div className="w-3.5 h-3.5 rounded-full border-2 border-dashed border-muted-foreground" /> Null Node
-                </div>
-                <div className="text-[10px] text-muted-foreground/80 mt-1 leading-snug">Pass-through routing element</div>
-              </div>
+              )}
             </div>
 
             {/* Media Drop Zone Hint */}
@@ -426,6 +639,7 @@ function NodeSystemFlow() {
             </div>
           </div>
         </div>
+        )}
 
         {/* Main Flow Canvas */}
         <div 
@@ -444,6 +658,10 @@ function NodeSystemFlow() {
             onPaneContextMenu={onPaneContextMenu}
             onPaneClick={onPaneClick}
             nodeTypes={nodeTypes}
+            panOnDrag={[1, 2]}
+            selectionOnDrag={true}
+            selectionMode={SelectionMode.Partial}
+            minZoom={0.05}
             fitView
             className="bg-muted/10 w-full h-full"
           >
@@ -463,56 +681,89 @@ function NodeSystemFlow() {
               style={{ top: menu.top, left: menu.left }}
             >
                <div className="px-2 py-1.5 text-[10px] font-bold text-muted-foreground uppercase tracking-widest opacity-80 mb-1 border-b border-border/50">Add Action Node</div>
-               <button 
-                 onClick={() => addNodeFromMenu('modelNode', 'kling', 'Kling 3.0', 'High-fidelity cinematic video generation')}
-                 className="w-full flex items-center gap-2 px-2 py-2 text-sm hover:bg-muted rounded-md transition-colors text-left group"
-               >
-                 <Sparkles className="h-4 w-4 text-primary group-hover:scale-110 transition-transform" /> 
-                 <span className="font-medium">Kling 3.0</span>
-               </button>
-               <button 
-                 onClick={() => addNodeFromMenu('modelNode', 'nanobanana', 'Nano Banana 2', 'Fast experimental model for stylized motion')}
-                 className="w-full flex items-center gap-2 px-2 py-2 text-sm hover:bg-muted rounded-md transition-colors text-left group mt-0.5"
-               >
-                 <Video className="h-4 w-4 text-amber-500 group-hover:scale-110 transition-transform" /> 
-                 <span className="font-medium">Nano Banana 2</span>
-               </button>
-               <button 
-                 onClick={() => addNodeFromMenu('modelNode', 'seeddance', 'SeedDance 2', 'Dance & motion-driven video generation')}
-                 className="w-full flex items-center gap-2 px-2 py-2 text-sm hover:bg-muted rounded-md transition-colors text-left group mt-0.5"
-               >
-                 <Wand2 className="h-4 w-4 text-emerald-500 group-hover:scale-110 transition-transform" /> 
-                 <span className="font-medium">SeedDance 2</span>
-               </button>
-               <button 
-                 onClick={() => addNodeFromMenu('modelNode', 'seeddream', 'SeedDream 5', 'High-quality image generation & editing')}
-                 className="w-full flex items-center gap-2 px-2 py-2 text-sm hover:bg-muted rounded-md transition-colors text-left group mt-0.5"
-               >
-                 <Palette className="h-4 w-4 text-rose-500 group-hover:scale-110 transition-transform" /> 
-                 <span className="font-medium">SeedDream 5</span>
-               </button>
+               
+               {/* Video Models Submenu */}
+               <div className="relative group/video">
+                 <button className="w-full flex items-center justify-between px-2 py-2 text-sm hover:bg-muted rounded-md transition-colors text-left group-hover/video:bg-muted outline-hidden">
+                   <span className="font-medium">Video Models</span>
+                   <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                 </button>
+                 <div className="absolute left-full top-0 ml-1.5 w-48 bg-card/95 backdrop-blur-md border border-border shadow-2xl p-1.5 rounded-xl hidden group-hover/video:block animate-in fade-in zoom-in-95 duration-100">
+                   {VIDEO_MODELS.map(node => (
+                     <button 
+                       key={node.model}
+                       onClick={() => addNodeFromMenu(node.type, node.model, node.label, node.desc)}
+                       className="w-full flex items-center gap-2 px-2 py-2 text-sm hover:bg-muted rounded-md transition-colors text-left group"
+                     >
+                       <node.icon className={`h-4 w-4 ${node.color} group-hover:scale-110 transition-transform`} /> 
+                       <span className="font-medium">{node.label}</span>
+                     </button>
+                   ))}
+                 </div>
+               </div>
+
+               {/* Image Models Submenu */}
+               <div className="relative group/image">
+                 <button className="w-full flex items-center justify-between px-2 py-2 text-sm hover:bg-muted rounded-md transition-colors text-left group-hover/image:bg-muted outline-hidden mt-0.5">
+                   <span className="font-medium">Image Models</span>
+                   <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                 </button>
+                 <div className="absolute left-full top-0 ml-1.5 w-48 bg-card/95 backdrop-blur-md border border-border shadow-2xl p-1.5 rounded-xl hidden group-hover/image:block animate-in fade-in zoom-in-95 duration-100">
+                   {IMAGE_MODELS.map(node => (
+                     <button 
+                       key={node.model}
+                       onClick={() => addNodeFromMenu(node.type, node.model, node.label, node.desc)}
+                       className="w-full flex items-center gap-2 px-2 py-2 text-sm hover:bg-muted rounded-md transition-colors text-left group"
+                     >
+                       <node.icon className={`h-4 w-4 ${node.color} group-hover:scale-110 transition-transform`} /> 
+                       <span className="font-medium">{node.label}</span>
+                     </button>
+                   ))}
+                 </div>
+               </div>
+
+               {/* LLM Models Submenu */}
+               <div className="relative group/llm">
+                 <button className="w-full flex items-center justify-between px-2 py-2 text-sm hover:bg-muted rounded-md transition-colors text-left group-hover/llm:bg-muted outline-hidden mt-0.5">
+                   <span className="font-medium">LLM Models</span>
+                   <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                 </button>
+                 <div className="absolute left-full top-0 ml-1.5 w-48 bg-card/95 backdrop-blur-md border border-border shadow-2xl p-1.5 rounded-xl hidden group-hover/llm:block animate-in fade-in zoom-in-95 duration-100">
+                   {LLM_MODELS.map(node => (
+                     <button 
+                       key={node.model}
+                       onClick={() => addNodeFromMenu(node.type, node.model, node.label, node.desc)}
+                       className="w-full flex items-center gap-2 px-2 py-2 text-sm hover:bg-muted rounded-md transition-colors text-left group"
+                     >
+                       <node.icon className={`h-4 w-4 ${node.color} group-hover:scale-110 transition-transform`} /> 
+                       <span className="font-medium">{node.label}</span>
+                     </button>
+                   ))}
+                 </div>
+               </div>
+
                <div className="h-px w-full bg-border/50 my-1"></div>
-               <button 
-                 onClick={() => addNodeFromMenu('triggerNode', 'trigger', 'Start Pipeline', 'Pushes execution down the chain.')}
-                 className="w-full flex items-center gap-2 px-2 py-2 text-sm hover:bg-indigo-500/20 text-indigo-500 rounded-md transition-colors text-left group mt-0.5"
-               >
-                 <PlaySquare className="h-4 w-4 text-indigo-500 group-hover:scale-110 transition-transform" /> 
-                 <span className="font-bold">Start Trigger Node</span>
-               </button>
-               <button 
-                 onClick={() => addNodeFromMenu('promptNode', 'prompt', 'Prompt', 'Text prompt input for generation')}
-                 className="w-full flex items-center gap-2 px-2 py-2 text-sm hover:bg-violet-500/20 text-violet-400 rounded-md transition-colors text-left group mt-0.5"
-               >
-                 <Type className="h-4 w-4 text-violet-400 group-hover:scale-110 transition-transform" /> 
-                 <span className="font-bold">Prompt Node</span>
-               </button>
-               <button 
-                 onClick={() => addNodeFromMenu('nullNode', 'null', 'Null', 'Pass-through proxy node')}
-                 className="w-full flex items-center gap-2 px-2 py-2 text-sm hover:bg-muted text-muted-foreground rounded-md transition-colors text-left group mt-0.5"
-               >
-                 <div className="h-3 w-3 rounded-full border-2 border-dashed border-muted-foreground mx-0.5 group-hover:scale-110 transition-transform" /> 
-                 <span className="font-bold">Null Node</span>
-               </button>
+
+               {/* Tools Submenu */}
+               <div className="relative group/tools">
+                 <button className="w-full flex items-center justify-between px-2 py-2 text-sm hover:bg-muted rounded-md transition-colors text-left group-hover/tools:bg-muted outline-hidden mt-0.5">
+                   <span className="font-medium">Tools</span>
+                   <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                 </button>
+                 <div className="absolute left-full top-0 ml-1.5 w-48 bg-card/95 backdrop-blur-md border border-border shadow-2xl p-1.5 rounded-xl hidden group-hover/tools:block animate-in fade-in zoom-in-95 duration-100">
+                   {TOOLS_NODES.map(node => (
+                     <button 
+                       key={node.model}
+                       onClick={() => addNodeFromMenu(node.type, node.model, node.label, node.desc)}
+                       className="w-full flex items-center gap-2 px-2 py-2 text-sm hover:bg-muted rounded-md transition-colors text-left group"
+                     >
+                       {node.isNull && <div className="h-3 w-3 rounded-full border-2 border-dashed border-muted-foreground mx-0.5 group-hover:scale-110 transition-transform" />}
+                       {!node.isNull && <node.icon className={`h-4 w-4 ${node.color} group-hover:scale-110 transition-transform`} />}
+                       <span className={`font-bold ${node.color}`}>{node.label}</span>
+                     </button>
+                   ))}
+                 </div>
+               </div>
             </div>
           )}
         </div>

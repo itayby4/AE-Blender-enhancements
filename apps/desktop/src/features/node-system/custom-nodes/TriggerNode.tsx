@@ -1,175 +1,50 @@
-import { useState } from 'react';
-import { Handle, Position, useReactFlow, useNodeId } from '@xyflow/react';
+import { useState, useEffect } from 'react';
+import { Handle, Position, useNodeId, useViewport } from '@xyflow/react';
 import { PlaySquare, Loader2, Workflow } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '../../../components/ui/card';
 import { Button } from '../../../components/ui/button';
 
-export function TriggerNode({ data }: { data: any }) {
-  const [isExecuting, setIsExecuting] = useState(false);
-  const { getEdges, getNodes, setNodes } = useReactFlow();
+import { usePipelineExecutor } from '../usePipelineExecutor';
+
+export function TriggerNode({ data, selected }: { data: any, selected?: boolean }) {
   const nodeId = useNodeId();
+  const { executePipeline, isGlobalExecuting } = usePipelineExecutor();
+  
+  const [isExpanded, setIsExpanded] = useState(false);
+  useEffect(() => {
+    if (!selected) setIsExpanded(false);
+  }, [selected]);
+
+  const { zoom } = useViewport();
+  const isCompact = zoom < 0.25 && !isExpanded;
+
+  // We rely on the global execution state, but if we want to show specifically 
+  // that THIS node triggered it, we can just use the global state.
+  const isExecuting = isGlobalExecuting;
 
   const handleExecute = async () => {
     if (isExecuting || !nodeId) return;
-    setIsExecuting(true);
-
-    const allEdges = getEdges();
-
-    // 1. Traverse FORWARD from this trigger out to all connected dependencies
-    const executionOrder: string[] = [];
-    const queue = [nodeId];
-    const visited = new Set<string>();
-
-    while (queue.length > 0) {
-      const currentId = queue.shift()!;
-      if (!visited.has(currentId)) {
-        visited.add(currentId);
-        
-        if (currentId !== nodeId) {
-           executionOrder.push(currentId);
-        }
-        
-        // Find all outgoing edges (connecting FROM this node to the next step)
-        const outgoingEdges = allEdges.filter(e => e.source === currentId);
-        for (const edge of outgoingEdges) {
-          queue.push(edge.target);
-        }
-      }
-    }
-
-    const uniqueOrder = Array.from(new Set(executionOrder));
-
-    // 2. Execute pipeline sequentially (forwards)
-    for (const executionId of uniqueOrder) {
-      const allNodes = getNodes();
-      const currentNode = allNodes.find((n: any) => n.id === executionId);
-
-      // We only execute `modelNode` entities. (We can skip other types)
-      if (!currentNode || currentNode.type !== 'modelNode') continue;
-
-      const { model } = currentNode.data;
-
-      // Resolve prompt and image ref from connected parent nodes
-      let resolvedPrompt = currentNode.data.prompt || '';
-      let incomingImageRefs: string[] = [];
-      const searchQueue = [executionId];
-      const visitedParents = new Set<string>([executionId]);
-      
-      while (searchQueue.length > 0) {
-        const targetId = searchQueue.shift()!;
-        const incomingEdges = allEdges.filter((e: any) => e.target === targetId);
-        
-        for (const edge of incomingEdges) {
-          const parentNode = allNodes.find((n: any) => n.id === edge.source);
-          if (!parentNode || visitedParents.has(parentNode.id)) continue;
-          visitedParents.add(parentNode.id);
-          
-          if (parentNode.type === 'nullNode') {
-            searchQueue.push(parentNode.id); // Continue traversal
-          } else if (parentNode.type === 'promptNode' && parentNode.data?.prompt) {
-            resolvedPrompt = parentNode.data.prompt as string;
-          } else if (parentNode.type === 'modelNode' && parentNode.data?.previewUrl) {
-            incomingImageRefs.push(parentNode.data.previewUrl as string);
-          } else if (parentNode.type === 'mediaNode' && parentNode.data?.url) {
-            incomingImageRefs.push(parentNode.data.url as string);
-          }
-        }
-      }
-      const prompt = resolvedPrompt;
-
-      // Mark the current node visually as "Generating" and clear past errors
-      setNodes((nds) => nds.map(n => n.id === executionId ? { ...n, data: { ...n.data, previewUrl: null, isGenerating: true, error: null } } : n));
-      
-      // Map frontend model IDs to backend API model IDs
-      const MODEL_MAP: Record<string, string> = {
-        kling: 'kling3',
-        nanobanana: 'gemini2',
-        seeddance: 'seeddance2',
-        seeddream: 'seeddream45',
-      };
-      const backendModel = MODEL_MAP[model as string] || model;
-      
-      try {
-        console.log(`[Pipeline] Triggering node ${executionId} (${backendModel}) with prompt: ${prompt}`);
-        
-        // Execute the Real Backend API request!
-        const response = await fetch('http://localhost:3001/api/ai-models', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            model: backendModel,
-            prompt: prompt || 'Cinematic highly-detailed scene',
-            imageRef: incomingImageRefs.length > 0 ? incomingImageRefs[0] : undefined, // Fallback for backward compatibility
-            imageRefs: incomingImageRefs, // Send the full array of image references
-          }),
-        });
-
-        if (!response.ok) {
-           const errText = await response.text();
-           throw new Error(`API Error: ${errText}`);
-        }
-
-        const result = await response.json();
-
-        // Save file to Desktop/RENDERS folder
-        try {
-          await fetch('http://localhost:3001/api/save-render', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              url: result.url,
-              type: result.type || 'video',
-              model: backendModel,
-              prompt: prompt,
-            }),
-          });
-          console.log(`[Pipeline] Saved render to Desktop/RENDERS`);
-        } catch (saveErr) {
-          console.warn(`[Pipeline] Could not save to RENDERS folder:`, saveErr);
-        }
-
-        // Execution succeeded! Display the media in the Node!
-        setNodes((nds) => nds.map(n => {
-          if (n.id === executionId) {
-            return {
-              ...n,
-              data: { 
-                ...n.data, 
-                isGenerating: false, 
-                previewUrl: result.url || '',
-                mediaType: result.type || 'video',
-              }
-            };
-          }
-          return n;
-        }));
-      } catch (err: unknown) {
-        const errorMessage = err instanceof Error ? err.message : String(err);
-        console.error(`[Pipeline] Failed at node ${executionId}:`, errorMessage);
-
-        // Turn node Red with error state
-        setNodes((nds) => nds.map(n => {
-          if (n.id === executionId) {
-            return { ...n, data: { ...n.data, isGenerating: false, error: errorMessage } };
-          }
-          return n;
-        }));
-        
-        // Halt entire pipeline execution on first failure
-        break;
-      }
-    }
-
-    setIsExecuting(false);
+    await executePipeline(nodeId);
   };
 
+  if (isCompact) {
+    return (
+      <div onDoubleClick={() => setIsExpanded(true)} className="w-[580px] h-[140px] bg-[#2a2a2a] border-4 border-[#111] rounded-lg shadow-2xl flex items-center justify-center relative hover:bg-[#333] transition-colors cursor-pointer">
+        <div className="absolute bottom-0 left-0 right-0 h-4 bg-indigo-500 opacity-80" />
+        <span className="text-gray-200 text-5xl font-extrabold tracking-wider px-8 truncate block text-center w-full">{data.label || 'Start'}</span>
+        <Handle type="source" position={Position.Right} className="w-12 h-12 bg-gray-200 border-4 border-[#111] rounded-none -mr-6" />
+        {isExecuting && <div className="absolute -top-4 -right-4 w-12 h-12 bg-yellow-500 rounded-full animate-pulse shadow-sm" />}
+      </div>
+    );
+  }
+
   return (
-    <Card className={`w-56 shadow-xl bg-card/95 backdrop-blur-md border-2 transition-all duration-300 group ${isExecuting ? 'border-primary shadow-primary/20' : 'border-indigo-500/50 hover:border-indigo-500'}`}>
+    <Card className={`shadow-xl bg-card/95 backdrop-blur-md border-2 transition-all duration-300 group ${isExecuting ? 'border-primary shadow-primary/20' : 'border-indigo-500/50 hover:border-indigo-500'} w-56 ${isExpanded ? 'scale-[1.5] origin-center shadow-[0_0_30px_rgba(81,99,250,0.3)]' : ''}`}>
       <CardHeader className="p-2.5 pb-2 border-b border-border/50 bg-indigo-500/10">
         <CardTitle className="text-sm font-bold flex items-center justify-between text-indigo-500">
           <div className="flex items-center gap-2">
              <Workflow className="h-4 w-4" />
-             {data.label || 'Start Pipeline'}
+             <span className="truncate">{data.label || 'Start Pipeline'}</span>
           </div>
           {isExecuting && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
         </CardTitle>
@@ -195,8 +70,7 @@ export function TriggerNode({ data }: { data: any }) {
       <Handle 
         type="source" 
         position={Position.Right} 
-        style={{ top: 'auto', bottom: 22 }}
-        className="w-4 h-4 bg-background border-2 border-indigo-500/50 hover:border-indigo-500 transition-colors" 
+        className="w-4 h-4 bg-background border-2 border-indigo-500/50 hover:border-indigo-500 transition-colors top-auto bottom-[22px]" 
       />
     </Card>
   );

@@ -129,7 +129,7 @@ export function ImageGenDashboard() {
       <div className="absolute inset-0 flex flex-col items-center justify-center transition-all overflow-hidden z-0 bg-muted/50">
         {generatedImages.length > 0 ? (
           <div className="absolute inset-0 overflow-y-auto scrollbar-none z-0">
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-[2px] pb-48 w-full">
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-[2px] pb-[300px] w-full">
               {generatedImages.map((src, i) => (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img 
@@ -155,7 +155,7 @@ export function ImageGenDashboard() {
 
         {/* Optional vignette gradient over the background image to make the UI popup readable */}
         {generatedImages.length > 0 && (
-          <div className="absolute inset-x-0 bottom-0 h-48 bg-gradient-to-t from-background via-background/70 to-transparent z-10 pointer-events-none flex-shrink-0"></div>
+          <div className="absolute inset-x-0 bottom-0 h-[280px] bg-gradient-to-t from-background via-background/80 to-transparent z-10 pointer-events-none flex-shrink-0"></div>
         )}
 
         {isGenerating && (
@@ -188,7 +188,8 @@ export function ImageGenDashboard() {
         )}
 
         <div className="bg-card/95 backdrop-blur-xl rounded-[24px] shadow-2xl border border-border/80 pointer-events-auto flex text-foreground transition-all hover:border-border hover:shadow-[0_20px_60px_-15px_rgba(0,0,0,0.3)]">
-          <div className="p-4 pl-5 pr-4 flex gap-4 w-full">
+          <div className="p-4 pl-5 pr-4 flex max-md:flex-col gap-4 w-full overflow-hidden">
+
             
             {/* Left Content Column */}
             <div className="flex-1 flex flex-col gap-3 justify-center min-w-0">
@@ -277,17 +278,17 @@ export function ImageGenDashboard() {
 
                 <div className="w-px h-4 bg-border mx-1"></div>
 
-                <button className="flex items-center gap-1.5 h-8 px-3 rounded-full bg-secondary/50 hover:bg-secondary hover:text-foreground transition-colors border border-border/40 shadow-sm">
+                <button className="flex items-center gap-1.5 h-8 px-3 rounded-full bg-secondary/50 hover:bg-secondary hover:text-foreground transition-colors border border-border/40 shadow-sm shrink-0">
                   <Monitor className="w-3.5 h-3.5 opacity-70" />
-                  <span>16:9</span>
+                  <span className="max-sm:hidden">16:9</span>
                 </button>
 
-                <button className="flex items-center gap-1.5 h-8 px-3 rounded-full bg-secondary/50 hover:bg-secondary hover:text-foreground transition-colors border border-border/40 shadow-sm">
+                <button className="flex items-center gap-1.5 h-8 px-3 rounded-full bg-secondary/50 hover:bg-secondary hover:text-foreground transition-colors border border-border/40 shadow-sm shrink-0">
                   <Diamond className="w-3.5 h-3.5 opacity-70" />
-                  <span>2K</span>
+                  <span className="max-sm:hidden">2K</span>
                 </button>
 
-                <div className="flex items-center h-8 bg-secondary/50 rounded-full overflow-hidden mx-1 border border-border/40 shadow-sm">
+                <div className="flex items-center h-8 bg-secondary/50 rounded-full overflow-hidden mx-1 border border-border/40 shadow-sm shrink-0">
                   <button className="h-full px-2 hover:bg-secondary hover:text-foreground flex items-center transition-colors"><Minus className="w-3 h-3 opacity-70" /></button>
                   <span className="px-1 text-center text-[11px] min-w-[32px]">1/4</span>
                   <button className="h-full px-2 hover:bg-secondary hover:text-foreground flex items-center transition-colors"><Plus className="w-3 h-3 opacity-70" /></button>
@@ -296,28 +297,28 @@ export function ImageGenDashboard() {
                 {/* Toggle switch for extra gens */}
                 <button 
                   onClick={() => setExtraFreeGens(!extraFreeGens)}
-                  className="flex items-center gap-1.5 h-8 px-3 rounded-full bg-secondary/50 hover:bg-secondary hover:text-foreground transition-colors ml-auto group border border-border/40 shadow-sm"
+                  className="flex items-center gap-1.5 h-8 px-3 rounded-full bg-secondary/50 hover:bg-secondary hover:text-foreground transition-colors ml-auto group border border-border/40 shadow-sm shrink-0"
                 >
-                  <span className="opacity-90">Extra free gens</span>
+                  <span className="opacity-90 max-sm:hidden">Extra free gens</span>
                   <div className={`w-7 h-4 rounded-full p-[2px] transition-colors duration-200 ${extraFreeGens ? 'bg-primary' : 'bg-muted-foreground/30'}`}>
                     <div className={`w-[12px] h-[12px] rounded-full bg-background shadow-sm transition-transform duration-200 ${extraFreeGens ? 'translate-x-[12px]' : 'translate-x-0'}`} />
                   </div>
                 </button>
 
-                <button className="flex items-center gap-1.5 h-8 px-3 rounded-full bg-secondary/50 hover:bg-secondary hover:text-foreground transition-colors border border-border/40 shadow-sm">
+                <button className="flex items-center gap-1.5 h-8 px-3 rounded-full bg-secondary/50 hover:bg-secondary hover:text-foreground transition-colors border border-border/40 shadow-sm shrink-0">
                   <Pencil className="w-3 h-3 opacity-70" />
-                  <span>Draw</span>
+                  <span className="max-sm:hidden">Draw</span>
                 </button>
 
               </div>
             </div>
 
             {/* Right Generate Button Column */}
-            <div className="flex-shrink-0 flex items-stretch ml-2">
+            <div className="flex-shrink-0 flex items-stretch max-md:h-12 max-md:w-full">
               <button 
                 onClick={handleGenerate}
                 disabled={isGenerating || !prompt.trim()}
-                className="h-full w-[120px] rounded-[16px] bg-primary hover:bg-primary/90 active:scale-[0.98] text-primary-foreground font-semibold text-sm shadow-md transition-all flex items-center justify-center gap-1.5 flex-col disabled:opacity-50 disabled:cursor-not-allowed border border-primary/20"
+                className="h-full md:w-[120px] max-md:flex-1 rounded-[16px] bg-primary hover:bg-primary/90 active:scale-[0.98] text-primary-foreground font-semibold text-sm shadow-md transition-all flex md:flex-col items-center justify-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed border border-primary/20"
               >
                 {isGenerating ? (
                   <Loader2 className="w-5 h-5 animate-spin" />

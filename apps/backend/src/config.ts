@@ -17,6 +17,8 @@ if (!openaiRaw) {
   process.exit(1);
 }
 
+const anthropicRaw = process.env.ANTHROPIC_API_KEY;
+
 let currentDir = __dirname;
 while (!fs.existsSync(path.join(currentDir, 'nx.json')) && currentDir !== path.parse(currentDir).root) {
   currentDir = path.dirname(currentDir);
@@ -30,13 +32,19 @@ export const config = {
     .replace(/[\u0590-\u05FF]/g, '')
     .replace(/["']/g, '')
     .trim(),
-
-  geminiModel: process.env.GEMINI_MODEL || 'gemini-2.5-flash',
+  geminiModel: process.env.GEMINI_MODEL || 'gemini-3.1-pro-preview',
 
   openaiApiKey: openaiRaw
     .replace(/[\u0590-\u05FF]/g, '')
     .replace(/["']/g, '')
     .trim(),
+
+  anthropicApiKey: anthropicRaw
+    ? anthropicRaw
+        .replace(/[\u0590-\u05FF]/g, '')
+        .replace(/["']/g, '')
+        .trim()
+    : undefined,
 
   klingApiKey: process.env.KLING_API_KEY || 'ATpePpKM4LgHMCLprEChTJbThfDgRPkk',
   klingApiSecret: process.env.KLING_API_SECRET || '8g3NNYDd9pNfGCTfnyTtKENahdBN9MyJ',

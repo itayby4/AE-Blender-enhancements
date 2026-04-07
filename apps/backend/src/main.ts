@@ -60,6 +60,7 @@ async function main() {
           });
 
           // Extract pipeline actions from AI response if present
+          require('fs').writeFileSync('last_ai_response.txt', text);
           let cleanText = text;
           let actions: any[] = [];
           
