@@ -1,7 +1,7 @@
 import type { ConnectorRegistry } from '@pipefx/mcp';
 import { GoogleGenAI } from '@google/genai';
 import { OpenAI } from 'openai';
-import { hebrewSubtitlesWorkflow } from './subtitles.js';
+import { autoSubtitlesWorkflow } from './subtitles.js';
 import { timelineTranscriptWorkflow } from './transcript.js';
 import type { WorkflowContext } from './types.js';
 
@@ -13,7 +13,7 @@ export function registerLocalWorkflows(registry: ConnectorRegistry, config: { ge
   };
 
   const workflows = [
-    hebrewSubtitlesWorkflow,
+    autoSubtitlesWorkflow,
     timelineTranscriptWorkflow,
   ];
 

@@ -62,7 +62,7 @@ def register(mcp, connector):
         # --- 1) Generate SRT backup ---
         desktop = os.path.join(os.environ.get('USERPROFILE', os.path.expanduser('~')), 'Desktop')
         unique_id = int(time.time())
-        srt_path = os.path.join(desktop, f"Hebrew_Subtitles_{unique_id}.srt")
+        srt_path = os.path.join(desktop, f"Auto_Subtitles_{unique_id}.srt")
 
         srt_content = ""
         for i, sub in enumerate(normalised, 1):
@@ -88,105 +88,9 @@ def register(mcp, connector):
         except Exception as e:
             print(f"SRT import failed ({e}), file saved at: {srt_path}")
 
-        # --- 3) Export current timeline to FCPXML (for timing metadata) ---
-        temp_dir = tempfile.gettempdir()
-        timeline_name = timeline.GetName()
-        safe_name = "".join(c for c in timeline_name if c.isalnum() or c in (' ', '_', '-')).strip()
-        export_path = os.path.join(temp_dir, f"{safe_name}_original.fcpxml")
-
-        exported = False
-        try:
-            success = timeline.Export(
-                export_path,
-                getattr(resolve, 'EXPORT_FCPXML_1_8', 6),
-                getattr(resolve, 'EXPORT_NONE', 0)
-            )
-            if not success:
-                success = timeline.Export(export_path, 6, 0)
-            exported = success and os.path.exists(export_path)
-        except Exception:
-            exported = False
-
-        # --- 3) Build synced subtitle FCPXML ---
-        sub_timeline_name = f"{safe_name}_Subtitles_{unique_id}"
-        fcpxml_path = os.path.join(temp_dir, f"{sub_timeline_name}.fcpxml")
-
-        if exported:
-            try:
-                build_synced_subtitle_fcpxml(
-                    source_fcpxml_path=export_path,
-                    subtitles=normalised,
-                    output_path=fcpxml_path,
-                    timeline_name=sub_timeline_name,
-                    animation=animation,
-                )
-            except Exception as e:
-                exported = False  # Fall through to fallback
-
-        if not exported:
-            # Fallback: standalone FCPXML (try to read tcStart from timeline)
-            try:
-                start_frame = int(timeline.GetStartFrame())
-                tc_start = start_frame / fps
-            except Exception:
-                tc_start = 0.0
-
-            try:
-                width = int(project.GetSetting('timelineResolutionWidth') or 1920)
-                height = int(project.GetSetting('timelineResolutionHeight') or 1080)
-                fcpxml_path = build_subtitle_fcpxml(
-                    subtitles=normalised,
-                    fps=fps,
-                    width=width,
-                    height=height,
-                    timeline_name=sub_timeline_name,
-                    output_dir=temp_dir,
-                    tc_start=tc_start,
-                    animation=animation,
-                )
-            except Exception as e:
-                return json.dumps({
-                    "success": True,
-                    "message": f"Created SRT at {srt_path} but FCPXML generation failed: {e}. Please import SRT manually.",
-                    "srt_path": srt_path,
-                })
-
-        # --- 4) Import FCPXML as new timeline ---
-        media_pool = project.GetMediaPool()
-        try:
-            new_timeline = media_pool.ImportTimelineFromFile(fcpxml_path, {
-                "timelineName": sub_timeline_name,
-            })
-            if new_timeline:
-                return json.dumps({
-                    "success": True,
-                    "message": (
-                        f"Created {len(normalised)} subtitles and imported as timeline '{sub_timeline_name}'. "
-                        f"It is synced with '{timeline_name}' – same start time and duration. "
-                        f"SRT backup: {srt_path}"
-                    ),
-                    "srt_path": srt_path,
-                    "fcpxml_path": fcpxml_path,
-                    "timeline_name": sub_timeline_name,
-                })
-        except Exception:
-            pass
-
-        # Fallback: SRT import
-        try:
-            imported = media_pool.ImportMedia([srt_path])
-            if imported and len(imported) > 0:
-                return json.dumps({
-                    "success": True,
-                    "message": f"FCPXML import failed. Imported SRT into Media Pool. Please drag to timeline. SRT: {srt_path}",
-                    "srt_path": srt_path,
-                })
-        except Exception:
-            pass
-
+        # --- 3) Return Success ---
         return json.dumps({
             "success": True,
-            "message": f"Created SRT ({srt_path}) and FCPXML ({fcpxml_path}). Import manually via File > Import AAF, EDL, XML.",
+            "message": f"Created SRT file ({srt_path}) and imported it into the Media Pool. Please drag it into your timeline.",
             "srt_path": srt_path,
-            "fcpxml_path": fcpxml_path,
         })

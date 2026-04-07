@@ -1,0 +1,100 @@
+import sys
+import json
+import os
+import subprocess
+import tempfile
+import argparse
+
+# Suppress stdout from vad module
+import contextlib
+with contextlib.redirect_stdout(None):
+    from vad import get_speech_intervals
+
+def extract_to_wav(media_path: str, sample_rate: int = 16000) -> str:
+    temp_wav = tempfile.NamedTemporaryFile(suffix='.wav', delete=False).name
+    cmd = [
+        'ffmpeg', '-y',
+        '-i', media_path,
+        '-ac', '1',
+        '-ar', str(sample_rate),
+        '-f', 'wav',
+        '-acodec', 'pcm_s16le',
+        '-loglevel', 'error',
+        temp_wav
+    ]
+    subprocess.run(cmd, check=True)
+    return temp_wav
+
+def slice_audio(original_path: str, start: float, end: float, index: int, out_dir: str) -> str:
+    out_path = os.path.join(out_dir, f"vad_slice_{index}.mp3")
+    cmd = [
+        'ffmpeg', '-y',
+        '-i', original_path,
+        '-ss', str(start),
+        '-to', str(end),
+        '-c:a', 'libmp3lame',
+        '-q:a', '5', # Good enough quality
+        '-loglevel', 'error',
+        out_path
+    ]
+    subprocess.run(cmd, check=True)
+    return out_path
+
+def main():
+    parser = argparse.ArgumentParser(description="VAD Audio Splitter for PipeFX")
+    parser.add_argument("audio_path", help="Path to exported audio chunk (MP3)")
+    parser.add_argument("base_offset", type=float, help="Base timeline offset in seconds")
+    parser.add_argument("--padding", type=int, default=2000, help="VAD padding in ms (default 2000 for 2s)")
+    
+    args = parser.parse_args()
+    
+    if not os.path.exists(args.audio_path):
+        print(json.dumps({"error": f"Audio file not found: {args.audio_path}"}))
+        sys.exit(1)
+        
+    temp_wav = None
+    try:
+        # Extract to 16kHz WAV for VAD analysis
+        temp_wav = extract_to_wav(args.audio_path)
+        
+        # Run VAD
+        # Padding 2000ms means it combines any speech separated by less than 2 seconds of silence.
+        intervals = get_speech_intervals(temp_wav, aggressiveness=3, padding_duration_ms=args.padding)
+        
+        # If no intervals detected, or just noise
+        if not intervals:
+            print(json.dumps([]))
+            return
+
+        out_dir = tempfile.gettempdir()
+        result_chunks = []
+        
+        # Filter chunks that are incredibly short (e.g., < 0.5 sec) to avoid bad API calls
+        valid_intervals = [iv for iv in intervals if (iv['end'] - iv['start']) > 0.5]
+        
+        for i, iv in enumerate(valid_intervals):
+            start = iv['start']
+            end = iv['end']
+            
+            # Slice the original MP3
+            sliced_path = slice_audio(args.audio_path, start, end, i, out_dir)
+            
+            # Calculate the absolute timeline offset
+            absolute_offset = args.base_offset + start
+            
+            result_chunks.append({
+                "path": sliced_path,
+                "offset_seconds": absolute_offset
+            })
+            
+        print(json.dumps(result_chunks))
+
+    except Exception as e:
+        print(json.dumps({"error": str(e)}))
+        sys.exit(1)
+    finally:
+        if temp_wav and os.path.exists(temp_wav):
+            os.remove(temp_wav)
+
+if __name__ == '__main__':
+    main()

@@ -64,7 +64,7 @@ def register(mcp, connector):
             chunk_out = min(chunk_in + frames_per_chunk - 1, end_f)
             
             chunk_file_name = f"{file_name}_part{i+1}"
-            chunk_path = os.path.join(temp_dir, chunk_file_name + ".mp4")
+            chunk_path = os.path.join(temp_dir, chunk_file_name + ".mp3")
             
             # offset from timeline start in seconds
             offset_seconds = (chunk_in - start_f) / fps
@@ -75,7 +75,8 @@ def register(mcp, connector):
                 "MarkOut": chunk_out,
                 "CustomName": chunk_file_name,
                 "TargetDir": temp_dir,
-                "Format": "MP4",
+                "Format": "mp3",
+                "AudioCodec": "mp3",
                 "ExportVideo": False,
                 "ExportAudio": True,
             }

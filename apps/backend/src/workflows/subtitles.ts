@@ -1,20 +1,23 @@
 import type { WorkflowDefinition } from './types.js';
 import * as fs from 'fs';
+import * as path from 'path';
+import { execSync } from 'child_process';
 
-export const hebrewSubtitlesWorkflow: WorkflowDefinition = {
-  name: 'auto_generate_hebrew_subtitles',
-  description: 'Automatically extracts audio from DaVinci Resolve, transcribes it via Whisper, translates it to Hebrew via Gemini, and inserts the subtitles back into the timeline. Call this if the user asks for Hebrew subtitles.',
+export const autoSubtitlesWorkflow: WorkflowDefinition = {
+  name: 'auto_generate_subtitles',
+  description: 'Automatically extracts audio from DaVinci Resolve, transcribes it via Whisper, translates it to the target language via Gemini, and inserts the subtitles back into the timeline. Call this if the user asks for subtitles.',
   parameters: {
     type: 'OBJECT',
     properties: {
       start_seconds: { type: 'NUMBER', description: 'Optional: only process from this second' },
       end_seconds: { type: 'NUMBER', description: 'Optional: only process until this second' },
-      animation: { type: 'BOOLEAN', description: 'Optional: generate fast-paced word-by-word animated subtitles' }
+      animation: { type: 'BOOLEAN', description: 'Optional: generate fast-paced word-by-word animated subtitles' },
+      target_language: { type: 'STRING', description: 'Optional: requested target language for the subtitles (e.g. English, French, Spanish). If omitted, preserves original language.' }
     }
   },
   execute: async (args, context) => {
     const { registry, ai, openai } = context;
-    console.log(`Running Backend Pipeline: auto_generate_hebrew_subtitles`, args);
+    console.log(`Running Backend Pipeline: auto_generate_subtitles`, args);
 
     // 1. Trigger audio rendering
     const renderResult = await registry.callTool('render_timeline_audio', args);
@@ -28,6 +31,10 @@ export const hebrewSubtitlesWorkflow: WorkflowDefinition = {
         console.log(`Transcribing ${resJson.audio_chunks.length} audio chunks via Whisper...`);
         const allSegments: any[] = [];
         
+        // 2. Run VAD to filter out empty silences
+        const validChunks: any[] = [];
+        const vadSplitScript = path.join(process.cwd(), 'stools', 'vad_split.py');
+        
         for (const chunk of resJson.audio_chunks) {
           let actualPath = chunk.path;
           if (!fs.existsSync(actualPath)) {
@@ -36,7 +43,30 @@ export const hebrewSubtitlesWorkflow: WorkflowDefinition = {
           }
           
           if (actualPath && fs.existsSync(actualPath)) {
-              console.log(`Sending chunk to Whisper: ${actualPath} (offset: ${chunk.offset_seconds}s)`);
+            try {
+              console.log(`🔪 Slicing silences using WebRTC VAD on: ${actualPath}`);
+              const stdout = execSync(`python "${vadSplitScript}" "${actualPath}" ${chunk.offset_seconds}`);
+              const output = stdout.toString().trim();
+              const splitChunks = JSON.parse(output.split('\n').pop() || '[]'); // In case VAD prints other things, take last line
+              if (Array.isArray(splitChunks) && splitChunks.length > 0) {
+                console.log(`   -> Sliced into ${splitChunks.length} tightly bounded speech chunks.`);
+                validChunks.push(...splitChunks);
+              } else {
+                 console.log(`   -> No speech detected or split failed.`);
+              }
+            } catch (vadErr) {
+              console.error(`   -> VAD failed, falling back to full original chunk:`, vadErr);
+              validChunks.push({ path: actualPath, offset_seconds: chunk.offset_seconds });
+            }
+          }
+        }
+        
+        console.log(`\n🚀 Transcribing ${validChunks.length} tight speech chunks via Whisper...`);
+        
+        for (const chunk of validChunks) {
+          const actualPath = chunk.path;
+          if (fs.existsSync(actualPath)) {
+              console.log(`Sending tight chunk to Whisper: ${actualPath} (offset: ${chunk.offset_seconds}s)`);
               try {
                 const transcription = await openai.audio.transcriptions.create({
                   file: fs.createReadStream(actualPath),
@@ -48,7 +78,7 @@ export const hebrewSubtitlesWorkflow: WorkflowDefinition = {
                 if (transcription.segments && transcription.segments.length > 0) {
                   // --- Batched translation via Gemini ---
                   const BATCH_SIZE = 30;
-                  const MAX_WORDS = args.animation ? 1 : 5;
+
                   const rawSegments = transcription.segments;
                   console.log(`Translating ${rawSegments.length} segments via Gemini (batches of ${BATCH_SIZE})...`);
                   
@@ -60,11 +90,12 @@ export const hebrewSubtitlesWorkflow: WorkflowDefinition = {
                     const totalBatches = Math.ceil(rawSegments.length / BATCH_SIZE);
                     console.log(`  Batch ${batchNum}/${totalBatches} (${batch.length} segments)...`);
                     
-                    const batchPrompt = `Translate these subtitle segments to Hebrew. Auto-detect the source language – if already Hebrew, keep as-is. Return JSON with a "segments" array. Keep all original keys (id, seek, start, end, etc.) and ONLY change the "text" field to Hebrew. Do NOT split or merge segments.\n\nJSON:\n${JSON.stringify({segments: batch})}`;
+                    const languageTarget = args.target_language || 'their original language';
+                    const batchPrompt = `Translate these subtitle segments to ${languageTarget}. Auto-detect the source language – if already ${languageTarget}, keep as-is. Return JSON with a "segments" array. Keep all original keys (id, seek, start, end, etc.) and ONLY change the "text" field to ${languageTarget}. Do NOT split or merge segments.\n\nJSON:\n${JSON.stringify({segments: batch})}`;
                     
                     try {
                       const geminiResult = await ai.models.generateContent({
-                        model: 'gemini-2.5-flash',
+                        model: 'gemini-3.1-flash-lite-preview',
                         contents: batchPrompt,
                         config: {
                           responseMimeType: 'application/json',
@@ -84,9 +115,8 @@ export const hebrewSubtitlesWorkflow: WorkflowDefinition = {
                     }
                   }
                   
-                  console.log(`Translation done. Splitting ${translatedSegments.length} segments to max ${MAX_WORDS} words...`);
+                  console.log(`Formatting 100% accurate timestamps...`);
                   
-                  // --- Math-based splitting to max 5 words ---
                   for (const seg of translatedSegments) {
                     const text = (seg.text || '').trim();
                     const segStart = (seg.start ?? 0) + chunk.offset_seconds;
@@ -97,11 +127,28 @@ export const hebrewSubtitlesWorkflow: WorkflowDefinition = {
                     
                     const words = text.split(/\s+/);
                     
-                    if (words.length <= MAX_WORDS) {
-                      allSegments.push({ start_seconds: segStart, end_seconds: segEnd, text });
-                    } else {
-                      // Split into chunks of MAX_WORDS with proportional time
+                    if (args.animation) {
+                      // Animated TikTok style: 1 word at a time, split duration proportionally
                       let currentStart = segStart;
+                      for (let w = 0; w < words.length; w++) {
+                        const word = words[w];
+                        const chunkDur = segDuration / words.length;
+                        const chunkEnd = Math.min(currentStart + chunkDur, segEnd);
+                        
+                        allSegments.push({
+                          start_seconds: currentStart,
+                          end_seconds: chunkEnd,
+                          text: word,
+                        });
+                        currentStart = chunkEnd;
+                      }
+                    } else {
+                      // Normal style: limit chunks to roughly 8 words (5-10 range)
+                      // This avoids creating enormous text blocks on screen while 
+                      // keeping chunks large enough to minimize awkward timing cuts.
+                      const MAX_WORDS = 8;
+                      let currentStart = segStart;
+                      
                       for (let w = 0; w < words.length; w += MAX_WORDS) {
                         const chunkWords = words.slice(w, w + MAX_WORDS);
                         const fraction = chunkWords.length / words.length;
@@ -118,7 +165,7 @@ export const hebrewSubtitlesWorkflow: WorkflowDefinition = {
                     }
                   }
                   
-                  console.log(`Splitting done. Total subtitle entries: ${allSegments.length}`);
+                  console.log(`Formatting done. Total subtitle entries: ${allSegments.length}`);
                 }
               } catch (transcribeError) {
                 console.error(`ERROR processing chunk ${actualPath}:`, transcribeError);
