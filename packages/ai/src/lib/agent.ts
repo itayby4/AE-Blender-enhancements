@@ -8,13 +8,13 @@ export function createAgent(config: AgentConfig): Agent {
   const geminiClient = new GoogleGenAI({ apiKey: config.apiKey });
   const openaiClient = config.openaiApiKey ? new OpenAI({ apiKey: config.openaiApiKey }) : null;
   const anthropicClient = config.anthropicApiKey ? new Anthropic({ apiKey: config.anthropicApiKey }) : null;
-  
+
   return {
     async chat(message: string, options?: ChatOptions): Promise<string> {
       const activeProvider = options?.providerOverride || 'gemini-3.1-pro-preview';
       const activeModel = options?.modelOverride ?? config.model;
       const systemPrompt = options?.systemPromptOverride ?? config.systemPrompt;
-      
+
       let tools = await config.registry.getAllTools();
       if (options?.allowedTools) {
         const allowed = new Set(options.allowedTools);
@@ -48,8 +48,8 @@ export function createAgent(config: AgentConfig): Agent {
         while (response.choices[0].message.tool_calls && response.choices[0].message.tool_calls.length > 0) {
           const m = response.choices[0].message;
           messages.push(m);
-          
-          for (const call of m.tool_calls!) {
+
+          const toolResults = await Promise.all(m.tool_calls!.map(async (call) => {
             const callObj = call as any;
             try {
               const args = JSON.parse(callObj.function.arguments);
@@ -57,22 +57,12 @@ export function createAgent(config: AgentConfig): Agent {
               const contentStr = Array.isArray(result.content) 
                 ? result.content.filter((c: any) => c.type === 'text').map((c: any) => c.text).join('\n')
                 : String(result.content);
-                
-              messages.push({
-                tool_call_id: callObj.id,
-                role: 'tool',
-                name: callObj.function.name,
-                content: contentStr,
-              });
+              return { tool_call_id: callObj.id, role: 'tool' as const, name: callObj.function.name, content: contentStr };
             } catch (err: any) {
-              messages.push({
-                tool_call_id: callObj.id,
-                role: 'tool',
-                name: callObj.function.name,
-                content: String(err),
-              });
+              return { tool_call_id: callObj.id, role: 'tool' as const, name: callObj.function.name, content: String(err) };
             }
-          }
+          }));
+          messages.push(...toolResults);
           response = await openaiClient.chat.completions.create({
             model: activeProvider,
             messages,
@@ -90,11 +80,11 @@ export function createAgent(config: AgentConfig): Agent {
           ...normalizedHistory,
           { role: 'user', content: message }
         ];
-        
+
         let response = await anthropicClient.messages.create({
           model: activeProvider === 'claude-sonnet-4.6' ? 'claude-opus-4-6' : activeProvider,
           system: systemPrompt,
-          max_tokens: 1024,
+          max_tokens: 4000,
           messages,
           tools: claudeTools.length > 0 ? claudeTools : undefined,
         });
@@ -102,41 +92,32 @@ export function createAgent(config: AgentConfig): Agent {
         while (response.stop_reason === 'tool_use') {
           const toolUses = response.content.filter((c): c is Anthropic.ToolUseBlock => c.type === 'tool_use');
           messages.push({ role: 'assistant', content: response.content });
-          
+
           const toolResults: Anthropic.ToolResultBlockParam[] = [];
-          
-          for (const call of toolUses) {
+
+          const resolvedResults = await Promise.all(toolUses.map(async (call) => {
             try {
               const result = await config.registry.callTool(call.name, call.input as any);
               const contentStr = Array.isArray(result.content) 
                 ? result.content.filter((c: any) => c.type === 'text').map((c: any) => c.text).join('\n')
                 : String(result.content);
-                
-              toolResults.push({
-                type: 'tool_result',
-                tool_use_id: call.id,
-                content: contentStr,
-              });
+              return { type: 'tool_result' as const, tool_use_id: call.id, content: contentStr };
             } catch (err: any) {
-              toolResults.push({
-                type: 'tool_result',
-                tool_use_id: call.id,
-                content: String(err),
-                is_error: true,
-              });
+              return { type: 'tool_result' as const, tool_use_id: call.id, content: String(err), is_error: true };
             }
-          }
-          
+          }));
+          toolResults.push(...resolvedResults);
+
           messages.push({ role: 'user', content: toolResults });
           response = await anthropicClient.messages.create({
             model: activeProvider === 'claude-sonnet-4.6' ? 'claude-opus-4-6' : activeProvider,
             system: systemPrompt,
-            max_tokens: 1024,
+            max_tokens: 4000,
             messages,
             tools: claudeTools.length > 0 ? claudeTools : undefined,
           });
         }
-        
+
         const finalContent = response.content.find(c => c.type === 'text');
         return finalContent?.type === 'text' ? finalContent.text : 'No response content.';
       }
@@ -164,7 +145,7 @@ export function createAgent(config: AgentConfig): Agent {
             (call.args as Record<string, unknown>) ?? {}
           );
 
-          const contentStr = Array.isArray(result.content) 
+          const contentStr = Array.isArray(result.content)
             ? result.content.filter((c: any) => c.type === 'text').map((c: any) => c.text).join('\n')
             : String(result.content);
 

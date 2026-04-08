@@ -11,12 +11,14 @@ async function main() {
 
   const registry = new ConnectorRegistry();
   registry.register(config.connectors.resolve);
+  if (config.connectors.premiere) registry.register(config.connectors.premiere);
+  if (config.connectors.aftereffects) registry.register(config.connectors.aftereffects);
   registerLocalWorkflows(registry, {
     geminiApiKey: config.geminiApiKey,
     openaiApiKey: config.openaiApiKey,
   });
 
-  await registry.connectAll();
+  await registry.switchActiveConnector('resolve');
 
   const agent = createAgent({
     model: config.geminiModel,
@@ -46,23 +48,33 @@ async function main() {
 
       req.on('end', async () => {
         try {
-          const { message, skill, history, llmModel } = JSON.parse(body);
+          const { message, skill, history, llmModel, activeApp } = JSON.parse(body);
           if (!message) {
             res.writeHead(400, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({ error: 'Message is required' }));
             return;
           }
 
+          let systemPromptOverride = skill?.systemInstruction;
+          if (!systemPromptOverride && activeApp) {
+            const appNames: Record<string, string> = {
+               'resolve': 'DaVinci Resolve',
+               'premiere': 'Adobe Premiere Pro',
+               'aftereffects': 'Adobe After Effects'
+            };
+            const appName = appNames[activeApp] || 'the Video Editing Software';
+            systemPromptOverride = config.systemPrompt.replace(/DaVinci Resolve/g, appName);
+          }
+
           const text = await agent.chat(message, {
             providerOverride: llmModel,
             modelOverride: skill?.model,
-            systemPromptOverride: skill?.systemInstruction,
+            systemPromptOverride: systemPromptOverride,
             allowedTools: skill?.allowedTools,
             history: history,
           });
 
           // Extract pipeline actions from AI response if present
-          require('fs').writeFileSync('last_ai_response.txt', text);
           let cleanText = text;
           let actions: any[] = [];
           
@@ -103,6 +115,25 @@ async function main() {
 
           res.writeHead(200, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({ text: cleanText, actions }));
+        } catch (err: unknown) {
+          const msg = err instanceof Error ? err.message : String(err);
+          res.writeHead(500, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: msg }));
+        }
+      });
+    } else if (req.method === 'POST' && req.url === '/api/switch-app') {
+      let body = '';
+      req.on('data', (chunk: Buffer) => {
+        body += chunk.toString();
+      });
+      req.on('end', async () => {
+        try {
+          const { activeApp } = JSON.parse(body);
+          if (activeApp) {
+            await registry.switchActiveConnector(activeApp);
+          }
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ success: true }));
         } catch (err: unknown) {
           const msg = err instanceof Error ? err.message : String(err);
           res.writeHead(500, { 'Content-Type': 'application/json' });

@@ -56,10 +56,12 @@ def find_audio_offset(reference_file: str, target_file: str) -> float:
     is shifted relative to the reference_file (the camera video).
     
     If positive, target starts AFTER reference. If negative, target starts BEFORE reference.
-    We are basically finding the sync point.
     """
-    sr = 16000
-    print(f"[*] Extracting reference audio (camera): {reference_file}")
+    # DOWN-SAMPLING OPTIMIZATION: 
+    # Using 4000Hz instead of 16000Hz drops memory by 4x and speeds up the FFT Cross-Correlation immensely,
+    # while still giving us sub-millisecond precision (0.25ms is far smaller than a 25fps 40ms frame).
+    sr = 4000
+    print(f"[*] Extracting reference audio (camera) at {sr}Hz: {reference_file}")
     ref_wav = extract_audio(reference_file, sr)
     
     print(f"[*] Extracting target audio (external mic): {target_file}")

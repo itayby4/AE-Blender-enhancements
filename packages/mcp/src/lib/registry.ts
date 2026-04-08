@@ -61,6 +61,33 @@ export class ConnectorRegistry {
     await Promise.all(entries.map((c) => c.disconnect()));
   }
 
+  async switchActiveConnector(activeId: string): Promise<void> {
+    const entries = Array.from(this.connectors.entries());
+    await Promise.all(
+      entries.map(async ([id, connector]) => {
+        if (id === activeId) {
+          if (!connector.isConnected()) {
+            try {
+              await connector.connect();
+              console.log(`Connected to active connector "${id}" (${connector.config.name})`);
+            } catch (err) {
+              console.error(`Failed to connect to active connector "${id}":`, err);
+            }
+          }
+        } else {
+          if (connector.isConnected()) {
+            try {
+              await connector.disconnect();
+              console.log(`Disconnected inactive connector "${id}" (${connector.config.name})`);
+            } catch (err) {
+              console.error(`Failed to disconnect from "${id}":`, err);
+            }
+          }
+        }
+      })
+    );
+  }
+
   getConnector(id: string): Connector {
     const connector = this.connectors.get(id);
     if (!connector) {

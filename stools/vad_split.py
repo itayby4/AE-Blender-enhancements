@@ -66,26 +66,38 @@ def main():
             print(json.dumps([]))
             return
 
-        out_dir = tempfile.gettempdir()
-        result_chunks = []
-        
         # Filter chunks that are incredibly short (e.g., < 0.5 sec) to avoid bad API calls
         valid_intervals = [iv for iv in intervals if (iv['end'] - iv['start']) > 0.5]
         
-        for i, iv in enumerate(valid_intervals):
+        out_dir = tempfile.gettempdir()
+
+        # BATCH OPTIMIZATION:
+        # Instead of launching FFmpeg synchronously 100+ times (which takes minutes),
+        # we run them in parallel utilizing all CPU cores. This reduces time by nearly 10x-20x.
+        from concurrent.futures import ThreadPoolExecutor, as_completed
+
+        def process_chunk(i, iv):
             start = iv['start']
             end = iv['end']
-            
-            # Slice the original MP3
             sliced_path = slice_audio(args.audio_path, start, end, i, out_dir)
             
-            # Calculate the absolute timeline offset
-            absolute_offset = args.base_offset + start
-            
-            result_chunks.append({
+            return {
+                "index": i,
                 "path": sliced_path,
-                "offset_seconds": absolute_offset
-            })
+                "offset_seconds": args.base_offset + start
+            }
+
+        with ThreadPoolExecutor(max_workers=os.cpu_count() or 4) as executor:
+            futures = [executor.submit(process_chunk, i, iv) for i, iv in enumerate(valid_intervals)]
+            
+            # Collect results and sort back by original index since parallel threads finish out of order
+            unordered_chunks = [f.result() for f in as_completed(futures)]
+            
+        result_chunks = sorted(unordered_chunks, key=lambda x: x["index"])
+        
+        # Remove the 'index' temp key before dumping JSON
+        for chunk in result_chunks:
+            chunk.pop("index")
             
         print(json.dumps(result_chunks))
 

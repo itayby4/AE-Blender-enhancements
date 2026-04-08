@@ -28,6 +28,15 @@ import { Button } from '../components/ui/button';
 import { Card, CardContent } from '../components/ui/card';
 import { ScrollArea } from '../components/ui/scroll-area';
 import { Textarea } from '../components/ui/textarea';
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectLabel,
+  SelectTrigger,
+  SelectValue,
+} from '../components/ui/select';
 import { loadSkills, type Skill } from '../lib/load-skills';
 import { VideoGenDashboard } from '../features/video-gen/VideoGenDashboard';
 import { ImageGenDashboard } from '../features/image-gen/ImageGenDashboard';
@@ -92,6 +101,7 @@ export function App() {
   const [selectedSkillId, setSelectedSkillId] = useState('default');
   const [skills, setSkills] = useState<Skill[]>(DEFAULT_SKILLS);
   const [selectedLlmModel, setSelectedLlmModel] = useState('gemini-3.1-pro-preview');
+  const [activeApp, setActiveApp] = useState('resolve');
 
   const [isAiTyping, setIsAiTyping] = useState(false);
 
@@ -104,6 +114,14 @@ export function App() {
   useEffect(() => {
     loadSkills().then(setSkills);
   }, []);
+
+  useEffect(() => {
+    fetch('http://localhost:3001/api/switch-app', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ activeApp })
+    }).catch(err => console.error('Failed to switch app:', err));
+  }, [activeApp]);
 
   const handleSendMessage = async () => {
     if (!chatInput.trim() || isAiTyping) return;
@@ -128,7 +146,7 @@ export function App() {
       const response = await fetch('http://localhost:3001/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: userText, skill: skillPayload, history: historyPayload, llmModel: selectedLlmModel })
+        body: JSON.stringify({ message: userText, skill: skillPayload, history: historyPayload, llmModel: selectedLlmModel, activeApp })
       });
 
       if (!response.ok) {
@@ -226,12 +244,21 @@ export function App() {
         </div>
 
         {/* Status Indicator */}
-        <div className="flex items-center gap-3 bg-muted/50 px-3 py-1.5 rounded-full border border-border/50">
-          <div className="flex flex-col items-end">
-            <span className="text-xs font-semibold leading-none">DaVinci Resolve</span>
-            <span className="text-[10px] text-muted-foreground">Studio 18.6</span>
-          </div>
-          <div className="flex h-6 w-6 items-center justify-center rounded-full bg-background border shadow-sm">
+        <div className="flex items-center gap-3">
+          <Select value={activeApp} onValueChange={(val) => { if (val) setActiveApp(val); }}>
+            <SelectTrigger className="w-[180px] h-9 bg-muted/50 border border-border/50 rounded-full font-semibold px-4 text-xs">
+              <SelectValue placeholder="Select Application" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectGroup>
+                <SelectLabel>Connected Apps</SelectLabel>
+                <SelectItem value="resolve">DaVinci Resolve</SelectItem>
+                <SelectItem value="premiere">Adobe Premiere Pro</SelectItem>
+                <SelectItem value="aftereffects">Adobe After Effects</SelectItem>
+              </SelectGroup>
+            </SelectContent>
+          </Select>
+          <div className="flex h-6 w-6 items-center justify-center rounded-full bg-background border shadow-sm" title="MCP Connection Status">
             <div className={`h-2 w-2 rounded-full ${isConnected ? 'bg-foreground shadow-[0_0_8px_rgba(255,255,255,0.4)]' : 'bg-muted-foreground'}`}></div>
           </div>
         </div>

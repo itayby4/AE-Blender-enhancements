@@ -46,8 +46,8 @@ export const config = {
         .trim()
     : undefined,
 
-  klingApiKey: process.env.KLING_API_KEY || 'ATpePpKM4LgHMCLprEChTJbThfDgRPkk',
-  klingApiSecret: process.env.KLING_API_SECRET || '8g3NNYDd9pNfGCTfnyTtKENahdBN9MyJ',
+  klingApiKey: process.env.KLING_API_KEY || '',
+  klingApiSecret: process.env.KLING_API_SECRET || '',
 
   systemPrompt: `You are the PipeFX AI, an expert video editing assistant natively connected to DaVinci Resolve via the Model Context Protocol.
 You have tools available to control DaVinci Resolve. When the user asks you to do something, use your tools to do it.
@@ -93,6 +93,36 @@ Always use the pipeline_actions block format. The frontend will parse it and exe
           'mcp_davinci.server',
         ],
         cwd: path.join(workspaceRoot, 'apps', 'mcp-davinci', 'src'),
+      },
+    },
+    premiere: {
+      id: 'premiere' as const,
+      name: 'Adobe Premiere Pro',
+      transport: {
+        type: 'stdio' as const,
+        command: resolveVenvPython(
+          path.join(workspaceRoot, 'apps', 'mcp-premiere', 'venv')
+        ),
+        args: [
+          '-m',
+          'mcp_premiere.server',
+        ],
+        cwd: path.join(workspaceRoot, 'apps', 'mcp-premiere', 'src'),
+      },
+    },
+    aftereffects: {
+      id: 'aftereffects' as const,
+      name: 'Adobe After Effects',
+      transport: {
+        type: 'stdio' as const,
+        command: resolveVenvPython(
+          path.join(workspaceRoot, 'apps', 'mcp-aftereffects', 'venv')
+        ),
+        args: [
+          '-m',
+          'mcp_aftereffects.server',
+        ],
+        cwd: path.join(workspaceRoot, 'apps', 'mcp-aftereffects', 'src'),
       },
     },
   },
