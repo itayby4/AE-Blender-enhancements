@@ -1,6 +1,6 @@
 import { useState, useEffect, type ChangeEvent } from 'react';
 import { Handle, Position, useReactFlow, useNodeId, useViewport } from '@xyflow/react';
-import { Video, Sparkles, Image as ImageIcon, Loader2, Wand2, Palette, Brain } from 'lucide-react';
+import { Video, Sparkles, Image as ImageIcon, Loader2, Wand2, Palette, Brain, Mic, Music, AudioLines, Headphones } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui/card';
 
 export function ModelNode({ data, selected }: { data: any, selected?: boolean }) {
@@ -11,14 +11,20 @@ export function ModelNode({ data, selected }: { data: any, selected?: boolean })
     seeddance:  { icon: Wand2,    borderColor: 'border-emerald-500/50 hover:border-emerald-500', bgColor: 'bg-emerald-500/20',  textColor: 'text-emerald-500' },
     seeddream:  { icon: Palette,  borderColor: 'border-rose-500/50 hover:border-rose-500',       bgColor: 'bg-rose-500/20',     textColor: 'text-rose-500' },
     anthropic:  { icon: Brain,    borderColor: 'border-purple-500/50 hover:border-purple-500',   bgColor: 'bg-purple-500/20',   textColor: 'text-purple-500' },
+    'elevenlabs-tts':     { icon: Mic,        borderColor: 'border-cyan-400/50 hover:border-cyan-400',       bgColor: 'bg-cyan-400/20',     textColor: 'text-cyan-400' },
+    'elevenlabs-sfx':     { icon: Music,      borderColor: 'border-orange-400/50 hover:border-orange-400',   bgColor: 'bg-orange-400/20',   textColor: 'text-orange-400' },
+    'elevenlabs-sts':     { icon: AudioLines, borderColor: 'border-teal-400/50 hover:border-teal-400',       bgColor: 'bg-teal-400/20',     textColor: 'text-teal-400' },
+    'elevenlabs-isolate': { icon: Headphones, borderColor: 'border-pink-400/50 hover:border-pink-400',       bgColor: 'bg-pink-400/20',     textColor: 'text-pink-400' },
   };
   const style = MODEL_STYLES[data.model] || MODEL_STYLES.nanobanana;
   const IconComponent = style.icon;
   
-  // Smart media type detection: use explicit type from API, or auto-detect from URL
-  const isImageMedia = data.mediaType === 'image' 
-    || (data.previewUrl && data.previewUrl.startsWith('data:image'));
-  const isVideoMedia = !isImageMedia;
+  // Smart media type detection
+  const isAudioMedia = data.mediaType === 'audio'
+    || (data.previewUrl && data.previewUrl.startsWith('data:audio'));
+  const isImageMedia = !isAudioMedia && (data.mediaType === 'image' 
+    || (data.previewUrl && data.previewUrl.startsWith('data:image')));
+  const isVideoMedia = !isAudioMedia && !isImageMedia;
   
   // Decoupled node logic. Execution state is strictly managed by the ReactFlow node data
   // mutating globally from the Render execution process.
@@ -114,7 +120,19 @@ export function ModelNode({ data, selected }: { data: any, selected?: boolean })
                <span className="text-[10px] uppercase tracking-widest font-bold">Rendering...</span>
              </div>
            ) : previewUrl ? (
-             isVideoMedia ? (
+             isAudioMedia ? (
+               <div className="flex flex-col items-center justify-center gap-3 p-4 w-full">
+                 <div className={`p-3 rounded-full ${style.bgColor}`}>
+                   <Mic className={`h-8 w-8 ${style.textColor}`} />
+                 </div>
+                 <audio 
+                   src={previewUrl} 
+                   controls 
+                   className="w-full max-w-[250px] h-8 nodrag"
+                 />
+                 <span className="text-[9px] uppercase font-bold tracking-widest text-muted-foreground">Audio Generated</span>
+               </div>
+             ) : isVideoMedia ? (
                <video 
                  src={previewUrl} 
                  autoPlay 

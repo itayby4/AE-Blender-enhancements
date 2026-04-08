@@ -11,3 +11,8 @@ export * from './lib/video-gen/seeddance.js';
 export * from './lib/image-gen/types.js';
 export * from './lib/image-gen/gemini.js';
 export * from './lib/image-gen/seeddream.js';
+
+// Sound Gen
+export * from './lib/sound-gen/types.js';
+export * from './lib/sound-gen/elevenlabs.js';
+

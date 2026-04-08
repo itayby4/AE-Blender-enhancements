@@ -13,6 +13,8 @@ async function main() {
   registry.register(config.connectors.resolve);
   if (config.connectors.premiere) registry.register(config.connectors.premiere);
   if (config.connectors.aftereffects) registry.register(config.connectors.aftereffects);
+  if (config.connectors.blender) registry.register(config.connectors.blender);
+  if (config.connectors.ableton) registry.register(config.connectors.ableton);
   registerLocalWorkflows(registry, {
     geminiApiKey: config.geminiApiKey,
     openaiApiKey: config.openaiApiKey,
@@ -60,7 +62,9 @@ async function main() {
             const appNames: Record<string, string> = {
                'resolve': 'DaVinci Resolve',
                'premiere': 'Adobe Premiere Pro',
-               'aftereffects': 'Adobe After Effects'
+               'aftereffects': 'Adobe After Effects',
+               'blender': 'Blender',
+               'ableton': 'Ableton Live'
             };
             const appName = appNames[activeApp] || 'the Video Editing Software';
             systemPromptOverride = config.systemPrompt.replace(/DaVinci Resolve/g, appName);

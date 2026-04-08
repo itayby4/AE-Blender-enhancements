@@ -70,8 +70,8 @@ export function usePipelineExecutor() {
     const executeNode = async (executionId: string): Promise<void> => {
       const currentNode = getNodes().find((n: Node) => n.id === executionId);
 
-      // We only actively "execute" modelNodes
-      if (!currentNode || currentNode.type !== 'modelNode') return;
+      // We only actively "execute" modelNodes and soundNodes
+      if (!currentNode || (currentNode.type !== 'modelNode' && currentNode.type !== 'soundNode')) return;
 
       const { model, ratio, duration, resolution } = currentNode.data;
 
@@ -114,6 +114,10 @@ export function usePipelineExecutor() {
         nanobanana: 'gemini2',
         seeddance: 'seeddance2',
         seeddream: 'seeddream45',
+        'elevenlabs-tts': 'elevenlabs-tts',
+        'elevenlabs-sfx': 'elevenlabs-sfx',
+        'elevenlabs-sts': 'elevenlabs-sts',
+        'elevenlabs-isolate': 'elevenlabs-isolate',
       };
       const backendModel = MODEL_MAP[model as string] || model;
       
@@ -130,6 +134,7 @@ export function usePipelineExecutor() {
             prompt: prompt || 'Cinematic highly-detailed scene',
             imageRef: incomingImageRefs.length > 0 ? incomingImageRefs[0] : undefined,
             imageRefs: incomingImageRefs,
+            audioRef: incomingImageRefs.length > 0 ? incomingImageRefs[0] : undefined,
             aspectRatio: selectedRatio,
             duration: selectedDuration,
             resolution: selectedResolution,

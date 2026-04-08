@@ -10,7 +10,7 @@ export async function handleAiModelRequest(req: IncomingMessage, res: ServerResp
   req.on('end', async () => {
     try {
       const payload = JSON.parse(body);
-      const { model, prompt, imageRef, lastFrameRef, imageRefs, duration, resolution, aspectRatio } = payload;
+      const { model, prompt, imageRef, lastFrameRef, imageRefs, duration, resolution, aspectRatio, voiceId, audioRef } = payload;
       
       if (!prompt) {
         res.writeHead(400, { 'Content-Type': 'application/json' });
@@ -31,7 +31,7 @@ export async function handleAiModelRequest(req: IncomingMessage, res: ServerResp
           aspectRatio
         });
       } else {
-        // Fallback to image providers
+        // Check image providers
         const imageProvider = providerRegistry.getImageProvider(model);
         if (imageProvider) {
           result = await imageProvider.generate(prompt, {
@@ -39,10 +39,19 @@ export async function handleAiModelRequest(req: IncomingMessage, res: ServerResp
             aspectRatio
           });
         } else {
-          // No provider found
-          res.writeHead(400, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ error: `Unknown model: ${model}` }));
-          return;
+          // Check sound providers
+          const soundProvider = providerRegistry.getSoundProvider(model);
+          if (soundProvider) {
+            result = await soundProvider.generate(prompt, {
+              voiceId,
+              audioRef: audioRef || (imageRef ? imageRef : undefined),
+            });
+          } else {
+            // No provider found
+            res.writeHead(400, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: `Unknown model: ${model}` }));
+            return;
+          }
         }
       }
       
@@ -57,3 +66,4 @@ export async function handleAiModelRequest(req: IncomingMessage, res: ServerResp
     }
   });
 }
+

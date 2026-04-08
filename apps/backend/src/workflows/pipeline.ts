@@ -9,6 +9,7 @@ export interface PipelineOptions {
   animation?: boolean;
   target_language?: string;
   use_vad?: boolean;
+  vad_sensitivity?: 'low' | 'high';
   max_words_per_chunk?: number;
 }
 
@@ -72,7 +73,8 @@ export async function runTranscriptionPipeline(
 
       try {
         console.log(`🔪 VAD splitting: ${actualPath}`);
-        const stdout = execSync(`python "${vadSplitScript}" "${actualPath}" ${chunk.offset_seconds}`);
+        const aggressiveness = options.vad_sensitivity === 'high' ? 0 : 1; // 0 is most sensitive to speech, 3 is least. Defaults to 1.
+        const stdout = execSync(`python "${vadSplitScript}" "${actualPath}" ${chunk.offset_seconds} --aggressiveness ${aggressiveness}`);
         const output = stdout.toString().trim();
         const splitChunks = JSON.parse(output.split('\n').pop() || '[]');
         if (Array.isArray(splitChunks) && splitChunks.length > 0) {

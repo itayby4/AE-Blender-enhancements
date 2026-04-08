@@ -125,5 +125,35 @@ Always use the pipeline_actions block format. The frontend will parse it and exe
         cwd: path.join(workspaceRoot, 'apps', 'mcp-aftereffects', 'src'),
       },
     },
+    blender: {
+      id: 'blender' as const,
+      name: 'Blender',
+      transport: {
+        type: 'stdio' as const,
+        command: resolveVenvPython(
+          path.join(workspaceRoot, 'apps', 'mcp-blender', 'venv')
+        ),
+        args: [
+          '-m',
+          'mcp_blender.server',
+        ],
+        cwd: path.join(workspaceRoot, 'apps', 'mcp-blender', 'src'),
+      },
+    },
+    ableton: {
+      id: 'ableton' as const,
+      name: 'Ableton Live',
+      transport: {
+        type: 'stdio' as const,
+        command: resolveVenvPython(
+          path.join(workspaceRoot, 'apps', 'mcp-ableton', 'venv')
+        ),
+        args: [
+          '-m',
+          'mcp_ableton.server',
+        ],
+        cwd: path.join(workspaceRoot, 'apps', 'mcp-ableton', 'src'),
+      },
+    },
   },
 };

@@ -255,6 +255,8 @@ export function App() {
                 <SelectItem value="resolve">DaVinci Resolve</SelectItem>
                 <SelectItem value="premiere">Adobe Premiere Pro</SelectItem>
                 <SelectItem value="aftereffects">Adobe After Effects</SelectItem>
+                <SelectItem value="blender">Blender</SelectItem>
+                <SelectItem value="ableton">Ableton Live</SelectItem>
               </SelectGroup>
             </SelectContent>
           </Select>

@@ -44,7 +44,8 @@ def main():
     parser = argparse.ArgumentParser(description="VAD Audio Splitter for PipeFX")
     parser.add_argument("audio_path", help="Path to exported audio chunk (MP3)")
     parser.add_argument("base_offset", type=float, help="Base timeline offset in seconds")
-    parser.add_argument("--padding", type=int, default=2000, help="VAD padding in ms (default 2000 for 2s)")
+    parser.add_argument("--padding", type=int, default=2500, help="VAD padding in ms (default 2500 for 2.5s)")
+    parser.add_argument("--aggressiveness", type=int, default=1, help="VAD aggressiveness (0-3), lower is more sensitive")
     
     args = parser.parse_args()
     
@@ -58,8 +59,8 @@ def main():
         temp_wav = extract_to_wav(args.audio_path)
         
         # Run VAD
-        # Padding 2000ms means it combines any speech separated by less than 2 seconds of silence.
-        intervals = get_speech_intervals(temp_wav, aggressiveness=3, padding_duration_ms=args.padding)
+        # Padding 2500ms means it combines any speech separated by less than 2.5 seconds of silence.
+        intervals = get_speech_intervals(temp_wav, aggressiveness=args.aggressiveness, padding_duration_ms=args.padding)
         
         # If no intervals detected, or just noise
         if not intervals:

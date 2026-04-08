@@ -10,7 +10,8 @@ export const autoSubtitlesWorkflow: WorkflowDefinition = {
       start_seconds: { type: 'NUMBER', description: 'Optional: only process from this second' },
       end_seconds: { type: 'NUMBER', description: 'Optional: only process until this second' },
       animation: { type: 'BOOLEAN', description: 'Optional: generate fast-paced word-by-word animated subtitles' },
-      target_language: { type: 'STRING', description: 'Optional: requested target language for the subtitles (e.g. English, French, Spanish). If omitted, preserves original language.' }
+      target_language: { type: 'STRING', description: 'Optional: requested target language for the subtitles (e.g. English, French, Spanish). If omitted, preserves original language.' },
+      vad_sensitivity: { type: 'STRING', description: 'Optional: "high" or "low". Specifies the sensitivity of Voice Activity Detection for segmentation. Use "high" if words are being cut off or dropped.' }
     }
   },
   execute: async (args, context) => {
@@ -23,6 +24,7 @@ export const autoSubtitlesWorkflow: WorkflowDefinition = {
         end_seconds: args.end_seconds as number | undefined,
         animation: Boolean(args.animation),
         target_language: args.target_language as string | undefined,
+        vad_sensitivity: args.vad_sensitivity as 'low' | 'high' | undefined,
         use_vad: true,
         max_words_per_chunk: 8,
       });

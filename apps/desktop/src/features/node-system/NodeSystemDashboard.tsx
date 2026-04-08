@@ -18,7 +18,7 @@ import {
 import '@xyflow/react/dist/style.css';
 import {
   Workflow, Save, Settings2, Play, GripVertical, Plus, 
-  Sparkles, Video, Image as ImageIcon, Wand2, PlaySquare, Type, Palette, ChevronRight, ChevronDown, Upload, HardDriveDownload, Loader2, PanelLeftClose, PanelLeft, Brain
+  Sparkles, Video, Image as ImageIcon, Wand2, PlaySquare, Type, Palette, ChevronRight, ChevronDown, Upload, HardDriveDownload, Loader2, PanelLeftClose, PanelLeft, Brain, Mic, Music, AudioLines, Headphones
 } from 'lucide-react';
 import { Button } from '../../components/ui/button';
 import { ModelNode } from './custom-nodes/ModelNode';
@@ -27,6 +27,7 @@ import { PromptNode } from './custom-nodes/PromptNode';
 import { MediaNode } from './custom-nodes/MediaNode';
 import { NullNode } from './custom-nodes/NullNode';
 import { DownloadNode } from './custom-nodes/DownloadNode';
+import { SoundNode } from './custom-nodes/SoundNode';
 import { onPipelineActions, type PipelineAction } from '../../lib/pipeline-actions';
 import { usePipelineExecutor } from './usePipelineExecutor';
 import { save } from '@tauri-apps/plugin-dialog';
@@ -39,6 +40,7 @@ const nodeTypes = {
   mediaNode: MediaNode,
   nullNode: NullNode,
   downloadNode: DownloadNode,
+  soundNode: SoundNode,
 };
 
 export const VIDEO_MODELS = [
@@ -53,6 +55,13 @@ export const IMAGE_MODELS = [
 
 export const LLM_MODELS = [
   { type: 'modelNode', model: 'anthropic', label: 'Claude 3.5 Sonnet', desc: 'Advanced reasoning and text generation', icon: Brain, color: 'text-purple-500' },
+];
+
+export const SOUND_MODELS = [
+  { type: 'soundNode', model: 'elevenlabs-tts', label: 'ElevenLabs TTS', desc: 'AI text-to-speech with realistic voices', icon: Mic, color: 'text-cyan-400' },
+  { type: 'soundNode', model: 'elevenlabs-sfx', label: 'ElevenLabs SFX', desc: 'Generate sound effects from text', icon: Music, color: 'text-orange-400' },
+  { type: 'soundNode', model: 'elevenlabs-sts', label: 'ElevenLabs STS', desc: 'Voice-to-voice style transfer', icon: AudioLines, color: 'text-teal-400' },
+  { type: 'soundNode', model: 'elevenlabs-isolate', label: 'Audio Isolate', desc: 'Isolate vocals from background noise', icon: Headphones, color: 'text-pink-400' },
 ];
 
 export const TOOLS_NODES = [
@@ -76,7 +85,7 @@ function NodeSystemFlow() {
   const { executePipeline, isGlobalExecuting } = usePipelineExecutor();
   
   // Section states
-  const [openSections, setOpenSections] = useState({ video: true, image: true, llm: true, tools: true });
+  const [openSections, setOpenSections] = useState({ video: true, image: true, llm: true, sound: true, tools: true });
   const toggleSection = (s: keyof typeof openSections) => setOpenSections(o => ({ ...o, [s]: !o[s] }));
   
   // Responsive sidebar state
@@ -594,6 +603,38 @@ function NodeSystemFlow() {
               )}
             </div>
 
+            {/* Sound Models */}
+            <div>
+              <button 
+                onClick={() => toggleSection('sound')}
+                className="flex items-center justify-between w-full text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2 mt-4 hover:text-foreground transition-colors outline-hidden"
+              >
+                <span>Sound Models</span>
+                {openSections.sound ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+              </button>
+              {openSections.sound && (
+                <div className="space-y-2">
+                  {SOUND_MODELS.map(node => (
+                    <div 
+                      key={node.model}
+                      className="p-3 border rounded-lg bg-background shadow-sm flex items-start gap-3 cursor-grab hover:border-primary/50 transition-colors active:cursor-grabbing hover:bg-muted/30 [&>*]:pointer-events-none"
+                      draggable={true}
+                      onDragStart={(e) => onDragStart(e, node.type, node.model, node.label, node.desc)}
+                      onClick={() => onClickAdd(node.type, node.model, node.label, node.desc)}
+                    >
+                      <GripVertical className="w-4 h-4 mt-0.5 text-muted-foreground opacity-50 shrink-0 pointer-events-none" />
+                      <div className="pointer-events-none">
+                        <div className="font-medium text-sm flex items-center gap-1.5">
+                          <node.icon className={`w-3.5 h-3.5 ${node.color}`} /> {node.label}
+                        </div>
+                        <div className="text-[10px] text-muted-foreground mt-1 leading-snug">{node.desc}</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
             {/* Tools */}
             <div>
               <button 
@@ -730,6 +771,26 @@ function NodeSystemFlow() {
                  </button>
                  <div className="absolute left-full top-0 ml-1.5 w-48 bg-card/95 backdrop-blur-md border border-border shadow-2xl p-1.5 rounded-xl hidden group-hover/llm:block animate-in fade-in zoom-in-95 duration-100">
                    {LLM_MODELS.map(node => (
+                     <button 
+                       key={node.model}
+                       onClick={() => addNodeFromMenu(node.type, node.model, node.label, node.desc)}
+                       className="w-full flex items-center gap-2 px-2 py-2 text-sm hover:bg-muted rounded-md transition-colors text-left group"
+                     >
+                       <node.icon className={`h-4 w-4 ${node.color} group-hover:scale-110 transition-transform`} /> 
+                       <span className="font-medium">{node.label}</span>
+                     </button>
+                   ))}
+                 </div>
+               </div>
+
+               {/* Sound Models Submenu */}
+               <div className="relative group/sound">
+                 <button className="w-full flex items-center justify-between px-2 py-2 text-sm hover:bg-muted rounded-md transition-colors text-left group-hover/sound:bg-muted outline-hidden mt-0.5">
+                   <span className="font-medium">Sound Models</span>
+                   <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                 </button>
+                 <div className="absolute left-full top-0 ml-1.5 w-48 bg-card/95 backdrop-blur-md border border-border shadow-2xl p-1.5 rounded-xl hidden group-hover/sound:block animate-in fade-in zoom-in-95 duration-100">
+                   {SOUND_MODELS.map(node => (
                      <button 
                        key={node.model}
                        onClick={() => addNodeFromMenu(node.type, node.model, node.label, node.desc)}
