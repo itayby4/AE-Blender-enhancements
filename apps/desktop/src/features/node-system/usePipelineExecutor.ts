@@ -198,7 +198,9 @@ export function usePipelineExecutor() {
                 prompt: prompt,
               }),
             });
-          } catch { /* ignore */ }
+          } catch {
+            /* ignore */
+          }
 
           // Execution succeeded! Update node with result media
           setNodes((nds) =>
