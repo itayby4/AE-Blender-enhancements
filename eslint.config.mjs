@@ -39,15 +39,32 @@ export default [
             },
             {
               sourceTag: 'scope:mcp',
-              onlyDependOnLibsWithTags: ['scope:shared', 'scope:async', 'scope:mcp'],
+              onlyDependOnLibsWithTags: [
+                'scope:shared',
+                'scope:async',
+                'scope:mcp',
+              ],
             },
             {
               sourceTag: 'scope:ai',
-              onlyDependOnLibsWithTags: ['scope:shared', 'scope:mcp', 'scope:ai'],
+              onlyDependOnLibsWithTags: [
+                'scope:shared',
+                'scope:mcp',
+                'scope:ai',
+              ],
+            },
+            {
+              sourceTag: 'scope:providers',
+              onlyDependOnLibsWithTags: ['scope:shared', 'scope:providers'],
             },
             {
               sourceTag: 'scope:backend',
-              onlyDependOnLibsWithTags: ['scope:shared', 'scope:mcp', 'scope:ai'],
+              onlyDependOnLibsWithTags: [
+                'scope:shared',
+                'scope:mcp',
+                'scope:ai',
+                'scope:providers',
+              ],
             },
           ],
         },

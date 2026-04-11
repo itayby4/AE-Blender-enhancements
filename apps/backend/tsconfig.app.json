@@ -10,6 +10,9 @@
   "exclude": [],
   "references": [
     {
+      "path": "../../packages/providers/tsconfig.lib.json"
+    },
+    {
       "path": "../../packages/mcp/tsconfig.lib.json"
     },
     {

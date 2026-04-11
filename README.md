@@ -4,11 +4,11 @@ A TypeScript monorepo powered by [Nx](https://nx.dev) — publishable utility pa
 
 ## Prerequisites
 
-| Tool | Version | Install |
-|------|---------|---------|
-| Node.js | >= 22 | [nvm](https://github.com/nvm-sh/nvm) or [nodejs.org](https://nodejs.org) |
-| pnpm | >= 10 | `corepack enable && corepack prepare pnpm@latest --activate` |
-| Rust | stable | [rustup.rs](https://rustup.rs) |
+| Tool    | Version | Install                                                                  |
+| ------- | ------- | ------------------------------------------------------------------------ |
+| Node.js | >= 22   | [nvm](https://github.com/nvm-sh/nvm) or [nodejs.org](https://nodejs.org) |
+| pnpm    | >= 10   | `corepack enable && corepack prepare pnpm@latest --activate`             |
+| Rust    | stable  | [rustup.rs](https://rustup.rs)                                           |
 
 Tauri also needs platform-specific system dependencies. See the [Tauri prerequisites guide](https://v2.tauri.app/start/prerequisites/) for your OS.
 
@@ -84,12 +84,12 @@ Installed components land in `apps/desktop/src/components/ui/`. Use the `cn()` h
 
 All packages under `packages/` are buildable TypeScript libraries using Vite.
 
-| Package | Scope Tag | Description | Published |
-|---------|-----------|-------------|-----------|
-| `@pipefx/strings` | `scope:strings` | `capitalize`, `slugify`, and more | Yes |
-| `@pipefx/async` | `scope:async` | `asyncRetry` with configurable backoff | Yes |
-| `@pipefx/colors` | `scope:colors` | Hex/RGB/HSL conversion and manipulation | Yes |
-| `@pipefx/utils` | `scope:shared` | Internal shared helpers | No |
+| Package           | Scope Tag       | Description                             | Published |
+| ----------------- | --------------- | --------------------------------------- | --------- |
+| `@pipefx/strings` | `scope:strings` | `capitalize`, `slugify`, and more       | Yes       |
+| `@pipefx/async`   | `scope:async`   | `asyncRetry` with configurable backoff  | Yes       |
+| `@pipefx/colors`  | `scope:colors`  | Hex/RGB/HSL conversion and manipulation | Yes       |
+| `@pipefx/utils`   | `scope:shared`  | Internal shared helpers                 | No        |
 
 ### Working with a Package
 
@@ -111,12 +111,12 @@ pnpm nx show project strings --web
 
 Architectural constraints are enforced via ESLint and Nx tags:
 
-| Package | Can Import From |
-|---------|----------------|
-| `@pipefx/utils` | Nothing (base library) |
-| `@pipefx/strings` | `scope:shared` |
-| `@pipefx/async` | `scope:shared` |
-| `@pipefx/colors` | `scope:shared` |
+| Package           | Can Import From        |
+| ----------------- | ---------------------- |
+| `@pipefx/utils`   | Nothing (base library) |
+| `@pipefx/strings` | `scope:shared`         |
+| `@pipefx/async`   | `scope:shared`         |
+| `@pipefx/colors`  | `scope:shared`         |
 
 Try violating a boundary — import `@pipefx/colors` into `@pipefx/strings` and run `pnpm nx lint strings` to see it fail.
 

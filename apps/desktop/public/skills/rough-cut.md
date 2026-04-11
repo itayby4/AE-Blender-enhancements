@@ -1,6 +1,6 @@
 ---
 id: rough-cut
-name: "✂️ Rough Cut Editor"
+name: '✂️ Rough Cut Editor'
 allowedTools:
   - get_timeline_transcript
   - apply_ripple_deletes

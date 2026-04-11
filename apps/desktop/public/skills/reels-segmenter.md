@@ -1,6 +1,6 @@
 ---
 id: reels-editor
-name: "📱 Reels Segmenter"
+name: '📱 Reels Segmenter'
 allowedTools:
   - read_srt_file
   - get_hebrew_transcript_from_timeline_audio

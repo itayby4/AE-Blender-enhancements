@@ -89,6 +89,7 @@ Dependencies flow **downward only**. This is enforced by `@nx/enforce-module-bou
 ```
 
 **Rules:**
+
 - `scope:shared` can only depend on `scope:shared`.
 - `scope:mcp` can depend on `scope:shared` and `scope:async`.
 - `scope:ai` can depend on `scope:shared` and `scope:mcp`.
@@ -172,7 +173,7 @@ The connector system abstracts connections to external applications via the Mode
 
 ### Key types
 
-- **`ConnectorConfig`** -- declares *what* to connect to (id, name, transport).
+- **`ConnectorConfig`** -- declares _what_ to connect to (id, name, transport).
 - **`TransportConfig`** -- discriminated union: `StdioTransportConfig | SseTransportConfig`.
 - **`Connector`** -- a live connection wrapping an MCP `Client`. Has `connect()`, `disconnect()`, `listTools()`, `callTool()`.
 - **`ConnectorRegistry`** -- manages multiple connectors. Aggregates tools from all connectors and routes `callTool()` to the correct one.
@@ -218,10 +219,12 @@ Do NOT hardcode tool names, connector IDs, or application-specific prompts insid
 ## Backend Conventions (`apps/backend`)
 
 The backend is a **thin wiring layer**. It must contain:
+
 - `config.ts` -- environment variables, connector configs, port.
 - `main.ts` -- HTTP server setup, connector registration, agent creation.
 
 It must NOT contain:
+
 - Business logic (belongs in packages).
 - AI model interaction code (belongs in `@pipefx/ai`).
 - MCP client/transport code (belongs in `@pipefx/mcp`).
@@ -251,12 +254,12 @@ apps/mcp-davinci/
 
 `ResolveConnector` manages connection to DaVinci Resolve with tiered caching:
 
-| What                  | Cached?    | Why                                              |
-|-----------------------|------------|--------------------------------------------------|
-| fusionscript module   | Permanent  | Native binary, never changes at runtime          |
-| resolve instance      | TTL (5s)   | User might restart Resolve                       |
-| project reference     | Never      | User switches projects frequently                |
-| timeline reference    | Never      | User switches timelines frequently               |
+| What                | Cached?   | Why                                     |
+| ------------------- | --------- | --------------------------------------- |
+| fusionscript module | Permanent | Native binary, never changes at runtime |
+| resolve instance    | TTL (5s)  | User might restart Resolve              |
+| project reference   | Never     | User switches projects frequently       |
+| timeline reference  | Never     | User switches timelines frequently      |
 
 ### Adding a new MCP tool
 
@@ -266,6 +269,7 @@ apps/mcp-davinci/
 4. Import and call the register function from `tools/__init__.py`.
 
 Tool functions must:
+
 - Accept the `connector` via the `register()` closure, never call `get_resolve()` directly.
 - Return a string (FastMCP convention).
 - Handle `NoProjectError`, `NoTimelineError`, `ResolveNotRunningError` from the connector.

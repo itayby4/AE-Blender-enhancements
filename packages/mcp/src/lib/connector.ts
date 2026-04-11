@@ -9,7 +9,7 @@ export function createConnector(config: ConnectorConfig): Connector {
     { name: `pipefx-${config.id}`, version: '1.0.0' },
     { capabilities: {} }
   );
-  client.onerror = (err) => console.error("MCP Client Error:", err);
+  client.onerror = (err) => console.error('MCP Client Error:', err);
 
   let connected = false;
 
@@ -48,7 +48,8 @@ export function createConnector(config: ConnectorConfig): Connector {
         { name: `pipefx-${config.id}`, version: '1.0.0' },
         { capabilities: {} }
       );
-      client.onerror = (err) => console.error(`MCP Client Error (${config.id}):`, err);
+      client.onerror = (err) =>
+        console.error(`MCP Client Error (${config.id}):`, err);
       await connectClient();
       console.log(`Reconnected to "${config.id}" (${config.name})`);
     },
@@ -63,19 +64,31 @@ export function createConnector(config: ConnectorConfig): Connector {
       }));
     },
 
-    async callTool(name: string, args: Record<string, unknown>): Promise<ToolResult> {
+    async callTool(
+      name: string,
+      args: Record<string, unknown>
+    ): Promise<ToolResult> {
       const executeWithTimeout = (): Promise<any> => {
         return new Promise((resolve, reject) => {
           const timeoutId = setTimeout(() => {
-            reject(new Error(`Tool call "${name}" timed out after 600s (10 minutes). DaVinci Resolve might be frozen.`));
+            reject(
+              new Error(
+                `Tool call "${name}" timed out after 600s (10 minutes). DaVinci Resolve might be frozen.`
+              )
+            );
           }, TOOL_TIMEOUT);
-          
-          client.callTool({ name, arguments: args }, undefined as any, { timeout: TOOL_TIMEOUT } as any)
-            .then(res => {
+
+          client
+            .callTool(
+              { name, arguments: args },
+              undefined as any,
+              { timeout: TOOL_TIMEOUT } as any
+            )
+            .then((res) => {
               clearTimeout(timeoutId);
               resolve(res);
             })
-            .catch(err => {
+            .catch((err) => {
               clearTimeout(timeoutId);
               reject(err);
             });
@@ -84,7 +97,10 @@ export function createConnector(config: ConnectorConfig): Connector {
 
       try {
         const result = await executeWithTimeout();
-        return { content: result.content, isError: result.isError as boolean | undefined };
+        return {
+          content: result.content,
+          isError: result.isError as boolean | undefined,
+        };
       } catch (err) {
         console.warn(
           `Tool call "${name}" on "${config.id}" failed, attempting reconnect...`,
@@ -92,7 +108,10 @@ export function createConnector(config: ConnectorConfig): Connector {
         );
         await this.reconnect();
         const result = await executeWithTimeout();
-        return { content: result.content, isError: result.isError as boolean | undefined };
+        return {
+          content: result.content,
+          isError: result.isError as boolean | undefined,
+        };
       }
     },
 
