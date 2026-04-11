@@ -30,6 +30,7 @@ async function streamToBase64DataUrl(
   // Handle ReadableStream (Web API)
   if (typeof (stream as any).getReader === 'function') {
     const reader = (stream as ReadableStream<Uint8Array>).getReader();
+    // eslint-disable-next-line no-constant-condition
     while (true) {
       const { done, value } = await reader.read();
       if (done) break;
@@ -102,6 +103,7 @@ export const elevenLabsSfxProvider: SoundProvider = {
   name: 'ElevenLabs SFX',
   category: 'sound-gen',
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   async generate(prompt: string, _options?: SoundOptions) {
     const client = getClient();
 
