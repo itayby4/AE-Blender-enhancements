@@ -1,5 +1,5 @@
 ---
-applyTo: "apps/desktop/**"
+applyTo: 'apps/desktop/**'
 ---
 
 # shadcn/ui Component Rules

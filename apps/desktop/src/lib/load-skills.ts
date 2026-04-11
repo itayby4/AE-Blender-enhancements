@@ -19,16 +19,20 @@ function parseSkillMarkdown(raw: string): Omit<Skill, 'id'> & { id?: string } {
   const body = fmMatch[2].trim();
 
   const getString = (key: string): string | undefined => {
-    const m = frontmatter.match(new RegExp(`^${key}:\\s*["']?(.+?)["']?\\s*$`, 'm'));
+    const m = frontmatter.match(
+      new RegExp(`^${key}:\\s*["']?(.+?)["']?\\s*$`, 'm')
+    );
     return m ? m[1] : undefined;
   };
 
   const getList = (key: string): string[] | undefined => {
-    const listMatch = frontmatter.match(new RegExp(`^${key}:\\s*\\n((?:\\s+-\\s+.+\\n?)+)`, 'm'));
+    const listMatch = frontmatter.match(
+      new RegExp(`^${key}:\\s*\\n((?:\\s+-\\s+.+\\n?)+)`, 'm')
+    );
     if (!listMatch) return undefined;
     return listMatch[1]
       .split('\n')
-      .map(line => line.replace(/^\s*-\s*/, '').trim())
+      .map((line) => line.replace(/^\s*-\s*/, '').trim())
       .filter(Boolean);
   };
 
