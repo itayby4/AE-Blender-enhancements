@@ -1,0 +1,2 @@
+[console_scripts]
+mcp-davinci = mcp_davinci.server:main
