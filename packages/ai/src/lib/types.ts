@@ -1,5 +1,5 @@
 import type { ConnectorRegistry } from '@pipefx/mcp';
-
+'is it good to make the base model also modulare(itays Qustion)'
 export interface AgentConfig {
   model: string;
   apiKey: string;

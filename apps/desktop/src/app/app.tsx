@@ -22,7 +22,8 @@ import {
   Trash2,
   Video,
   ImageIcon,
-  Network
+  Network,
+  Subtitles
 } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Card, CardContent } from '../components/ui/card';
@@ -41,6 +42,7 @@ import { loadSkills, type Skill } from '../lib/load-skills';
 import { VideoGenDashboard } from '../features/video-gen/VideoGenDashboard';
 import { ImageGenDashboard } from '../features/image-gen/ImageGenDashboard';
 import { NodeSystemDashboard } from '../features/node-system/NodeSystemDashboard';
+import { SubtitlesDashboard } from '../features/subtitles/SubtitlesDashboard';
 import { dispatchPipelineActions } from '../lib/pipeline-actions';
 
 interface ChatMessage {
@@ -311,6 +313,18 @@ export function App() {
           </button>
 
           <button
+            onClick={() => setActiveCategory('subtitles')}
+            className={`flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-all text-left mt-1 ${
+              activeCategory === 'subtitles' 
+                ? 'bg-primary text-primary-foreground font-medium shadow-sm' 
+                : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+            }`}
+          >
+            <Subtitles className="h-4 w-4" />
+            Subtitles
+          </button>
+
+          <button
             onClick={() => setActiveCategory('node-system')}
             className={`flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-all text-left mt-1 ${
               activeCategory === 'node-system' 
@@ -356,7 +370,10 @@ export function App() {
         <div className={`flex-1 min-h-0 flex-col relative w-full h-full ${activeCategory === 'image-gen' ? 'flex' : 'hidden'}`}>
           <ImageGenDashboard />
         </div>
-        <div className={`flex-1 min-h-0 flex-col relative w-full h-full ${!['node-system', 'video-gen', 'image-gen'].includes(activeCategory) ? 'flex' : 'hidden'}`}>
+        <div className={`flex-1 min-h-0 flex-col relative w-full h-full ${activeCategory === 'subtitles' ? 'flex' : 'hidden'}`}>
+          <SubtitlesDashboard />
+        </div>
+        <div className={`flex-1 min-h-0 flex-col relative w-full h-full ${!['node-system', 'video-gen', 'image-gen', 'subtitles'].includes(activeCategory) ? 'flex' : 'hidden'}`}>
           <ScrollArea className="flex-1 min-h-0 p-6 relative">
           <div className="max-w-4xl mx-auto pb-10">
             <div className="flex items-center justify-between mb-6">

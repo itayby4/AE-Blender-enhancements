@@ -9,6 +9,8 @@ export function ModelNode({ data, selected }: { data: any, selected?: boolean })
     kling:      { icon: Sparkles, borderColor: 'border-primary/50 hover:border-primary',         bgColor: 'bg-primary/20',      textColor: 'text-primary' },
     nanobanana: { icon: Video,    borderColor: 'border-amber-500/50 hover:border-amber-500',     bgColor: 'bg-amber-500/20',    textColor: 'text-amber-500' },
     seeddance:  { icon: Wand2,    borderColor: 'border-emerald-500/50 hover:border-emerald-500', bgColor: 'bg-emerald-500/20',  textColor: 'text-emerald-500' },
+    'seedance-2': { icon: Wand2,    borderColor: 'border-emerald-500/50 hover:border-emerald-500', bgColor: 'bg-emerald-500/20',  textColor: 'text-emerald-500' },
+    'seedance-2-fast':  { icon: Wand2,    borderColor: 'border-emerald-400/50 hover:border-emerald-400', bgColor: 'bg-emerald-400/20',  textColor: 'text-emerald-400' },
     seeddream:  { icon: Palette,  borderColor: 'border-rose-500/50 hover:border-rose-500',       bgColor: 'bg-rose-500/20',     textColor: 'text-rose-500' },
     anthropic:  { icon: Brain,    borderColor: 'border-purple-500/50 hover:border-purple-500',   bgColor: 'bg-purple-500/20',   textColor: 'text-purple-500' },
     'elevenlabs-tts':     { icon: Mic,        borderColor: 'border-cyan-400/50 hover:border-cyan-400',       bgColor: 'bg-cyan-400/20',     textColor: 'text-cyan-400' },
@@ -159,7 +161,7 @@ export function ModelNode({ data, selected }: { data: any, selected?: boolean })
                 Generation Prompt
               </label>
               <div className="flex items-center gap-1.5">
-                {['kling', 'nanobanana', 'seeddance'].includes(data.model) && (
+                {['kling', 'nanobanana', 'seeddance', 'seedance-2', 'seedance-2-fast'].includes(data.model) && (
                   <select
                     className="nodrag text-[9px] bg-background border border-border/50 rounded px-1.5 py-0.5 min-w-[35px] focus:outline-none focus:border-primary text-muted-foreground uppercase font-bold tracking-wider cursor-pointer"
                     value={data.duration || '5'}
@@ -171,9 +173,9 @@ export function ModelNode({ data, selected }: { data: any, selected?: boolean })
                       );
                     }}
                   >
-                    <option value="5">5S</option>
-                    <option value="10">10S</option>
-                    <option value="15">15S</option>
+                    {[4,5,6,7,8,9,10,11,12,13,14,15].map(s => (
+                      <option key={s} value={String(s)}>{s}S</option>
+                    ))}
                   </select>
                 )}
                 <select
@@ -190,8 +192,12 @@ export function ModelNode({ data, selected }: { data: any, selected?: boolean })
                   <option value="16:9">16:9</option>
                   <option value="9:16">9:16</option>
                   <option value="1:1">1:1</option>
+                  <option value="21:9">21:9</option>
+                  <option value="4:3">4:3</option>
+                  <option value="3:4">3:4</option>
+                  <option value="auto">Auto</option>
                 </select>
-                {['kling', 'nanobanana', 'seeddance'].includes(data.model) && (
+                {['kling', 'nanobanana', 'seeddance', 'seedance-2', 'seedance-2-fast'].includes(data.model) && (
                   <select
                     className="nodrag text-[9px] bg-background border border-border/50 rounded px-1.5 py-0.5 min-w-[50px] focus:outline-none focus:border-primary text-muted-foreground uppercase font-bold tracking-wider cursor-pointer"
                     value={data.resolution || '720p'}

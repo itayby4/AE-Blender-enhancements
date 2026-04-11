@@ -180,11 +180,25 @@ export async function runTranscriptionPipeline(
   return finalSegments;
 }
 
-/** Resolves a chunk path, handling .mp4 -> .mp3 fallback */
+/** Resolves a chunk path, handling multiple extensions DaVinci Resolve might append */
 function resolveChunkPath(originalPath: string): string | null {
   if (fs.existsSync(originalPath)) return originalPath;
-  const mp3Path = originalPath.replace(/\.mp4$/, '.mp3');
-  if (fs.existsSync(mp3Path)) return mp3Path;
-  console.warn(`Audio chunk missing: ${originalPath}`);
+  
+  // Try to find the file with different extensions and log what we find
+  const dir = path.dirname(originalPath);
+  const baseName = path.basename(originalPath, path.extname(originalPath));
+  
+  if (fs.existsSync(dir)) {
+    const files = fs.readdirSync(dir);
+    for (const file of files) {
+      if (file.startsWith(baseName)) {
+        const foundPath = path.join(dir, file);
+        console.log(`[resolveChunkPath] Found alternative file: ${foundPath} instead of ${originalPath}`);
+        return foundPath;
+      }
+    }
+  }
+
+  console.warn(`Audio chunk missing: ${originalPath} and no alternatives found in ${dir}`);
   return null;
 }

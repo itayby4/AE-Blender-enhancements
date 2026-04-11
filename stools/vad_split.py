@@ -1,19 +1,48 @@
 import sys
 import json
 import os
+import shutil
 import subprocess
 import tempfile
 import argparse
+
+# Shim pkg_resources for Python 3.14+ (setuptools 82+ removed it, but webrtcvad needs it)
+try:
+    import pkg_resources
+except ImportError:
+    import types as _t, sys as _s
+    _pkg = _t.ModuleType('pkg_resources')
+    _pkg.get_distribution = lambda name: type('D', (), {'version': '0.0.0'})()
+    _s.modules['pkg_resources'] = _pkg
 
 # Suppress stdout from vad module
 import contextlib
 with contextlib.redirect_stdout(None):
     from vad import get_speech_intervals
 
+
+def _find_ffmpeg() -> str:
+    """Find ffmpeg executable on the system."""
+    found = shutil.which('ffmpeg')
+    if found:
+        return found
+    # Use static_ffmpeg package as fallback (pip install static-ffmpeg)
+    try:
+        import static_ffmpeg
+        static_ffmpeg.add_paths()
+        found = shutil.which('ffmpeg')
+        if found:
+            return found
+    except ImportError:
+        pass
+    raise FileNotFoundError("ffmpeg not found. Install via: pip install static-ffmpeg")
+
+FFMPEG = _find_ffmpeg()
+
 def extract_to_wav(media_path: str, sample_rate: int = 16000) -> str:
     temp_wav = tempfile.NamedTemporaryFile(suffix='.wav', delete=False).name
     cmd = [
-        'ffmpeg', '-y',
+        FFMPEG, '-y',
         '-i', media_path,
         '-ac', '1',
         '-ar', str(sample_rate),
@@ -28,7 +57,7 @@ def extract_to_wav(media_path: str, sample_rate: int = 16000) -> str:
 def slice_audio(original_path: str, start: float, end: float, index: int, out_dir: str) -> str:
     out_path = os.path.join(out_dir, f"vad_slice_{index}.mp3")
     cmd = [
-        'ffmpeg', '-y',
+        FFMPEG, '-y',
         '-i', original_path,
         '-ss', str(start),
         '-to', str(end),

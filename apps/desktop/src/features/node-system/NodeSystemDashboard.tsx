@@ -18,7 +18,7 @@ import {
 import '@xyflow/react/dist/style.css';
 import {
   Workflow, Save, Settings2, Play, GripVertical, Plus,
-  Sparkles, Video, Image as ImageIcon, Wand2, PlaySquare, Type, Palette, ChevronRight, ChevronDown, Upload, HardDriveDownload, Loader2, PanelLeftClose, PanelLeft, Brain, Mic, Music, AudioLines, Headphones
+  Sparkles, Video, Wand2, PlaySquare, Type, Palette, ChevronRight, ChevronDown, Upload, HardDriveDownload, Loader2, PanelLeftClose, PanelLeft, Brain, Mic, Music, AudioLines, Headphones
 } from 'lucide-react';
 import { Button } from '../../components/ui/button';
 import { ModelNode } from './custom-nodes/ModelNode';
@@ -45,7 +45,8 @@ const nodeTypes = {
 
 export const VIDEO_MODELS = [
   { type: 'modelNode', model: 'kling', label: 'Kling 3.0', desc: 'High-fidelity cinematic video generation', icon: Sparkles, color: 'text-primary' },
-  { type: 'modelNode', model: 'seeddance', label: 'SeedDance 2', desc: 'Dance & motion-driven video generation', icon: Wand2, color: 'text-emerald-500' },
+  { type: 'modelNode', model: 'seedance-2', label: 'SeedDance 2 (Pro)', desc: 'Dance & motion-driven video generation', icon: Wand2, color: 'text-emerald-500' },
+  { type: 'modelNode', model: 'seedance-2-fast', label: 'SeedDance 2 (Fast)', desc: 'Faster dance & motion-driven video generation', icon: Wand2, color: 'text-emerald-400' },
 ];
 
 export const IMAGE_MODELS = [

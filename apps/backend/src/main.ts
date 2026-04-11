@@ -5,6 +5,9 @@ import { config } from './config.js';
 import { registerLocalWorkflows } from './workflows/index.js';
 import { handleAiModelRequest } from './api/ai-models/router.js';
 import { handleSaveRenderRequest } from './api/save-render.js';
+import { createSubtitleHandler } from './api/subtitles.js';
+import { GoogleGenAI } from '@google/genai';
+import { OpenAI } from 'openai';
 
 async function main() {
   console.log('Starting PipeFX AI Engine...');
@@ -19,6 +22,15 @@ async function main() {
     geminiApiKey: config.geminiApiKey,
     openaiApiKey: config.openaiApiKey,
   });
+
+  // Create shared context for direct pipeline calls
+  const workflowContext = {
+    registry,
+    ai: new GoogleGenAI({ apiKey: config.geminiApiKey }),
+    openai: new OpenAI({ apiKey: config.openaiApiKey }),
+  };
+
+  const handleSubtitleGenerate = createSubtitleHandler(registry, workflowContext);
 
   await registry.switchActiveConnector('resolve');
 
@@ -148,6 +160,8 @@ async function main() {
       handleAiModelRequest(req, res);
     } else if (req.method === 'POST' && req.url === '/api/save-render') {
       handleSaveRenderRequest(req, res);
+    } else if (req.method === 'POST' && req.url === '/api/subtitles/generate') {
+      handleSubtitleGenerate(req, res);
     } else {
       res.writeHead(404);
       res.end();

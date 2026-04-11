@@ -11,18 +11,20 @@ import { writeFile } from '@tauri-apps/plugin-fs';
 
 const MODELS = [
   { id: 'kling3', name: 'Kling 3.0', description: 'High-fidelity realistic generation' },
-  { id: 'seeddance2', name: 'SeedDance 2.0', description: 'Creative and dynamic motion' }
+  { id: 'seedance-2', name: 'SeedDance 2.0 (Pro)', description: 'Creative and dynamic motion (Pro)' },
+  { id: 'seedance-2-fast', name: 'SeedDance 2.0 (Fast)', description: 'Creative and dynamic motion (Fast)' }
 ];
 
 type VideoGeneration = {
   id: string;
   url?: string;
-  status: 'pending' | 'success' | 'error';
+  status: 'pending' | 'success' | 'error' | 'cancelled';
   error?: string;
   type?: string;
   model: string;
   prompt: string;
   createdAt: number;
+  abortController?: AbortController;
 };
 
 export function VideoGenDashboard() {
@@ -78,6 +80,17 @@ export function VideoGenDashboard() {
     input.click();
   };
 
+  const handleCancel = (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setGenerations(current => current.map(c => {
+      if (c.id === id && c.status === 'pending') {
+        c.abortController?.abort();
+        return { ...c, status: 'cancelled' };
+      }
+      return c;
+    }));
+  };
+
   const handleGenerate = async () => {
     if (!prompt.trim() || pendingCount >= 8) return; // Prevent spamming more than 8 at a time
 
@@ -87,7 +100,8 @@ export function VideoGenDashboard() {
       status: 'pending',
       model: selectedModel,
       prompt,
-      createdAt: Date.now()
+      createdAt: Date.now(),
+      abortController: new AbortController()
     }));
 
     setGenerations(prev => [...newTasks, ...prev]);
@@ -97,6 +111,7 @@ export function VideoGenDashboard() {
       try {
         const response = await fetch('http://localhost:3001/api/ai-models', {
           method: 'POST',
+          signal: task.abortController?.signal,
           headers: {
             'Content-Type': 'application/json',
           },
@@ -118,11 +133,12 @@ export function VideoGenDashboard() {
 
         const data = await response.json();
         setGenerations(current => current.map(c => 
-          c.id === task.id ? { ...c, status: 'success', url: data.url, type: data.type } : c
+          c.id === task.id && c.status !== 'cancelled' ? { ...c, status: 'success', url: data.url, type: data.type } : c
         ));
-      } catch (err) {
+      } catch (err: any) {
+        if (err.name === 'AbortError') return; // Ignore abort errors
         setGenerations(current => current.map(c => 
-          c.id === task.id ? { ...c, status: 'error', error: err instanceof Error ? err.message : String(err) } : c
+          c.id === task.id && c.status !== 'cancelled' ? { ...c, status: 'error', error: err instanceof Error ? err.message : String(err) } : c
         ));
       }
     });
@@ -294,6 +310,8 @@ export function VideoGenDashboard() {
                     <Label className="text-sm font-medium mb-3 block">Choose duration</Label>
                     <Input 
                       type="number" 
+                      min={4}
+                      max={15}
                       value={duration} 
                       onChange={(e) => setDuration(e.target.value)} 
                       className="h-10 bg-muted/50 focus-visible:ring-1"
@@ -308,7 +326,7 @@ export function VideoGenDashboard() {
                     {aspectRatio}
                   </PopoverTrigger>
                   <PopoverContent className="w-36 p-1.5 rounded-xl shadow-lg border-border/50 bg-background/95 backdrop-blur-md" align="center">
-                    {['16:9', '9:16', '1:1'].map((ratio) => (
+                    {['16:9', '9:16', '1:1', '21:9', '4:3', '3:4', 'auto'].map((ratio) => (
                       <Button 
                         key={ratio}
                         variant={aspectRatio === ratio ? 'secondary' : 'ghost'} 
@@ -404,9 +422,21 @@ export function VideoGenDashboard() {
                         <div className="h-16 w-16 border-4 border-muted rounded-full"></div>
                         <div className="h-16 w-16 border-4 border-primary rounded-full border-t-transparent animate-spin absolute inset-0"></div>
                       </div>
-                      <p className="text-muted-foreground text-xs mt-4 font-medium animate-pulse">
+                      <p className="text-muted-foreground text-xs mt-4 mb-3 font-medium animate-pulse">
                         Rendering variation...
                       </p>
+                      <Button variant="outline" size="sm" onClick={(e) => handleCancel(gen.id, e)} className="h-7 text-xs px-4 bg-background/80 hover:bg-destructive hover:text-destructive-foreground hover:border-destructive shadow-sm">
+                        Cancel
+                      </Button>
+                    </div>
+                  )}
+
+                  {gen.status === 'cancelled' && (
+                    <div className="absolute inset-0 flex flex-col items-center justify-center p-4 text-center bg-muted/50 text-muted-foreground">
+                      <div className="h-10 w-10 rounded-full bg-muted flex items-center justify-center mb-2">
+                        <X className="h-5 w-5" />
+                      </div>
+                      <p className="text-xs opacity-80">Generation Cancelled</p>
                     </div>
                   )}
 
