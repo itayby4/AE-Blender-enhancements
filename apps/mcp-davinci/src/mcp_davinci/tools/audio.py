@@ -155,8 +155,9 @@ def register(mcp, connector):
                 elif status and status.get("JobStatus") == "Failed":
                     return json.dumps({"error": f"Render failed for a chunk."})
 
-        # Post-render: ensure all chunks are .mp3
-        # DaVinci sometimes silently renders as .mov instead of .mp3
+        # Post-render: resolve actual file paths
+        # DaVinci sometimes silently renders as .mov instead of .mp3.
+        # Whisper API accepts .mov/.mp4/.wav natively, so no conversion needed.
         for cj in chunk_jobs:
             expected_mp3 = cj["path"]
             if os.path.exists(expected_mp3):
@@ -167,24 +168,13 @@ def register(mcp, connector):
             if not actual_file:
                 return json.dumps({"error": f"Rendered file not found for chunk: {cj['file_name']}"})
 
-            # Convert to .mp3 via ffmpeg
-            ffmpeg = _find_ffmpeg()
-            if not ffmpeg:
-                return json.dumps({"error": f"DaVinci rendered as {os.path.splitext(actual_file)[1]} instead of .mp3, and ffmpeg is not installed to convert it. Please install ffmpeg or check DaVinci render settings."})
-
-            try:
-                subprocess.run([
-                    ffmpeg, '-y', '-i', actual_file,
-                    '-codec:a', 'libmp3lame', '-q:a', '2',
-                    '-loglevel', 'error',
-                    expected_mp3
-                ], check=True)
-                os.remove(actual_file)  # Clean up the non-mp3 file
-            except Exception as e:
-                return json.dumps({"error": f"Failed to convert {actual_file} to mp3: {e}"})
+            # Use the actual file path directly — Whisper accepts most audio/video formats
+            cj["path"] = actual_file
+            print(f"DaVinci rendered as {os.path.splitext(actual_file)[1]} instead of .mp3, using as-is.")
 
         return json.dumps({
             "success": True,
             "audio_chunks": [{"path": c["path"], "offset_seconds": c["offset_seconds"]} for c in chunk_jobs],
             "message": f"Successfully rendered {len(chunk_jobs)} audio chunks."
         })
+
