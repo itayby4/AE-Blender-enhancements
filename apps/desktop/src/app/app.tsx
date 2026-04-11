@@ -1,4 +1,10 @@
-import { useState, useEffect, useRef, type ChangeEvent, type KeyboardEvent } from 'react';
+import {
+  useState,
+  useEffect,
+  useRef,
+  type ChangeEvent,
+  type KeyboardEvent,
+} from 'react';
 import {
   MonitorPlay,
   Scissors,
@@ -23,7 +29,7 @@ import {
   Video,
   ImageIcon,
   Network,
-  Subtitles
+  Subtitles,
 } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Card, CardContent } from '../components/ui/card';
@@ -67,31 +73,105 @@ const MACRO_CATEGORIES = [
 ];
 
 const MACROS = [
-  { id: 'cut', category: 'edit', name: 'Ripple Cut', icon: Scissors, hotkey: 'Ctrl+Shift+X' },
-  { id: 'add_text', category: 'edit', name: 'Add Text+', icon: Type, hotkey: 'T' },
-  { id: 'align', category: 'edit', name: 'Align Clips', icon: AlignLeft, hotkey: 'Alt+A' },
-  { id: 'grade_1', category: 'color', name: 'Apply Rec.709 LUT', icon: PaintBucket, hotkey: 'Num 1' },
-  { id: 'grade_2', category: 'color', name: 'Teal & Orange', icon: PaintBucket, hotkey: 'Num 2' },
-  { id: 'node_add', category: 'color', name: 'Add Serial Node', icon: Wand2, hotkey: 'Alt+S' },
-  { id: 'audio_sync', category: 'audio', name: 'Auto-Sync Audio', icon: Volume2, hotkey: 'Ctrl+Alt+S' },
-  { id: 'render', category: 'fx', name: 'Render Cache', icon: Play, hotkey: 'Ctrl+R' },
+  {
+    id: 'cut',
+    category: 'edit',
+    name: 'Ripple Cut',
+    icon: Scissors,
+    hotkey: 'Ctrl+Shift+X',
+  },
+  {
+    id: 'add_text',
+    category: 'edit',
+    name: 'Add Text+',
+    icon: Type,
+    hotkey: 'T',
+  },
+  {
+    id: 'align',
+    category: 'edit',
+    name: 'Align Clips',
+    icon: AlignLeft,
+    hotkey: 'Alt+A',
+  },
+  {
+    id: 'grade_1',
+    category: 'color',
+    name: 'Apply Rec.709 LUT',
+    icon: PaintBucket,
+    hotkey: 'Num 1',
+  },
+  {
+    id: 'grade_2',
+    category: 'color',
+    name: 'Teal & Orange',
+    icon: PaintBucket,
+    hotkey: 'Num 2',
+  },
+  {
+    id: 'node_add',
+    category: 'color',
+    name: 'Add Serial Node',
+    icon: Wand2,
+    hotkey: 'Alt+S',
+  },
+  {
+    id: 'audio_sync',
+    category: 'audio',
+    name: 'Auto-Sync Audio',
+    icon: Volume2,
+    hotkey: 'Ctrl+Alt+S',
+  },
+  {
+    id: 'render',
+    category: 'fx',
+    name: 'Render Cache',
+    icon: Play,
+    hotkey: 'Ctrl+R',
+  },
 ];
 
 const INITIAL_CHAT: ChatMessage[] = [
-  { id: 1, sender: 'ai', text: 'Hello! I am connected to DaVinci Resolve. How can I help you edit today?' },
-  { id: 2, sender: 'user', text: 'Can you create a macro to apply my Teal & Orange LUT to all selected clips?' },
-  { id: 3, sender: 'ai', text: 'Sure! I have generated a macro for that and added it to your Color Grading page.' },
+  {
+    id: 1,
+    sender: 'ai',
+    text: 'Hello! I am connected to DaVinci Resolve. How can I help you edit today?',
+  },
+  {
+    id: 2,
+    sender: 'user',
+    text: 'Can you create a macro to apply my Teal & Orange LUT to all selected clips?',
+  },
+  {
+    id: 3,
+    sender: 'ai',
+    text: 'Sure! I have generated a macro for that and added it to your Color Grading page.',
+  },
 ];
 
 const INITIAL_LOGS: LogEntry[] = [
   { id: 1, time: '10:00:00', level: 'info', message: 'Application started' },
-  { id: 2, time: '10:00:02', level: 'info', message: 'Initializing UI components...' },
-  { id: 3, time: '10:00:05', level: 'success', message: 'Connected to DaVinci Resolve Studio 18.6' },
-  { id: 4, time: '10:00:06', level: 'info', message: 'Loaded 4 macro categories' },
+  {
+    id: 2,
+    time: '10:00:02',
+    level: 'info',
+    message: 'Initializing UI components...',
+  },
+  {
+    id: 3,
+    time: '10:00:05',
+    level: 'success',
+    message: 'Connected to DaVinci Resolve Studio 18.6',
+  },
+  {
+    id: 4,
+    time: '10:00:06',
+    level: 'info',
+    message: 'Loaded 4 macro categories',
+  },
 ];
 
 const DEFAULT_SKILLS: Skill[] = [{ id: 'default', name: 'Default Assistant' }];
-
 
 export function App() {
   const [activeCategory, setActiveCategory] = useState('skills');
@@ -102,7 +182,9 @@ export function App() {
   const [logs, setLogs] = useState<LogEntry[]>(INITIAL_LOGS);
   const [selectedSkillId, setSelectedSkillId] = useState('default');
   const [skills, setSkills] = useState<Skill[]>(DEFAULT_SKILLS);
-  const [selectedLlmModel, setSelectedLlmModel] = useState('gemini-3.1-pro-preview');
+  const [selectedLlmModel, setSelectedLlmModel] = useState(
+    'gemini-3.1-pro-preview'
+  );
   const [activeApp, setActiveApp] = useState('resolve');
 
   const [isAiTyping, setIsAiTyping] = useState(false);
@@ -121,34 +203,45 @@ export function App() {
     fetch('http://localhost:3001/api/switch-app', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ activeApp })
-    }).catch(err => console.error('Failed to switch app:', err));
+      body: JSON.stringify({ activeApp }),
+    }).catch((err) => console.error('Failed to switch app:', err));
   }, [activeApp]);
 
   const handleSendMessage = async () => {
     if (!chatInput.trim() || isAiTyping) return;
-    
+
     const userText = chatInput;
-    const newChatMsg: ChatMessage = { id: Date.now(), sender: 'user', text: userText };
-    setChatMessages(prev => [...prev, newChatMsg]);
+    const newChatMsg: ChatMessage = {
+      id: Date.now(),
+      sender: 'user',
+      text: userText,
+    };
+    setChatMessages((prev) => [...prev, newChatMsg]);
     setChatInput('');
     setIsAiTyping(true);
 
-    const activeSkill = skills.find(s => s.id === selectedSkillId);
-    const skillPayload = activeSkill && activeSkill.id !== 'default' ? activeSkill : undefined;
+    const activeSkill = skills.find((s) => s.id === selectedSkillId);
+    const skillPayload =
+      activeSkill && activeSkill.id !== 'default' ? activeSkill : undefined;
 
     const historyPayload = chatMessages
-      .filter(m => m.id > 3)
-      .map(m => ({
+      .filter((m) => m.id > 3)
+      .map((m) => ({
         role: m.sender === 'user' ? 'user' : 'model',
-        parts: [{ text: m.text }]
+        parts: [{ text: m.text }],
       }));
 
     try {
       const response = await fetch('http://localhost:3001/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: userText, skill: skillPayload, history: historyPayload, llmModel: selectedLlmModel, activeApp })
+        body: JSON.stringify({
+          message: userText,
+          skill: skillPayload,
+          history: historyPayload,
+          llmModel: selectedLlmModel,
+          activeApp,
+        }),
       });
 
       if (!response.ok) {
@@ -157,58 +250,83 @@ export function App() {
       }
 
       const data = await response.json();
-      
-      const responseText = data.text?.trim() 
-        ? data.text 
-        : (data.actions?.length ? `Generated ${data.actions.length} pipeline actions in the Node Editor.` : 'Done.');
 
-      setChatMessages(prev => [...prev, { id: Date.now(), sender: 'ai', text: responseText }]);
-      
+      const responseText = data.text?.trim()
+        ? data.text
+        : data.actions?.length
+        ? `Generated ${data.actions.length} pipeline actions in the Node Editor.`
+        : 'Done.';
+
+      setChatMessages((prev) => [
+        ...prev,
+        { id: Date.now(), sender: 'ai', text: responseText },
+      ]);
+
       // If the AI returned pipeline actions, dispatch them to the node editor
-      if (data.actions && Array.isArray(data.actions) && data.actions.length > 0) {
+      if (
+        data.actions &&
+        Array.isArray(data.actions) &&
+        data.actions.length > 0
+      ) {
         // Switch to node editor tab
         setActiveCategory('node-system');
         // Dispatch immediately - our new queue system guarantees it won't be lost even if the tab is still loading
         dispatchPipelineActions(data.actions);
       }
-      
+
       // Also add a log entry for completion
       const newLog: LogEntry = {
         id: Date.now(),
         time: new Date().toLocaleTimeString('en-US', { hour12: false }),
         level: 'success',
-        message: data.actions?.length ? `AI executed ${data.actions.length} pipeline action(s)` : 'Successfully generated AI macro response'
+        message: data.actions?.length
+          ? `AI executed ${data.actions.length} pipeline action(s)`
+          : 'Successfully generated AI macro response',
       };
-      setLogs(prev => [...prev, newLog]);
-      
+      setLogs((prev) => [...prev, newLog]);
     } catch (error) {
-      setChatMessages(prev => [...prev, { 
-        id: Date.now(), 
-        sender: 'ai', 
-        text: `Error connecting to AI: ${String(error)}` 
-      }]);
-      setLogs(prev => [...prev, {
-        id: Date.now(),
-        time: new Date().toLocaleTimeString('en-US', { hour12: false }),
-        level: 'error',
-        message: String(error)
-      }]);
+      setChatMessages((prev) => [
+        ...prev,
+        {
+          id: Date.now(),
+          sender: 'ai',
+          text: `Error connecting to AI: ${String(error)}`,
+        },
+      ]);
+      setLogs((prev) => [
+        ...prev,
+        {
+          id: Date.now(),
+          time: new Date().toLocaleTimeString('en-US', { hour12: false }),
+          level: 'error',
+          message: String(error),
+        },
+      ]);
     } finally {
       setIsAiTyping(false);
     }
-  }
+  };
 
   return (
     <div className="flex flex-col h-screen bg-background text-foreground font-sans overflow-hidden select-none">
-      
       {/* Top Menu Bar (Native OS Feel) */}
       <div className="flex items-center h-8 bg-muted/80 border-b px-2 text-[13px] text-muted-foreground w-full">
         <div className="flex space-x-1">
-          <button className="px-3 hover:bg-muted hover:text-foreground rounded-sm transition-colors py-0.5">File</button>
-          <button className="px-3 hover:bg-muted hover:text-foreground rounded-sm transition-colors py-0.5">Edit</button>
-          <button className="px-3 hover:bg-muted hover:text-foreground rounded-sm transition-colors py-0.5">View</button>
-          <button className="px-3 hover:bg-muted hover:text-foreground rounded-sm transition-colors py-0.5 font-medium text-foreground">Preferences</button>
-          <button className="px-3 hover:bg-muted hover:text-foreground rounded-sm transition-colors py-0.5">Help</button>
+          <button className="px-3 hover:bg-muted hover:text-foreground rounded-sm transition-colors py-0.5">
+            File
+          </button>
+          <button className="px-3 hover:bg-muted hover:text-foreground rounded-sm transition-colors py-0.5">
+            Edit
+          </button>
+          <button className="px-3 hover:bg-muted hover:text-foreground rounded-sm transition-colors py-0.5">
+            View
+          </button>
+          <button className="px-3 hover:bg-muted hover:text-foreground rounded-sm transition-colors py-0.5 font-medium text-foreground">
+            Preferences
+          </button>
+          <button className="px-3 hover:bg-muted hover:text-foreground rounded-sm transition-colors py-0.5">
+            Help
+          </button>
         </div>
       </div>
 
@@ -220,26 +338,46 @@ export function App() {
               <MonitorPlay className="h-4 w-4" />
             </div>
             <div>
-              <h1 className="text-sm font-bold tracking-tight leading-none">PipeFX</h1>
-              <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">Command Center</span>
+              <h1 className="text-sm font-bold tracking-tight leading-none">
+                PipeFX
+              </h1>
+              <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">
+                Command Center
+              </span>
             </div>
           </div>
-          
+
           <div className="h-6 w-px bg-border mx-2"></div>
 
           {/* Quick Actions */}
           <div className="flex items-center gap-1">
-            <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 text-muted-foreground"
+            >
               <FolderOpen className="h-4 w-4" />
             </Button>
-            <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 text-muted-foreground"
+            >
               <Save className="h-4 w-4" />
             </Button>
             <div className="h-4 w-px bg-border mx-1"></div>
-            <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 text-muted-foreground"
+            >
               <Undo2 className="h-4 w-4" />
             </Button>
-            <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 text-muted-foreground"
+            >
               <Redo2 className="h-4 w-4" />
             </Button>
           </div>
@@ -247,7 +385,12 @@ export function App() {
 
         {/* Status Indicator */}
         <div className="flex items-center gap-3">
-          <Select value={activeApp} onValueChange={(val) => { if (val) setActiveApp(val); }}>
+          <Select
+            value={activeApp}
+            onValueChange={(val) => {
+              if (val) setActiveApp(val);
+            }}
+          >
             <SelectTrigger className="w-[180px] h-9 bg-muted/50 border border-border/50 rounded-full font-semibold px-4 text-xs">
               <SelectValue placeholder="Select Application" />
             </SelectTrigger>
@@ -256,31 +399,43 @@ export function App() {
                 <SelectLabel>Connected Apps</SelectLabel>
                 <SelectItem value="resolve">DaVinci Resolve</SelectItem>
                 <SelectItem value="premiere">Adobe Premiere Pro</SelectItem>
-                <SelectItem value="aftereffects">Adobe After Effects</SelectItem>
+                <SelectItem value="aftereffects">
+                  Adobe After Effects
+                </SelectItem>
                 <SelectItem value="blender">Blender</SelectItem>
                 <SelectItem value="ableton">Ableton Live</SelectItem>
               </SelectGroup>
             </SelectContent>
           </Select>
-          <div className="flex h-6 w-6 items-center justify-center rounded-full bg-background border shadow-sm" title="MCP Connection Status">
-            <div className={`h-2 w-2 rounded-full ${isConnected ? 'bg-foreground shadow-[0_0_8px_rgba(255,255,255,0.4)]' : 'bg-muted-foreground'}`}></div>
+          <div
+            className="flex h-6 w-6 items-center justify-center rounded-full bg-background border shadow-sm"
+            title="MCP Connection Status"
+          >
+            <div
+              className={`h-2 w-2 rounded-full ${
+                isConnected
+                  ? 'bg-foreground shadow-[0_0_8px_rgba(255,255,255,0.4)]'
+                  : 'bg-muted-foreground'
+              }`}
+            ></div>
           </div>
         </div>
       </header>
 
       {/* Main Content */}
       <main className="flex flex-1 min-h-0 bg-muted/10">
-        
         {/* Left Sidebar - Categories */}
         <aside className="w-56 border-r bg-card/50 flex flex-col items-stretch space-y-1 p-3 shrink-0 min-h-0 overflow-y-auto">
           <div className="px-2 pb-2 mb-2 border-b shrink-0">
-            <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">AI Agents</h2>
+            <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              AI Agents
+            </h2>
           </div>
           <button
             onClick={() => setActiveCategory('skills')}
             className={`flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-all text-left ${
-              activeCategory === 'skills' 
-                ? 'bg-primary text-primary-foreground font-medium shadow-sm' 
+              activeCategory === 'skills'
+                ? 'bg-primary text-primary-foreground font-medium shadow-sm'
                 : 'text-muted-foreground hover:bg-muted hover:text-foreground'
             }`}
           >
@@ -291,8 +446,8 @@ export function App() {
           <button
             onClick={() => setActiveCategory('video-gen')}
             className={`flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-all text-left mt-1 ${
-              activeCategory === 'video-gen' 
-                ? 'bg-primary text-primary-foreground font-medium shadow-sm' 
+              activeCategory === 'video-gen'
+                ? 'bg-primary text-primary-foreground font-medium shadow-sm'
                 : 'text-muted-foreground hover:bg-muted hover:text-foreground'
             }`}
           >
@@ -303,8 +458,8 @@ export function App() {
           <button
             onClick={() => setActiveCategory('image-gen')}
             className={`flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-all text-left mt-1 ${
-              activeCategory === 'image-gen' 
-                ? 'bg-primary text-primary-foreground font-medium shadow-sm' 
+              activeCategory === 'image-gen'
+                ? 'bg-primary text-primary-foreground font-medium shadow-sm'
                 : 'text-muted-foreground hover:bg-muted hover:text-foreground'
             }`}
           >
@@ -315,8 +470,8 @@ export function App() {
           <button
             onClick={() => setActiveCategory('subtitles')}
             className={`flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-all text-left mt-1 ${
-              activeCategory === 'subtitles' 
-                ? 'bg-primary text-primary-foreground font-medium shadow-sm' 
+              activeCategory === 'subtitles'
+                ? 'bg-primary text-primary-foreground font-medium shadow-sm'
                 : 'text-muted-foreground hover:bg-muted hover:text-foreground'
             }`}
           >
@@ -327,8 +482,8 @@ export function App() {
           <button
             onClick={() => setActiveCategory('node-system')}
             className={`flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-all text-left mt-1 ${
-              activeCategory === 'node-system' 
-                ? 'bg-primary text-primary-foreground font-medium shadow-sm' 
+              activeCategory === 'node-system'
+                ? 'bg-primary text-primary-foreground font-medium shadow-sm'
                 : 'text-muted-foreground hover:bg-muted hover:text-foreground'
             }`}
           >
@@ -337,10 +492,12 @@ export function App() {
           </button>
 
           <div className="px-2 pb-2 mt-4 mb-2 border-b shrink-0">
-            <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Macro Pages</h2>
+            <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              Macro Pages
+            </h2>
           </div>
-          
-          {MACRO_CATEGORIES.map(category => {
+
+          {MACRO_CATEGORIES.map((category) => {
             const Icon = category.icon;
             const isActive = activeCategory === category.id;
             return (
@@ -348,8 +505,8 @@ export function App() {
                 key={category.id}
                 onClick={() => setActiveCategory(category.id)}
                 className={`flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-all text-left ${
-                  isActive 
-                    ? 'bg-primary text-primary-foreground font-medium shadow-sm' 
+                  isActive
+                    ? 'bg-primary text-primary-foreground font-medium shadow-sm'
                     : 'text-muted-foreground hover:bg-muted hover:text-foreground'
                 }`}
               >
@@ -361,115 +518,152 @@ export function App() {
         </aside>
 
         {/* Center - Content Area */}
-        <div className={`flex-1 min-h-0 flex-col relative w-full h-full ${activeCategory === 'node-system' ? 'flex' : 'hidden'}`}>
+        <div
+          className={`flex-1 min-h-0 flex-col relative w-full h-full ${
+            activeCategory === 'node-system' ? 'flex' : 'hidden'
+          }`}
+        >
           <NodeSystemDashboard />
         </div>
-        <div className={`flex-1 min-h-0 flex-col relative w-full h-full ${activeCategory === 'video-gen' ? 'flex' : 'hidden'}`}>
+        <div
+          className={`flex-1 min-h-0 flex-col relative w-full h-full ${
+            activeCategory === 'video-gen' ? 'flex' : 'hidden'
+          }`}
+        >
           <VideoGenDashboard />
         </div>
-        <div className={`flex-1 min-h-0 flex-col relative w-full h-full ${activeCategory === 'image-gen' ? 'flex' : 'hidden'}`}>
+        <div
+          className={`flex-1 min-h-0 flex-col relative w-full h-full ${
+            activeCategory === 'image-gen' ? 'flex' : 'hidden'
+          }`}
+        >
           <ImageGenDashboard />
         </div>
-        <div className={`flex-1 min-h-0 flex-col relative w-full h-full ${activeCategory === 'subtitles' ? 'flex' : 'hidden'}`}>
+        <div
+          className={`flex-1 min-h-0 flex-col relative w-full h-full ${
+            activeCategory === 'subtitles' ? 'flex' : 'hidden'
+          }`}
+        >
           <SubtitlesDashboard />
         </div>
-        <div className={`flex-1 min-h-0 flex-col relative w-full h-full ${!['node-system', 'video-gen', 'image-gen', 'subtitles'].includes(activeCategory) ? 'flex' : 'hidden'}`}>
+        <div
+          className={`flex-1 min-h-0 flex-col relative w-full h-full ${
+            !['node-system', 'video-gen', 'image-gen', 'subtitles'].includes(
+              activeCategory
+            )
+              ? 'flex'
+              : 'hidden'
+          }`}
+        >
           <ScrollArea className="flex-1 min-h-0 p-6 relative">
-          <div className="max-w-4xl mx-auto pb-10">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-xl font-bold tracking-tight">
-                {activeCategory === 'skills' ? 'AI Skills' : `${MACRO_CATEGORIES.find(c => c.id === activeCategory)?.name} Macros`}
-              </h2>
-              <Button size="sm" variant="outline" className="gap-2">
-                <Settings className="h-4 w-4" />
-                Edit Profile
-              </Button>
-            </div>
+            <div className="max-w-4xl mx-auto pb-10">
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-xl font-bold tracking-tight">
+                  {activeCategory === 'skills'
+                    ? 'AI Skills'
+                    : `${
+                        MACRO_CATEGORIES.find((c) => c.id === activeCategory)
+                          ?.name
+                      } Macros`}
+                </h2>
+                <Button size="sm" variant="outline" className="gap-2">
+                  <Settings className="h-4 w-4" />
+                  Edit Profile
+                </Button>
+              </div>
 
-            <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4">
-              {activeCategory === 'skills' ? (
-                <>
-                  {skills.map(skill => (
-                    <Card 
-                      key={skill.id} 
-                      onClick={() => {
-                        setSelectedSkillId(skill.id);
-                        setChatInput(prev => {
-                          let newText = prev;
-                          for (const s of skills) {
-                            if (newText.startsWith(`@${s.name} `)) {
-                              newText = newText.substring(`@${s.name} `.length);
-                              break;
+              <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4">
+                {activeCategory === 'skills' ? (
+                  <>
+                    {skills.map((skill) => (
+                      <Card
+                        key={skill.id}
+                        onClick={() => {
+                          setSelectedSkillId(skill.id);
+                          setChatInput((prev) => {
+                            let newText = prev;
+                            for (const s of skills) {
+                              if (newText.startsWith(`@${s.name} `)) {
+                                newText = newText.substring(
+                                  `@${s.name} `.length
+                                );
+                                break;
+                              }
                             }
-                          }
-                          return `@${skill.name} ${newText}`;
-                        });
-                      }}
-                      className={`group relative cursor-pointer active:scale-95 transition-all duration-200 border-border/60 hover:border-primary/50 hover:shadow-md bg-card/80 backdrop-blur-sm overflow-hidden ${selectedSkillId === skill.id ? 'ring-2 ring-primary border-primary' : ''}`}
-                    >
-                      <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
-                      <CardContent className="p-5 flex flex-col items-center justify-center text-center h-32 gap-3 relative z-10">
-                        <div className="h-10 w-10 rounded-full bg-muted flex items-center justify-center group-hover:bg-primary group-hover:text-primary-foreground transition-colors shadow-sm">
-                          <Bot className="h-5 w-5" />
-                        </div>
-                        <div className="font-semibold text-sm leading-tight group-hover:text-primary transition-colors">
-                          {skill.name}
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
-                  
-                  {/* Add New Skill Button */}
-                  <Card className="cursor-pointer border-dashed border-2 hover:border-primary/50 hover:bg-primary/5 transition-colors bg-transparent">
-                    <CardContent className="p-5 flex flex-col items-center justify-center text-center h-32 text-muted-foreground hover:text-primary">
-                      <div className="h-10 w-10 rounded-full border-2 border-current border-dashed flex items-center justify-center mb-2">
-                        <span className="text-xl leading-none">+</span>
-                      </div>
-                      <div className="font-medium text-sm">Add Skill</div>
-                    </CardContent>
-                  </Card>
-                </>
-              ) : (
-                <>
-                  {MACROS.filter(m => m.category === activeCategory).map(macro => {
-                    const Icon = macro.icon;
-                    return (
-                      <Card 
-                        key={macro.id} 
-                        className="group relative cursor-pointer active:scale-95 transition-all duration-200 border-border/60 hover:border-primary/50 hover:shadow-md bg-card/80 backdrop-blur-sm overflow-hidden"
+                            return `@${skill.name} ${newText}`;
+                          });
+                        }}
+                        className={`group relative cursor-pointer active:scale-95 transition-all duration-200 border-border/60 hover:border-primary/50 hover:shadow-md bg-card/80 backdrop-blur-sm overflow-hidden ${
+                          selectedSkillId === skill.id
+                            ? 'ring-2 ring-primary border-primary'
+                            : ''
+                        }`}
                       >
                         <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
                         <CardContent className="p-5 flex flex-col items-center justify-center text-center h-32 gap-3 relative z-10">
                           <div className="h-10 w-10 rounded-full bg-muted flex items-center justify-center group-hover:bg-primary group-hover:text-primary-foreground transition-colors shadow-sm">
-                            <Icon className="h-5 w-5" />
+                            <Bot className="h-5 w-5" />
                           </div>
-                          <div>
-                            <div className="font-semibold text-sm leading-tight group-hover:text-primary transition-colors">
-                              {macro.name}
-                            </div>
-                            <div className="text-[10px] uppercase font-mono tracking-wider text-muted-foreground mt-1 bg-muted px-1.5 py-0.5 rounded inline-block">
-                              {macro.hotkey}
-                            </div>
+                          <div className="font-semibold text-sm leading-tight group-hover:text-primary transition-colors">
+                            {skill.name}
                           </div>
                         </CardContent>
                       </Card>
-                    );
-                  })}
+                    ))}
 
-                  {/* Add New Macro Button */}
-                  <Card className="cursor-pointer border-dashed border-2 hover:border-primary/50 hover:bg-primary/5 transition-colors bg-transparent">
-                    <CardContent className="p-5 flex flex-col items-center justify-center text-center h-32 text-muted-foreground hover:text-primary">
-                      <div className="h-10 w-10 rounded-full border-2 border-current border-dashed flex items-center justify-center mb-2">
-                        <span className="text-xl leading-none">+</span>
-                      </div>
-                      <div className="font-medium text-sm">Add Macro</div>
-                    </CardContent>
-                  </Card>
-                </>
-              )}
+                    {/* Add New Skill Button */}
+                    <Card className="cursor-pointer border-dashed border-2 hover:border-primary/50 hover:bg-primary/5 transition-colors bg-transparent">
+                      <CardContent className="p-5 flex flex-col items-center justify-center text-center h-32 text-muted-foreground hover:text-primary">
+                        <div className="h-10 w-10 rounded-full border-2 border-current border-dashed flex items-center justify-center mb-2">
+                          <span className="text-xl leading-none">+</span>
+                        </div>
+                        <div className="font-medium text-sm">Add Skill</div>
+                      </CardContent>
+                    </Card>
+                  </>
+                ) : (
+                  <>
+                    {MACROS.filter((m) => m.category === activeCategory).map(
+                      (macro) => {
+                        const Icon = macro.icon;
+                        return (
+                          <Card
+                            key={macro.id}
+                            className="group relative cursor-pointer active:scale-95 transition-all duration-200 border-border/60 hover:border-primary/50 hover:shadow-md bg-card/80 backdrop-blur-sm overflow-hidden"
+                          >
+                            <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                            <CardContent className="p-5 flex flex-col items-center justify-center text-center h-32 gap-3 relative z-10">
+                              <div className="h-10 w-10 rounded-full bg-muted flex items-center justify-center group-hover:bg-primary group-hover:text-primary-foreground transition-colors shadow-sm">
+                                <Icon className="h-5 w-5" />
+                              </div>
+                              <div>
+                                <div className="font-semibold text-sm leading-tight group-hover:text-primary transition-colors">
+                                  {macro.name}
+                                </div>
+                                <div className="text-[10px] uppercase font-mono tracking-wider text-muted-foreground mt-1 bg-muted px-1.5 py-0.5 rounded inline-block">
+                                  {macro.hotkey}
+                                </div>
+                              </div>
+                            </CardContent>
+                          </Card>
+                        );
+                      }
+                    )}
+
+                    {/* Add New Macro Button */}
+                    <Card className="cursor-pointer border-dashed border-2 hover:border-primary/50 hover:bg-primary/5 transition-colors bg-transparent">
+                      <CardContent className="p-5 flex flex-col items-center justify-center text-center h-32 text-muted-foreground hover:text-primary">
+                        <div className="h-10 w-10 rounded-full border-2 border-current border-dashed flex items-center justify-center mb-2">
+                          <span className="text-xl leading-none">+</span>
+                        </div>
+                        <div className="font-medium text-sm">Add Macro</div>
+                      </CardContent>
+                    </Card>
+                  </>
+                )}
+              </div>
             </div>
-          </div>
-        </ScrollArea>
+          </ScrollArea>
         </div>
 
         {/* Right Sidebar - AI Chat & Logs */}
@@ -498,21 +692,38 @@ export function App() {
               App Logs
             </button>
           </div>
-          
+
           {activeRightTab === 'chat' ? (
             <>
               <ScrollArea className="flex-1 min-h-0 p-4">
                 <div className="flex flex-col gap-4 pb-4">
-                  {chatMessages.map(msg => (
-                    <div key={msg.id} className={`flex gap-3 text-sm ${msg.sender === 'user' ? 'flex-row-reverse' : ''}`}>
-                      <div className={`h-8 w-8 rounded-full flex items-center justify-center shrink-0 shadow-sm ${msg.sender === 'user' ? 'bg-primary text-primary-foreground' : 'bg-muted border border-border/50'}`}>
-                        {msg.sender === 'user' ? <User className="h-4 w-4" /> : <Bot className="h-4 w-4" />}
+                  {chatMessages.map((msg) => (
+                    <div
+                      key={msg.id}
+                      className={`flex gap-3 text-sm ${
+                        msg.sender === 'user' ? 'flex-row-reverse' : ''
+                      }`}
+                    >
+                      <div
+                        className={`h-8 w-8 rounded-full flex items-center justify-center shrink-0 shadow-sm ${
+                          msg.sender === 'user'
+                            ? 'bg-primary text-primary-foreground'
+                            : 'bg-muted border border-border/50'
+                        }`}
+                      >
+                        {msg.sender === 'user' ? (
+                          <User className="h-4 w-4" />
+                        ) : (
+                          <Bot className="h-4 w-4" />
+                        )}
                       </div>
-                      <div className={`py-2 px-3 rounded-xl max-w-[85%] leading-relaxed select-text cursor-text ${
-                        msg.sender === 'user' 
-                          ? 'bg-primary text-primary-foreground rounded-tr-sm shadow-sm' 
-                          : 'bg-muted rounded-tl-sm border border-border/50 text-foreground shadow-sm'
-                      }`}>
+                      <div
+                        className={`py-2 px-3 rounded-xl max-w-[85%] leading-relaxed select-text cursor-text ${
+                          msg.sender === 'user'
+                            ? 'bg-primary text-primary-foreground rounded-tr-sm shadow-sm'
+                            : 'bg-muted rounded-tl-sm border border-border/50 text-foreground shadow-sm'
+                        }`}
+                      >
                         {msg.text}
                       </div>
                     </div>
@@ -523,40 +734,55 @@ export function App() {
                         <Bot className="h-4 w-4" />
                       </div>
                       <div className="py-2 px-3 rounded-xl max-w-[85%] bg-muted rounded-tl-sm border border-border/50 text-muted-foreground flex items-center gap-1 shadow-sm">
-                         <span className="w-1.5 h-1.5 rounded-full bg-current animate-bounce shrink-0" style={{ animationDelay: '0ms' }} />
-                         <span className="w-1.5 h-1.5 rounded-full bg-current animate-bounce shrink-0" style={{ animationDelay: '150ms' }} />
-                         <span className="w-1.5 h-1.5 rounded-full bg-current animate-bounce shrink-0" style={{ animationDelay: '300ms' }} />
+                        <span
+                          className="w-1.5 h-1.5 rounded-full bg-current animate-bounce shrink-0"
+                          style={{ animationDelay: '0ms' }}
+                        />
+                        <span
+                          className="w-1.5 h-1.5 rounded-full bg-current animate-bounce shrink-0"
+                          style={{ animationDelay: '150ms' }}
+                        />
+                        <span
+                          className="w-1.5 h-1.5 rounded-full bg-current animate-bounce shrink-0"
+                          style={{ animationDelay: '300ms' }}
+                        />
                       </div>
                     </div>
                   )}
                   <div ref={messagesEndRef} />
                 </div>
               </ScrollArea>
-              
+
               <div className="p-4 border-t bg-muted/30 shrink-0 flex flex-col gap-2">
                 <div className="flex gap-2">
-                  <select 
+                  <select
                     className="flex-1 bg-background text-xs border border-border/50 rounded-md p-1.5 focus:ring-1 focus:ring-primary/50 outline-none text-muted-foreground"
                     value={selectedLlmModel}
                     onChange={(e) => setSelectedLlmModel(e.target.value)}
                   >
-                    <option value="gemini-3.1-pro-preview">Gemini 3.1 Pro Preview</option>
+                    <option value="gemini-3.1-pro-preview">
+                      Gemini 3.1 Pro Preview
+                    </option>
                     <option value="gpt-5.4">OpenAI GPT-5.4</option>
                     <option value="claude-sonnet-4.6">Claude Sonnet 4.6</option>
                   </select>
                 </div>
                 <div className="flex gap-2">
-                  <select 
+                  <select
                     className="flex-1 bg-background text-xs border border-border/50 rounded-md p-1.5 focus:ring-1 focus:ring-primary/50 outline-none text-muted-foreground"
                     value={selectedSkillId}
                     onChange={(e) => setSelectedSkillId(e.target.value)}
                   >
-                    {skills.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                    {skills.map((s) => (
+                      <option key={s.id} value={s.id}>
+                        {s.name}
+                      </option>
+                    ))}
                   </select>
-                  <Button 
+                  <Button
                     onClick={() => setChatMessages(INITIAL_CHAT)}
-                    variant="outline" 
-                    size="icon" 
+                    variant="outline"
+                    size="icon"
                     className="h-[30px] w-[30px] shrink-0 text-muted-foreground hover:text-destructive"
                     title="Clear Conversation"
                   >
@@ -564,23 +790,25 @@ export function App() {
                   </Button>
                 </div>
                 <div className="relative flex items-end">
-                  <Textarea 
+                  <Textarea
                     value={chatInput}
-                    onChange={(e: ChangeEvent<HTMLTextAreaElement>) => setChatInput(e.target.value)}
-                    onKeyDown={(e: KeyboardEvent<HTMLTextAreaElement>) => { 
+                    onChange={(e: ChangeEvent<HTMLTextAreaElement>) =>
+                      setChatInput(e.target.value)
+                    }
+                    onKeyDown={(e: KeyboardEvent<HTMLTextAreaElement>) => {
                       if (e.key === 'Enter' && !e.shiftKey) {
                         e.preventDefault();
                         handleSendMessage();
-                      } 
+                      }
                     }}
                     placeholder="Ask AI to edit the timeline..."
                     className="pr-10 bg-background shadow-inner border-muted-foreground/20 focus-visible:ring-primary/50 min-h-[40px] max-h-[150px] resize-none overflow-y-auto py-2 flex-1"
                     disabled={isAiTyping}
                   />
-                  <Button 
+                  <Button
                     onClick={handleSendMessage}
-                    size="icon" 
-                    variant="ghost" 
+                    size="icon"
+                    variant="ghost"
                     className="absolute right-1 bottom-1 h-7 w-7 text-primary hover:bg-primary/10 transition-colors"
                     title="Send message"
                     disabled={isAiTyping}
@@ -596,20 +824,34 @@ export function App() {
           ) : (
             <ScrollArea className="flex-1 min-h-0">
               <div className="flex flex-col p-2 space-y-1">
-                {logs.map(log => (
-                  <div key={log.id} className="flex gap-2 text-[11px] p-2 rounded hover:bg-muted/50 font-mono">
-                    <span className="text-muted-foreground shrink-0">[{log.time}]</span>
-                    <span className={`shrink-0 w-16 ${log.level === 'info' ? 'text-foreground' : log.level === 'success' ? 'text-foreground font-bold' : 'text-muted-foreground line-through'}`}>
+                {logs.map((log) => (
+                  <div
+                    key={log.id}
+                    className="flex gap-2 text-[11px] p-2 rounded hover:bg-muted/50 font-mono"
+                  >
+                    <span className="text-muted-foreground shrink-0">
+                      [{log.time}]
+                    </span>
+                    <span
+                      className={`shrink-0 w-16 ${
+                        log.level === 'info'
+                          ? 'text-foreground'
+                          : log.level === 'success'
+                          ? 'text-foreground font-bold'
+                          : 'text-muted-foreground line-through'
+                      }`}
+                    >
                       {log.level.toUpperCase()}
                     </span>
-                    <span className="text-foreground break-all select-text cursor-text">{log.message}</span>
+                    <span className="text-foreground break-all select-text cursor-text">
+                      {log.message}
+                    </span>
                   </div>
                 ))}
               </div>
             </ScrollArea>
           )}
         </aside>
-
       </main>
 
       {/* Footer / Status Bar */}
@@ -618,9 +860,7 @@ export function App() {
           <MousePointer2 className="h-3 w-3" />
           <span>Ready. Select a macro to execute or chat with AI.</span>
         </div>
-        <div className="font-mono">
-          Profile: Default
-        </div>
+        <div className="font-mono">Profile: Default</div>
       </footer>
     </div>
   );

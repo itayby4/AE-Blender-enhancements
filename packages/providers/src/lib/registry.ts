@@ -30,11 +30,11 @@ class ProviderRegistry {
   getSoundProvider(id: string): SoundProvider | undefined {
     return this.soundProviders.get(id);
   }
-  
+
   hasVideoProvider(id: string): boolean {
     return this.videoProviders.has(id);
   }
-  
+
   hasImageProvider(id: string): boolean {
     return this.imageProviders.has(id);
   }

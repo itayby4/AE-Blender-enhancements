@@ -27,5 +27,8 @@ export interface SoundProvider extends BaseProvider {
    * Generates audio based on the prompt/text and options.
    * Returns a base64 data URL of the generated audio.
    */
-  generate(prompt: string, options?: SoundOptions): Promise<{ id: string; status: string; url?: string; type?: string }>;
+  generate(
+    prompt: string,
+    options?: SoundOptions
+  ): Promise<{ id: string; status: string; url?: string; type?: string }>;
 }

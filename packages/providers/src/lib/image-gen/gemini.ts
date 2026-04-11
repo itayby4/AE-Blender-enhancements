@@ -6,32 +6,46 @@ export const geminiImageProvider: ImageProvider = {
   id: 'gemini2',
   name: 'Gemini Image',
   category: 'image-gen',
-  
-  async generate(prompt: string, options?: ImageOptions): Promise<{ id: string; status: string; url?: string; type?: string }> {
+
+  async generate(
+    prompt: string,
+    options?: ImageOptions
+  ): Promise<{ id: string; status: string; url?: string; type?: string }> {
     const { imageRefs, aspectRatio = '16:9' } = options || {};
-    const finalPrompt = aspectRatio ? `${prompt}\n\nImportant: Generate strictly in ${aspectRatio} aspect ratio.` : prompt;
-    const imageModel = process.env.GEMINI_IMAGE_MODEL || 'gemini-3.1-flash-image-preview';
-    console.log(`[IMAGE-GEN] Calling Nano Banana 2 (${imageModel}) with prompt: "${finalPrompt}"`);
+    const finalPrompt = aspectRatio
+      ? `${prompt}\n\nImportant: Generate strictly in ${aspectRatio} aspect ratio.`
+      : prompt;
+    const imageModel =
+      process.env.GEMINI_IMAGE_MODEL || 'gemini-3.1-flash-image-preview';
+    console.log(
+      `[IMAGE-GEN] Calling Nano Banana 2 (${imageModel}) with prompt: "${finalPrompt}"`
+    );
 
     if (imageRefs && imageRefs.length > 0) {
-      console.log(`[IMAGE-GEN] Received ${imageRefs.length} image reference(s)!`);
+      console.log(
+        `[IMAGE-GEN] Received ${imageRefs.length} image reference(s)!`
+      );
     }
 
     const apiKey = process.env.GEMINI_API_KEY;
 
     if (!apiKey) {
-      throw new Error('GEMINI_API_KEY is not configured in the environment variables.');
+      throw new Error(
+        'GEMINI_API_KEY is not configured in the environment variables.'
+      );
     }
 
     try {
       const ai = new GoogleGenAI({ apiKey });
 
-      console.log(`[IMAGE-GEN] Requesting image generation via generateContent...`);
+      console.log(
+        `[IMAGE-GEN] Requesting image generation via generateContent...`
+      );
 
       // Build the contents array — text prompt, optionally with an image reference
-      const contents: Array<{ text: string } | { inlineData: { mimeType: string; data: string } }> = [
-        { text: finalPrompt }
-      ];
+      const contents: Array<
+        { text: string } | { inlineData: { mimeType: string; data: string } }
+      > = [{ text: finalPrompt }];
 
       // If we have image references (base64 data URL), attach them as inline data
       if (imageRefs && imageRefs.length > 0) {
@@ -43,9 +57,11 @@ export const geminiImageProvider: ImageProvider = {
                 inlineData: {
                   mimeType: match[1],
                   data: match[2],
-                }
+                },
               });
-              console.log(`[IMAGE-GEN] Attached image reference as inline data (${match[1]})`);
+              console.log(
+                `[IMAGE-GEN] Attached image reference as inline data (${match[1]})`
+              );
             }
           }
         }
@@ -56,14 +72,16 @@ export const geminiImageProvider: ImageProvider = {
         contents: contents as any,
         config: {
           responseModalities: ['TEXT', 'IMAGE'],
-        }
+        },
       });
 
       // Extract image from response parts
       const parts = response.candidates?.[0]?.content?.parts;
 
       if (!parts || parts.length === 0) {
-        throw new Error('Gemini API returned no parts. The prompt may have been blocked by safety filters.');
+        throw new Error(
+          'Gemini API returned no parts. The prompt may have been blocked by safety filters.'
+        );
       }
 
       let textResponse = '';
@@ -80,11 +98,18 @@ export const geminiImageProvider: ImageProvider = {
       }
 
       if (textResponse) {
-        console.log(`[IMAGE-GEN] Model text response: ${textResponse.slice(0, 200)}`);
+        console.log(
+          `[IMAGE-GEN] Model text response: ${textResponse.slice(0, 200)}`
+        );
       }
 
       if (!imageDataUrl) {
-        throw new Error(`Gemini did not return an image. Model response: "${textResponse.slice(0, 300)}"`);
+        throw new Error(
+          `Gemini did not return an image. Model response: "${textResponse.slice(
+            0,
+            300
+          )}"`
+        );
       }
 
       console.log(`[IMAGE-GEN] Image generated successfully!`);
@@ -97,9 +122,13 @@ export const geminiImageProvider: ImageProvider = {
       };
     } catch (error) {
       console.error(`[IMAGE-GEN] Generation failed:`, error);
-      throw new Error(`Image generation failed: ${error instanceof Error ? error.message : String(error)}`);
+      throw new Error(
+        `Image generation failed: ${
+          error instanceof Error ? error.message : String(error)
+        }`
+      );
     }
-  }
+  },
 };
 
 providerRegistry.registerImageProvider(geminiImageProvider);

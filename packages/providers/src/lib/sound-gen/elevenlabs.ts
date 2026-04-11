@@ -17,7 +17,9 @@ function getClient(): ElevenLabsClient {
  * Collects an async iterable of Uint8Array chunks into a single Buffer,
  * then returns a base64 data URL.
  */
-async function streamToBase64DataUrl(stream: AsyncIterable<Uint8Array> | ReadableStream<Uint8Array> | Buffer): Promise<string> {
+async function streamToBase64DataUrl(
+  stream: AsyncIterable<Uint8Array> | ReadableStream<Uint8Array> | Buffer
+): Promise<string> {
   // If it's already a Buffer
   if (Buffer.isBuffer(stream)) {
     return `data:audio/mpeg;base64,${stream.toString('base64')}`;
@@ -55,10 +57,11 @@ async function streamToBase64DataUrl(stream: AsyncIterable<Uint8Array> | Readabl
  * Decodes a base64 data URL to a Buffer for upload to ElevenLabs.
  */
 function dataUrlToBuffer(dataUrl: string): Buffer {
-  const base64Data = dataUrl.includes('base64,') ? dataUrl.split('base64,')[1] : dataUrl;
+  const base64Data = dataUrl.includes('base64,')
+    ? dataUrl.split('base64,')[1]
+    : dataUrl;
   return Buffer.from(base64Data, 'base64');
 }
-
 
 // ── Text to Speech ──────────────────────────────────────────────
 export const elevenLabsTtsProvider: SoundProvider = {
@@ -72,7 +75,9 @@ export const elevenLabsTtsProvider: SoundProvider = {
     const modelId = options?.modelId || 'eleven_v3';
     const outputFormat = options?.outputFormat || DEFAULT_OUTPUT_FORMAT;
 
-    console.log(`[SOUND-GEN] ElevenLabs TTS: voice=${voiceId}, model=${modelId}`);
+    console.log(
+      `[SOUND-GEN] ElevenLabs TTS: voice=${voiceId}, model=${modelId}`
+    );
 
     const audio = await client.textToSpeech.convert(voiceId, {
       text: prompt,
@@ -82,10 +87,14 @@ export const elevenLabsTtsProvider: SoundProvider = {
 
     const url = await streamToBase64DataUrl(audio as any);
 
-    return { id: `el-tts-${Date.now()}`, status: 'succeed', url, type: 'audio' };
+    return {
+      id: `el-tts-${Date.now()}`,
+      status: 'succeed',
+      url,
+      type: 'audio',
+    };
   },
 };
-
 
 // ── Text to Sound Effects ───────────────────────────────────────
 export const elevenLabsSfxProvider: SoundProvider = {
@@ -101,10 +110,14 @@ export const elevenLabsSfxProvider: SoundProvider = {
     const audio = await client.textToSoundEffects.convert({ text: prompt });
     const url = await streamToBase64DataUrl(audio as any);
 
-    return { id: `el-sfx-${Date.now()}`, status: 'succeed', url, type: 'audio' };
+    return {
+      id: `el-sfx-${Date.now()}`,
+      status: 'succeed',
+      url,
+      type: 'audio',
+    };
   },
 };
-
 
 // ── Speech to Speech ────────────────────────────────────────────
 export const elevenLabsStsProvider: SoundProvider = {
@@ -119,10 +132,14 @@ export const elevenLabsStsProvider: SoundProvider = {
     const outputFormat = options?.outputFormat || DEFAULT_OUTPUT_FORMAT;
 
     if (!options?.audioRef) {
-      throw new Error('Speech-to-Speech requires an audio reference. Connect a Media Node with audio.');
+      throw new Error(
+        'Speech-to-Speech requires an audio reference. Connect a Media Node with audio.'
+      );
     }
 
-    console.log(`[SOUND-GEN] ElevenLabs STS: voice=${voiceId}, model=${modelId}`);
+    console.log(
+      `[SOUND-GEN] ElevenLabs STS: voice=${voiceId}, model=${modelId}`
+    );
 
     const audioBuffer = dataUrlToBuffer(options.audioRef);
 
@@ -134,10 +151,14 @@ export const elevenLabsStsProvider: SoundProvider = {
 
     const url = await streamToBase64DataUrl(audio as any);
 
-    return { id: `el-sts-${Date.now()}`, status: 'succeed', url, type: 'audio' };
+    return {
+      id: `el-sts-${Date.now()}`,
+      status: 'succeed',
+      url,
+      type: 'audio',
+    };
   },
 };
-
 
 // ── Audio Isolation ─────────────────────────────────────────────
 export const elevenLabsIsolateProvider: SoundProvider = {
@@ -149,7 +170,9 @@ export const elevenLabsIsolateProvider: SoundProvider = {
     const client = getClient();
 
     if (!options?.audioRef) {
-      throw new Error('Audio Isolation requires an audio reference. Connect a Media Node with audio.');
+      throw new Error(
+        'Audio Isolation requires an audio reference. Connect a Media Node with audio.'
+      );
     }
 
     console.log(`[SOUND-GEN] ElevenLabs Audio Isolation`);
@@ -162,10 +185,14 @@ export const elevenLabsIsolateProvider: SoundProvider = {
 
     const url = await streamToBase64DataUrl(audio as any);
 
-    return { id: `el-iso-${Date.now()}`, status: 'succeed', url, type: 'audio' };
+    return {
+      id: `el-iso-${Date.now()}`,
+      status: 'succeed',
+      url,
+      type: 'audio',
+    };
   },
 };
-
 
 // ── Auto-register all providers ─────────────────────────────────
 providerRegistry.registerSoundProvider(elevenLabsTtsProvider);

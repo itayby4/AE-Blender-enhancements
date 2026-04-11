@@ -5,17 +5,17 @@ import { autoSubtitlesWorkflow } from './subtitles.js';
 import { timelineTranscriptWorkflow } from './transcript.js';
 import type { WorkflowContext } from './types.js';
 
-export function registerLocalWorkflows(registry: ConnectorRegistry, config: { geminiApiKey: string; openaiApiKey: string }) {
+export function registerLocalWorkflows(
+  registry: ConnectorRegistry,
+  config: { geminiApiKey: string; openaiApiKey: string }
+) {
   const context: WorkflowContext = {
     registry,
     ai: new GoogleGenAI({ apiKey: config.geminiApiKey }),
     openai: new OpenAI({ apiKey: config.openaiApiKey }),
   };
 
-  const workflows = [
-    autoSubtitlesWorkflow,
-    timelineTranscriptWorkflow,
-  ];
+  const workflows = [autoSubtitlesWorkflow, timelineTranscriptWorkflow];
 
   for (const workflow of workflows) {
     registry.registerLocalTool(

@@ -4,12 +4,15 @@ import type { Connector, ConnectorConfig, Tool, ToolResult } from './types.js';
 export class ConnectorRegistry {
   private connectors = new Map<string, Connector>();
   private toolIndex = new Map<string, string>();
-  
-  private localTools = new Map<string, {
-    description?: string;
-    inputSchema: Record<string, unknown>;
-    handler: (args: Record<string, unknown>) => Promise<string | ToolResult>;
-  }>();
+
+  private localTools = new Map<
+    string,
+    {
+      description?: string;
+      inputSchema: Record<string, unknown>;
+      handler: (args: Record<string, unknown>) => Promise<string | ToolResult>;
+    }
+  >();
 
   register(config: ConnectorConfig): void {
     if (this.connectors.has(config.id)) {
@@ -69,16 +72,23 @@ export class ConnectorRegistry {
           if (!connector.isConnected()) {
             try {
               await connector.connect();
-              console.log(`Connected to active connector "${id}" (${connector.config.name})`);
+              console.log(
+                `Connected to active connector "${id}" (${connector.config.name})`
+              );
             } catch (err) {
-              console.error(`Failed to connect to active connector "${id}":`, err);
+              console.error(
+                `Failed to connect to active connector "${id}":`,
+                err
+              );
             }
           }
         } else {
           if (connector.isConnected()) {
             try {
               await connector.disconnect();
-              console.log(`Disconnected inactive connector "${id}" (${connector.config.name})`);
+              console.log(
+                `Disconnected inactive connector "${id}" (${connector.config.name})`
+              );
             } catch (err) {
               console.error(`Failed to disconnect from "${id}":`, err);
             }
@@ -160,7 +170,9 @@ export class ConnectorRegistry {
 
     const connector = this.connectors.get(connectorId);
     if (!connector) {
-      throw new Error(`Connector "${connectorId}" for tool "${name}" not found`);
+      throw new Error(
+        `Connector "${connectorId}" for tool "${name}" not found`
+      );
     }
     return connector.callTool(name, args);
   }

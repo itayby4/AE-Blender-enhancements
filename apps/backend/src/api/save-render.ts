@@ -30,42 +30,55 @@ async function saveMediaToFile(url: string, filePath: string): Promise<void> {
     if (!match) throw new Error('Invalid data URL format');
     const buffer = Buffer.from(match[1], 'base64');
     fs.writeFileSync(filePath, buffer);
-    console.log(`[SAVE-RENDER] Saved base64 data to: ${filePath} (${Math.round(buffer.length / 1024)}KB)`);
+    console.log(
+      `[SAVE-RENDER] Saved base64 data to: ${filePath} (${Math.round(
+        buffer.length / 1024
+      )}KB)`
+    );
     return;
   }
 
   // Handle HTTP/HTTPS URLs (from Kling video generation)
   return new Promise((resolve, reject) => {
     const client = url.startsWith('https') ? https : http;
-    client.get(url, (response) => {
-      if (response.statusCode === 301 || response.statusCode === 302) {
-        // Follow redirect
-        const redirectUrl = response.headers.location;
-        if (redirectUrl) {
-          saveMediaToFile(redirectUrl, filePath).then(resolve).catch(reject);
+    client
+      .get(url, (response) => {
+        if (response.statusCode === 301 || response.statusCode === 302) {
+          // Follow redirect
+          const redirectUrl = response.headers.location;
+          if (redirectUrl) {
+            saveMediaToFile(redirectUrl, filePath).then(resolve).catch(reject);
+            return;
+          }
+        }
+
+        if (response.statusCode !== 200) {
+          reject(new Error(`HTTP ${response.statusCode} downloading media`));
           return;
         }
-      }
 
-      if (response.statusCode !== 200) {
-        reject(new Error(`HTTP ${response.statusCode} downloading media`));
-        return;
-      }
-
-      const chunks: Buffer[] = [];
-      response.on('data', (chunk: Buffer) => chunks.push(chunk));
-      response.on('end', () => {
-        const buffer = Buffer.concat(chunks);
-        fs.writeFileSync(filePath, buffer);
-        console.log(`[SAVE-RENDER] Downloaded and saved to: ${filePath} (${Math.round(buffer.length / 1024)}KB)`);
-        resolve();
-      });
-      response.on('error', reject);
-    }).on('error', reject);
+        const chunks: Buffer[] = [];
+        response.on('data', (chunk: Buffer) => chunks.push(chunk));
+        response.on('end', () => {
+          const buffer = Buffer.concat(chunks);
+          fs.writeFileSync(filePath, buffer);
+          console.log(
+            `[SAVE-RENDER] Downloaded and saved to: ${filePath} (${Math.round(
+              buffer.length / 1024
+            )}KB)`
+          );
+          resolve();
+        });
+        response.on('error', reject);
+      })
+      .on('error', reject);
   });
 }
 
-export async function handleSaveRenderRequest(req: IncomingMessage, res: ServerResponse) {
+export async function handleSaveRenderRequest(
+  req: IncomingMessage,
+  res: ServerResponse
+) {
   let body = '';
   req.on('data', (chunk: Buffer) => {
     body += chunk.toString();
@@ -90,19 +103,25 @@ export async function handleSaveRenderRequest(req: IncomingMessage, res: ServerR
 
       // Save metadata as a sidecar JSON
       const metaPath = filePath + '.json';
-      fs.writeFileSync(metaPath, JSON.stringify({
-        model,
-        prompt,
-        type,
-        generatedAt: new Date().toISOString(),
-        originalUrl: url.startsWith('data:') ? '(base64 inline)' : url,
-      }, null, 2));
+      fs.writeFileSync(
+        metaPath,
+        JSON.stringify(
+          {
+            model,
+            prompt,
+            type,
+            generatedAt: new Date().toISOString(),
+            originalUrl: url.startsWith('data:') ? '(base64 inline)' : url,
+          },
+          null,
+          2
+        )
+      );
 
       console.log(`[SAVE-RENDER] Render saved: ${filename}`);
 
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ saved: true, filePath, filename }));
-
     } catch (err: unknown) {
       console.error('[SAVE-RENDER] Error:', err);
       const msg = err instanceof Error ? err.message : String(err);

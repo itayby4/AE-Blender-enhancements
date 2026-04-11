@@ -15,7 +15,8 @@ async function main() {
   const registry = new ConnectorRegistry();
   registry.register(config.connectors.resolve);
   if (config.connectors.premiere) registry.register(config.connectors.premiere);
-  if (config.connectors.aftereffects) registry.register(config.connectors.aftereffects);
+  if (config.connectors.aftereffects)
+    registry.register(config.connectors.aftereffects);
   if (config.connectors.blender) registry.register(config.connectors.blender);
   if (config.connectors.ableton) registry.register(config.connectors.ableton);
   registerLocalWorkflows(registry, {
@@ -30,7 +31,10 @@ async function main() {
     openai: new OpenAI({ apiKey: config.openaiApiKey }),
   };
 
-  const handleSubtitleGenerate = createSubtitleHandler(registry, workflowContext);
+  const handleSubtitleGenerate = createSubtitleHandler(
+    registry,
+    workflowContext
+  );
 
   await registry.switchActiveConnector('resolve');
 
@@ -62,7 +66,8 @@ async function main() {
 
       req.on('end', async () => {
         try {
-          const { message, skill, history, llmModel, activeApp } = JSON.parse(body);
+          const { message, skill, history, llmModel, activeApp } =
+            JSON.parse(body);
           if (!message) {
             res.writeHead(400, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({ error: 'Message is required' }));
@@ -72,14 +77,17 @@ async function main() {
           let systemPromptOverride = skill?.systemInstruction;
           if (!systemPromptOverride && activeApp) {
             const appNames: Record<string, string> = {
-               'resolve': 'DaVinci Resolve',
-               'premiere': 'Adobe Premiere Pro',
-               'aftereffects': 'Adobe After Effects',
-               'blender': 'Blender',
-               'ableton': 'Ableton Live'
+              resolve: 'DaVinci Resolve',
+              premiere: 'Adobe Premiere Pro',
+              aftereffects: 'Adobe After Effects',
+              blender: 'Blender',
+              ableton: 'Ableton Live',
             };
             const appName = appNames[activeApp] || 'the Video Editing Software';
-            systemPromptOverride = config.systemPrompt.replace(/DaVinci Resolve/g, appName);
+            systemPromptOverride = config.systemPrompt.replace(
+              /DaVinci Resolve/g,
+              appName
+            );
           }
 
           const text = await agent.chat(message, {
@@ -93,16 +101,23 @@ async function main() {
           // Extract pipeline actions from AI response if present
           let cleanText = text;
           let actions: any[] = [];
-          
+
           // First, try to extract from markdown blocks
-          const actionBlockRegex = /```(?:pipeline_actions|json)?\s*\n([\s\S]*?)```/g;
+          const actionBlockRegex =
+            /```(?:pipeline_actions|json)?\s*\n([\s\S]*?)```/g;
           let match;
           while ((match = actionBlockRegex.exec(text)) !== null) {
             try {
               // Strip JS-style line comments (//) and trailing commas
-              const jsonString = match[1].replace(/^\s*\/\/.*$/gm, '').replace(/,\s*([\]}])/g, '$1');
+              const jsonString = match[1]
+                .replace(/^\s*\/\/.*$/gm, '')
+                .replace(/,\s*([\]}])/g, '$1');
               const parsed = JSON.parse(jsonString);
-              if (Array.isArray(parsed) && parsed.length > 0 && parsed[0].type) {
+              if (
+                Array.isArray(parsed) &&
+                parsed.length > 0 &&
+                parsed[0].type
+              ) {
                 actions.push(...parsed);
                 cleanText = cleanText.replace(match[0], '').trim();
               }
@@ -114,14 +129,24 @@ async function main() {
           // Fallback: search for a JSON array natively in the raw text if no blocks matched
           if (actions.length === 0) {
             try {
-              const jsonString = text.replace(/^\s*\/\/.*$/gm, '').replace(/,\s*([\]}])/g, '$1');
+              const jsonString = text
+                .replace(/^\s*\/\/.*$/gm, '')
+                .replace(/,\s*([\]}])/g, '$1');
               const arrStart = jsonString.indexOf('[');
               const arrEnd = jsonString.lastIndexOf(']');
               if (arrStart !== -1 && arrEnd !== -1 && arrEnd > arrStart) {
-                const parsed = JSON.parse(jsonString.substring(arrStart, arrEnd + 1));
-                if (Array.isArray(parsed) && parsed.length > 0 && parsed[0].type) {
+                const parsed = JSON.parse(
+                  jsonString.substring(arrStart, arrEnd + 1)
+                );
+                if (
+                  Array.isArray(parsed) &&
+                  parsed.length > 0 &&
+                  parsed[0].type
+                ) {
                   actions.push(...parsed);
-                  cleanText = cleanText.replace(text.substring(arrStart, arrEnd + 1), '').trim();
+                  cleanText = cleanText
+                    .replace(text.substring(arrStart, arrEnd + 1), '')
+                    .trim();
                 }
               }
             } catch (e) {

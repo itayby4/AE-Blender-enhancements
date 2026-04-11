@@ -9,8 +9,14 @@ import { runTranscriptionPipeline } from '../workflows/pipeline.js';
  * Directly invokes the subtitle pipeline (render → VAD → transcribe → translate → import)
  * without going through the AI agent loop.
  */
-export function createSubtitleHandler(registry: ConnectorRegistry, context: WorkflowContext) {
-  return async function handleSubtitleGenerate(req: IncomingMessage, res: ServerResponse) {
+export function createSubtitleHandler(
+  registry: ConnectorRegistry,
+  context: WorkflowContext
+) {
+  return async function handleSubtitleGenerate(
+    req: IncomingMessage,
+    res: ServerResponse
+  ) {
     let body = '';
     req.on('data', (chunk: Buffer) => {
       body += chunk.toString();
@@ -41,7 +47,8 @@ export function createSubtitleHandler(registry: ConnectorRegistry, context: Work
 
         // Run the transcription/translation pipeline
         const segments = await runTranscriptionPipeline(context, {
-          start_seconds: start_seconds != null ? Number(start_seconds) : undefined,
+          start_seconds:
+            start_seconds != null ? Number(start_seconds) : undefined,
           end_seconds: end_seconds != null ? Number(end_seconds) : undefined,
           animation: Boolean(animation),
           target_language: target_language || undefined,
@@ -52,11 +59,18 @@ export function createSubtitleHandler(registry: ConnectorRegistry, context: Work
 
         if (segments.length === 0) {
           res.writeHead(200, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ error: 'No segments could be transcribed — the audio may be silent.' }));
+          res.end(
+            JSON.stringify({
+              error:
+                'No segments could be transcribed — the audio may be silent.',
+            })
+          );
           return;
         }
 
-        console.log(`[SUBTITLES] Pipeline produced ${segments.length} segments. Importing into timeline…`);
+        console.log(
+          `[SUBTITLES] Pipeline produced ${segments.length} segments. Importing into timeline…`
+        );
 
         // Import subtitles into the DaVinci timeline
         const subResult = await registry.callTool('add_timeline_subtitle', {
@@ -65,17 +79,22 @@ export function createSubtitleHandler(registry: ConnectorRegistry, context: Work
         });
 
         const resultText = Array.isArray(subResult.content)
-          ? subResult.content.filter((c: any) => c.type === 'text').map((c: any) => c.text).join('\n')
+          ? subResult.content
+              .filter((c: any) => c.type === 'text')
+              .map((c: any) => c.text)
+              .join('\n')
           : String(subResult.content);
 
         console.log('[SUBTITLES] Import result:', resultText);
 
         res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({
-          success: true,
-          segments_count: segments.length,
-          message: `Successfully generated ${segments.length} subtitle segments and imported them into the timeline. Check the Media Pool for the new SRT file.`,
-        }));
+        res.end(
+          JSON.stringify({
+            success: true,
+            segments_count: segments.length,
+            message: `Successfully generated ${segments.length} subtitle segments and imported them into the timeline. Check the Media Pool for the new SRT file.`,
+          })
+        );
       } catch (err: unknown) {
         console.error('[SUBTITLES] Pipeline error:', err);
         const msg = err instanceof Error ? err.message : String(err);

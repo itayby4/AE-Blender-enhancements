@@ -24,7 +24,10 @@ export interface SubtitleSegment {
  */
 function extractToolResultText(content: unknown): string {
   if (Array.isArray(content)) {
-    return content.filter((c: any) => c.type === 'text').map((c: any) => c.text).join('\n');
+    return content
+      .filter((c: any) => c.type === 'text')
+      .map((c: any) => c.text)
+      .join('\n');
   }
   return String(content);
 }
@@ -74,7 +77,9 @@ export async function runTranscriptionPipeline(
       try {
         console.log(`🔪 VAD splitting: ${actualPath}`);
         const aggressiveness = options.vad_sensitivity === 'high' ? 0 : 1; // 0 is most sensitive to speech, 3 is least. Defaults to 1.
-        const stdout = execSync(`python "${vadSplitScript}" "${actualPath}" ${chunk.offset_seconds} --aggressiveness ${aggressiveness}`);
+        const stdout = execSync(
+          `python "${vadSplitScript}" "${actualPath}" ${chunk.offset_seconds} --aggressiveness ${aggressiveness}`
+        );
         const output = stdout.toString().trim();
         const splitChunks = JSON.parse(output.split('\n').pop() || '[]');
         if (Array.isArray(splitChunks) && splitChunks.length > 0) {
@@ -83,29 +88,40 @@ export async function runTranscriptionPipeline(
         }
       } catch (vadErr) {
         console.error(`   -> VAD failed, using original chunk:`, vadErr);
-        chunksToTranscribe.push({ path: actualPath, offset_seconds: chunk.offset_seconds });
+        chunksToTranscribe.push({
+          path: actualPath,
+          offset_seconds: chunk.offset_seconds,
+        });
       }
     }
   } else {
     chunksToTranscribe = resJson.audio_chunks
-      .map((c: any) => ({ path: resolveChunkPath(c.path), offset_seconds: c.offset_seconds }))
+      .map((c: any) => ({
+        path: resolveChunkPath(c.path),
+        offset_seconds: c.offset_seconds,
+      }))
       .filter((c: any) => c.path);
   }
 
-  console.log(`🚀 Transcribing ${chunksToTranscribe.length} chunks via Whisper (parallel)...`);
+  console.log(
+    `🚀 Transcribing ${chunksToTranscribe.length} chunks via Whisper (parallel)...`
+  );
 
   // --- Step 3: Whisper transcription (PARALLEL) ---
   const transcriptionResults = await Promise.all(
     chunksToTranscribe.map(async (chunk) => {
       if (!fs.existsSync(chunk.path)) return null;
       try {
-        const transcription = await openai.audio.transcriptions.create({
+        const transcription = (await openai.audio.transcriptions.create({
           file: fs.createReadStream(chunk.path),
           model: 'whisper-1',
           response_format: 'verbose_json',
           timestamp_granularities: ['segment'],
-        }) as any;
-        return { segments: transcription.segments || [], offset: chunk.offset_seconds };
+        })) as any;
+        return {
+          segments: transcription.segments || [],
+          offset: chunk.offset_seconds,
+        };
       } catch (err) {
         console.error(`ERROR transcribing ${chunk.path}:`, err);
         return null;
@@ -114,7 +130,8 @@ export async function runTranscriptionPipeline(
   );
 
   // Flatten all raw segments
-  const allRawSegments: Array<{ segments: any[]; offset: number }> = transcriptionResults.filter(Boolean) as any;
+  const allRawSegments: Array<{ segments: any[]; offset: number }> =
+    transcriptionResults.filter(Boolean) as any;
 
   // --- Step 4: Gemini translation (batched) ---
   const BATCH_SIZE = 30;
@@ -124,7 +141,9 @@ export async function runTranscriptionPipeline(
   for (const { segments, offset } of allRawSegments) {
     for (let b = 0; b < segments.length; b += BATCH_SIZE) {
       const batch = segments.slice(b, b + BATCH_SIZE);
-      const batchPrompt = `Translate these subtitle segments to ${languageTarget}. Auto-detect the source language – if already ${languageTarget}, keep as-is. Return JSON with a "segments" array. Keep all original keys (id, seek, start, end, etc.) and ONLY change the "text" field to ${languageTarget}. Do NOT split or merge segments.\n\nJSON:\n${JSON.stringify({ segments: batch })}`;
+      const batchPrompt = `Translate these subtitle segments to ${languageTarget}. Auto-detect the source language – if already ${languageTarget}, keep as-is. Return JSON with a "segments" array. Keep all original keys (id, seek, start, end, etc.) and ONLY change the "text" field to ${languageTarget}. Do NOT split or merge segments.\n\nJSON:\n${JSON.stringify(
+        { segments: batch }
+      )}`;
 
       try {
         const geminiResult = await ai.models.generateContent({
@@ -133,10 +152,17 @@ export async function runTranscriptionPipeline(
           config: { responseMimeType: 'application/json' },
         });
         const parsed = JSON.parse(geminiResult.text ?? '{"segments": []}');
-        const translated = parsed.segments && Array.isArray(parsed.segments) ? parsed.segments : batch;
-        allTranslated.push(...translated.map((s: any) => ({ ...s, _offset: offset })));
+        const translated =
+          parsed.segments && Array.isArray(parsed.segments)
+            ? parsed.segments
+            : batch;
+        allTranslated.push(
+          ...translated.map((s: any) => ({ ...s, _offset: offset }))
+        );
       } catch {
-        allTranslated.push(...batch.map((s: any) => ({ ...s, _offset: offset })));
+        allTranslated.push(
+          ...batch.map((s: any) => ({ ...s, _offset: offset }))
+        );
       }
     }
   }
@@ -160,7 +186,11 @@ export async function runTranscriptionPipeline(
       for (const word of words) {
         const chunkDur = segDuration / words.length;
         const chunkEnd = Math.min(currentStart + chunkDur, segEnd);
-        finalSegments.push({ start_seconds: currentStart, end_seconds: chunkEnd, text: word });
+        finalSegments.push({
+          start_seconds: currentStart,
+          end_seconds: chunkEnd,
+          text: word,
+        });
         currentStart = chunkEnd;
       }
     } else {
@@ -170,35 +200,45 @@ export async function runTranscriptionPipeline(
         const fraction = chunkWords.length / words.length;
         const chunkDur = segDuration * fraction;
         const chunkEnd = Math.min(currentStart + chunkDur, segEnd);
-        finalSegments.push({ start_seconds: currentStart, end_seconds: chunkEnd, text: chunkWords.join(' ') });
+        finalSegments.push({
+          start_seconds: currentStart,
+          end_seconds: chunkEnd,
+          text: chunkWords.join(' '),
+        });
         currentStart = chunkEnd;
       }
     }
   }
 
-  console.log(`Pipeline complete. ${finalSegments.length} subtitle segments produced.`);
+  console.log(
+    `Pipeline complete. ${finalSegments.length} subtitle segments produced.`
+  );
   return finalSegments;
 }
 
 /** Resolves a chunk path, handling multiple extensions DaVinci Resolve might append */
 function resolveChunkPath(originalPath: string): string | null {
   if (fs.existsSync(originalPath)) return originalPath;
-  
+
   // Try to find the file with different extensions and log what we find
   const dir = path.dirname(originalPath);
   const baseName = path.basename(originalPath, path.extname(originalPath));
-  
+
   if (fs.existsSync(dir)) {
     const files = fs.readdirSync(dir);
     for (const file of files) {
       if (file.startsWith(baseName)) {
         const foundPath = path.join(dir, file);
-        console.log(`[resolveChunkPath] Found alternative file: ${foundPath} instead of ${originalPath}`);
+        console.log(
+          `[resolveChunkPath] Found alternative file: ${foundPath} instead of ${originalPath}`
+        );
         return foundPath;
       }
     }
   }
 
-  console.warn(`Audio chunk missing: ${originalPath} and no alternatives found in ${dir}`);
+  console.warn(
+    `Audio chunk missing: ${originalPath} and no alternatives found in ${dir}`
+  );
   return null;
 }

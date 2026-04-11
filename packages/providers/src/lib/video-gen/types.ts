@@ -11,9 +11,12 @@ export interface VideoOptions {
 export interface VideoProvider extends BaseProvider {
   /**
    * Generates a video based on the prompt and options
-   * 
-   * Note: Some providers might poll and return when done, 
+   *
+   * Note: Some providers might poll and return when done,
    * while others might just return the taskId immediately.
    */
-  generate(prompt: string, options?: VideoOptions): Promise<{ id: string; status: string; url?: string }>;
+  generate(
+    prompt: string,
+    options?: VideoOptions
+  ): Promise<{ id: string; status: string; url?: string }>;
 }

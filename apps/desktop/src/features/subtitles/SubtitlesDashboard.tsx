@@ -46,11 +46,27 @@ const LANGUAGES = [
 ];
 
 const VAD_MODES = [
-  { value: 'low', label: 'Normal', description: 'Standard segmentation — good for clear speech' },
-  { value: 'high', label: 'Sensitive', description: 'Catches more speech — use if words are cut off' },
+  {
+    value: 'low',
+    label: 'Normal',
+    description: 'Standard segmentation — good for clear speech',
+  },
+  {
+    value: 'high',
+    label: 'Sensitive',
+    description: 'Catches more speech — use if words are cut off',
+  },
 ];
 
-type PipelineStage = 'idle' | 'rendering' | 'vad' | 'transcribing' | 'translating' | 'importing' | 'done' | 'error';
+type PipelineStage =
+  | 'idle'
+  | 'rendering'
+  | 'vad'
+  | 'transcribing'
+  | 'translating'
+  | 'importing'
+  | 'done'
+  | 'error';
 
 const STAGE_LABELS: Record<PipelineStage, string> = {
   idle: 'Ready',
@@ -63,7 +79,14 @@ const STAGE_LABELS: Record<PipelineStage, string> = {
   error: 'An error occurred.',
 };
 
-const STAGE_ORDER: PipelineStage[] = ['rendering', 'vad', 'transcribing', 'translating', 'importing', 'done'];
+const STAGE_ORDER: PipelineStage[] = [
+  'rendering',
+  'vad',
+  'transcribing',
+  'translating',
+  'importing',
+  'done',
+];
 
 export function SubtitlesDashboard() {
   const [language, setLanguage] = useState('');
@@ -89,18 +112,25 @@ export function SubtitlesDashboard() {
     const targetLanguage = language === '_custom' ? customLanguage : language;
 
     try {
-      const response = await fetch('http://localhost:3001/api/subtitles/generate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          target_language: targetLanguage || undefined,
-          max_words_per_chunk: animation ? 1 : maxWords,
-          vad_sensitivity: vadSensitivity,
-          animation,
-          start_seconds: useTimeRange && startSeconds ? parseFloat(startSeconds) : undefined,
-          end_seconds: useTimeRange && endSeconds ? parseFloat(endSeconds) : undefined,
-        }),
-      });
+      const response = await fetch(
+        'http://localhost:3001/api/subtitles/generate',
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            target_language: targetLanguage || undefined,
+            max_words_per_chunk: animation ? 1 : maxWords,
+            vad_sensitivity: vadSensitivity,
+            animation,
+            start_seconds:
+              useTimeRange && startSeconds
+                ? parseFloat(startSeconds)
+                : undefined,
+            end_seconds:
+              useTimeRange && endSeconds ? parseFloat(endSeconds) : undefined,
+          }),
+        }
+      );
 
       const data = await response.json();
 
@@ -111,7 +141,9 @@ export function SubtitlesDashboard() {
       }
 
       setStage('done');
-      setResultMessage(data.message || 'Subtitles generated and imported successfully!');
+      setResultMessage(
+        data.message || 'Subtitles generated and imported successfully!'
+      );
     } catch (err) {
       setStage('error');
       setErrorMessage(err instanceof Error ? err.message : String(err));
@@ -136,11 +168,9 @@ export function SubtitlesDashboard() {
       </div>
 
       <div className="flex-1 overflow-hidden flex flex-col md:flex-row relative">
-
         {/* Left Control Panel */}
         <div className="w-full md:w-[340px] lg:w-[400px] shrink-0 flex flex-col border-b md:border-b-0 md:border-r border-border/50 bg-card/10 overflow-y-auto custom-scrollbar">
           <div className="p-4 md:p-6 flex flex-col gap-4 md:gap-5">
-
             {/* Language Selection */}
             <Card className="shadow-sm border-border/50">
               <CardContent className="p-4 space-y-4">
@@ -149,15 +179,24 @@ export function SubtitlesDashboard() {
                     <Languages className="h-3.5 w-3.5" />
                     Target Language
                   </Label>
-                  <Select value={language} onValueChange={(val) => setLanguage(val ?? '')}>
-                    <SelectTrigger id="subtitle-language" className="w-full bg-muted/20">
+                  <Select
+                    value={language}
+                    onValueChange={(val) => setLanguage(val ?? '')}
+                  >
+                    <SelectTrigger
+                      id="subtitle-language"
+                      className="w-full bg-muted/20"
+                    >
                       <SelectValue placeholder="Select language…" />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectGroup>
                         <SelectLabel>Common Languages</SelectLabel>
                         {LANGUAGES.map((lang) => (
-                          <SelectItem key={lang.value} value={lang.value || '_original'}>
+                          <SelectItem
+                            key={lang.value}
+                            value={lang.value || '_original'}
+                          >
                             {lang.label}
                           </SelectItem>
                         ))}
@@ -238,7 +277,9 @@ export function SubtitlesDashboard() {
                       }`}
                     >
                       <div className="flex items-center justify-between">
-                        <span className="font-medium text-sm">{mode.label}</span>
+                        <span className="font-medium text-sm">
+                          {mode.label}
+                        </span>
                         {vadSensitivity === mode.value && (
                           <div className="h-2 w-2 rounded-full bg-primary" />
                         )}
@@ -292,7 +333,12 @@ export function SubtitlesDashboard() {
                 {useTimeRange && (
                   <div className="flex gap-3 mt-2">
                     <div className="flex-1 space-y-1">
-                      <Label htmlFor="subtitle-start" className="text-[10px] text-muted-foreground">Start (sec)</Label>
+                      <Label
+                        htmlFor="subtitle-start"
+                        className="text-[10px] text-muted-foreground"
+                      >
+                        Start (sec)
+                      </Label>
                       <Input
                         id="subtitle-start"
                         type="number"
@@ -305,7 +351,12 @@ export function SubtitlesDashboard() {
                       />
                     </div>
                     <div className="flex-1 space-y-1">
-                      <Label htmlFor="subtitle-end" className="text-[10px] text-muted-foreground">End (sec)</Label>
+                      <Label
+                        htmlFor="subtitle-end"
+                        className="text-[10px] text-muted-foreground"
+                      >
+                        End (sec)
+                      </Label>
                       <Input
                         id="subtitle-end"
                         type="number"
@@ -341,7 +392,6 @@ export function SubtitlesDashboard() {
                 </>
               )}
             </Button>
-
           </div>
         </div>
 
@@ -351,7 +401,9 @@ export function SubtitlesDashboard() {
             <div className="absolute inset-0 flex flex-col items-center justify-center text-muted-foreground opacity-50">
               <Subtitles className="h-16 w-16 mb-4 stroke-[1.5]" />
               <p className="font-medium">No subtitles generated yet</p>
-              <p className="text-xs mt-1">Configure settings and click Generate</p>
+              <p className="text-xs mt-1">
+                Configure settings and click Generate
+              </p>
             </div>
           ) : (
             <div className="max-w-lg mx-auto w-full space-y-6 mt-4">
@@ -371,7 +423,8 @@ export function SubtitlesDashboard() {
                 {STAGE_ORDER.map((s, i) => {
                   const isCurrent = s === stage;
                   const isCompleted = currentStageIndex > i;
-                  const isError = stage === 'error' && i === 0 && currentStageIndex === -1;
+                  const isError =
+                    stage === 'error' && i === 0 && currentStageIndex === -1;
 
                   return (
                     <div
@@ -380,8 +433,8 @@ export function SubtitlesDashboard() {
                         isCurrent
                           ? 'bg-primary/10 border border-primary/30'
                           : isCompleted
-                            ? 'bg-muted/30'
-                            : 'opacity-40'
+                          ? 'bg-muted/30'
+                          : 'opacity-40'
                       }`}
                     >
                       <div className="shrink-0">
@@ -399,7 +452,15 @@ export function SubtitlesDashboard() {
                           <div className="h-4 w-4 rounded-full border border-muted-foreground/30" />
                         )}
                       </div>
-                      <span className={`text-sm ${isCurrent ? 'font-medium text-foreground' : isCompleted ? 'text-muted-foreground' : 'text-muted-foreground/50'}`}>
+                      <span
+                        className={`text-sm ${
+                          isCurrent
+                            ? 'font-medium text-foreground'
+                            : isCompleted
+                            ? 'text-muted-foreground'
+                            : 'text-muted-foreground/50'
+                        }`}
+                      >
                         {STAGE_LABELS[s]}
                       </span>
                     </div>
@@ -411,14 +472,18 @@ export function SubtitlesDashboard() {
               {stage === 'error' && errorMessage && (
                 <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-4 mt-4">
                   <p className="text-sm text-red-400 font-medium mb-1">Error</p>
-                  <p className="text-xs text-red-300/80 break-all">{errorMessage}</p>
+                  <p className="text-xs text-red-300/80 break-all">
+                    {errorMessage}
+                  </p>
                 </div>
               )}
 
               {/* Success Message */}
               {stage === 'done' && resultMessage && (
                 <div className="bg-green-500/10 border border-green-500/30 rounded-lg p-4 mt-4">
-                  <p className="text-sm text-green-400 font-medium mb-1">Complete</p>
+                  <p className="text-sm text-green-400 font-medium mb-1">
+                    Complete
+                  </p>
                   <p className="text-xs text-green-300/80">{resultMessage}</p>
                 </div>
               )}

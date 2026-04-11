@@ -7,20 +7,27 @@ dotenv.config();
 
 const geminiRaw = process.env.GEMINI_API_KEY;
 if (!geminiRaw) {
-  console.error('ERROR: GEMINI_API_KEY is not set in the environment variables.');
+  console.error(
+    'ERROR: GEMINI_API_KEY is not set in the environment variables.'
+  );
   process.exit(1);
 }
 
 const openaiRaw = process.env.OPENAI_API_KEY;
 if (!openaiRaw) {
-  console.error('ERROR: OPENAI_API_KEY is not set in the environment variables.');
+  console.error(
+    'ERROR: OPENAI_API_KEY is not set in the environment variables.'
+  );
   process.exit(1);
 }
 
 const anthropicRaw = process.env.ANTHROPIC_API_KEY;
 
 let currentDir = __dirname;
-while (!fs.existsSync(path.join(currentDir, 'nx.json')) && currentDir !== path.parse(currentDir).root) {
+while (
+  !fs.existsSync(path.join(currentDir, 'nx.json')) &&
+  currentDir !== path.parse(currentDir).root
+) {
   currentDir = path.dirname(currentDir);
 }
 const workspaceRoot = currentDir;
@@ -88,10 +95,7 @@ Always use the pipeline_actions block format. The frontend will parse it and exe
         command: resolveVenvPython(
           path.join(workspaceRoot, 'apps', 'mcp-davinci', 'venv')
         ),
-        args: [
-          '-m',
-          'mcp_davinci.server',
-        ],
+        args: ['-m', 'mcp_davinci.server'],
         cwd: path.join(workspaceRoot, 'apps', 'mcp-davinci', 'src'),
       },
     },
@@ -103,10 +107,7 @@ Always use the pipeline_actions block format. The frontend will parse it and exe
         command: resolveVenvPython(
           path.join(workspaceRoot, 'apps', 'mcp-premiere', 'venv')
         ),
-        args: [
-          '-m',
-          'mcp_premiere.server',
-        ],
+        args: ['-m', 'mcp_premiere.server'],
         cwd: path.join(workspaceRoot, 'apps', 'mcp-premiere', 'src'),
       },
     },
@@ -118,10 +119,7 @@ Always use the pipeline_actions block format. The frontend will parse it and exe
         command: resolveVenvPython(
           path.join(workspaceRoot, 'apps', 'mcp-aftereffects', 'venv')
         ),
-        args: [
-          '-m',
-          'mcp_aftereffects.server',
-        ],
+        args: ['-m', 'mcp_aftereffects.server'],
         cwd: path.join(workspaceRoot, 'apps', 'mcp-aftereffects', 'src'),
       },
     },
@@ -133,10 +131,7 @@ Always use the pipeline_actions block format. The frontend will parse it and exe
         command: resolveVenvPython(
           path.join(workspaceRoot, 'apps', 'mcp-blender', 'venv')
         ),
-        args: [
-          '-m',
-          'mcp_blender.server',
-        ],
+        args: ['-m', 'mcp_blender.server'],
         cwd: path.join(workspaceRoot, 'apps', 'mcp-blender', 'src'),
       },
     },
@@ -148,10 +143,7 @@ Always use the pipeline_actions block format. The frontend will parse it and exe
         command: resolveVenvPython(
           path.join(workspaceRoot, 'apps', 'mcp-ableton', 'venv')
         ),
-        args: [
-          '-m',
-          'mcp_ableton.server',
-        ],
+        args: ['-m', 'mcp_ableton.server'],
         cwd: path.join(workspaceRoot, 'apps', 'mcp-ableton', 'src'),
       },
     },

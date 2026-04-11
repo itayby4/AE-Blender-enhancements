@@ -1,4 +1,10 @@
-import React, { useCallback, useRef, useState, useEffect, type DragEvent } from 'react';
+import React, {
+  useCallback,
+  useRef,
+  useState,
+  useEffect,
+  type DragEvent,
+} from 'react';
 import {
   ReactFlow,
   MiniMap,
@@ -13,12 +19,34 @@ import {
   type Node,
   ReactFlowProvider,
   useReactFlow,
-  SelectionMode
+  SelectionMode,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import {
-  Workflow, Save, Settings2, Play, GripVertical, Plus,
-  Sparkles, Video, Wand2, PlaySquare, Type, Palette, ChevronRight, ChevronDown, Upload, HardDriveDownload, Loader2, PanelLeftClose, PanelLeft, Brain, Mic, Music, AudioLines, Headphones
+  Workflow,
+  Save,
+  Settings2,
+  Play,
+  GripVertical,
+  Plus,
+  Sparkles,
+  Video,
+  Wand2,
+  PlaySquare,
+  Type,
+  Palette,
+  ChevronRight,
+  ChevronDown,
+  Upload,
+  HardDriveDownload,
+  Loader2,
+  PanelLeftClose,
+  PanelLeft,
+  Brain,
+  Mic,
+  Music,
+  AudioLines,
+  Headphones,
 } from 'lucide-react';
 import { Button } from '../../components/ui/button';
 import { ModelNode } from './custom-nodes/ModelNode';
@@ -28,7 +56,10 @@ import { MediaNode } from './custom-nodes/MediaNode';
 import { NullNode } from './custom-nodes/NullNode';
 import { DownloadNode } from './custom-nodes/DownloadNode';
 import { SoundNode } from './custom-nodes/SoundNode';
-import { onPipelineActions, type PipelineAction } from '../../lib/pipeline-actions';
+import {
+  onPipelineActions,
+  type PipelineAction,
+} from '../../lib/pipeline-actions';
 import { usePipelineExecutor } from './usePipelineExecutor';
 import { save } from '@tauri-apps/plugin-dialog';
 import { writeTextFile } from '@tauri-apps/plugin-fs';
@@ -44,32 +75,135 @@ const nodeTypes = {
 };
 
 export const VIDEO_MODELS = [
-  { type: 'modelNode', model: 'kling', label: 'Kling 3.0', desc: 'High-fidelity cinematic video generation', icon: Sparkles, color: 'text-primary' },
-  { type: 'modelNode', model: 'seedance-2', label: 'SeedDance 2 (Pro)', desc: 'Dance & motion-driven video generation', icon: Wand2, color: 'text-emerald-500' },
-  { type: 'modelNode', model: 'seedance-2-fast', label: 'SeedDance 2 (Fast)', desc: 'Faster dance & motion-driven video generation', icon: Wand2, color: 'text-emerald-400' },
+  {
+    type: 'modelNode',
+    model: 'kling',
+    label: 'Kling 3.0',
+    desc: 'High-fidelity cinematic video generation',
+    icon: Sparkles,
+    color: 'text-primary',
+  },
+  {
+    type: 'modelNode',
+    model: 'seedance-2',
+    label: 'SeedDance 2 (Pro)',
+    desc: 'Dance & motion-driven video generation',
+    icon: Wand2,
+    color: 'text-emerald-500',
+  },
+  {
+    type: 'modelNode',
+    model: 'seedance-2-fast',
+    label: 'SeedDance 2 (Fast)',
+    desc: 'Faster dance & motion-driven video generation',
+    icon: Wand2,
+    color: 'text-emerald-400',
+  },
 ];
 
 export const IMAGE_MODELS = [
-  { type: 'modelNode', model: 'seeddream', label: 'SeedDream 5', desc: 'High-quality image generation & editing', icon: Palette, color: 'text-rose-500' },
-  { type: 'modelNode', model: 'nanobanana', label: 'Nano Banana 2', desc: 'Fast experimental model for stylized motion', icon: Video, color: 'text-amber-500' },
+  {
+    type: 'modelNode',
+    model: 'seeddream',
+    label: 'SeedDream 5',
+    desc: 'High-quality image generation & editing',
+    icon: Palette,
+    color: 'text-rose-500',
+  },
+  {
+    type: 'modelNode',
+    model: 'nanobanana',
+    label: 'Nano Banana 2',
+    desc: 'Fast experimental model for stylized motion',
+    icon: Video,
+    color: 'text-amber-500',
+  },
 ];
 
 export const LLM_MODELS = [
-  { type: 'modelNode', model: 'anthropic', label: 'Claude 3.5 Sonnet', desc: 'Advanced reasoning and text generation', icon: Brain, color: 'text-purple-500' },
+  {
+    type: 'modelNode',
+    model: 'anthropic',
+    label: 'Claude 3.5 Sonnet',
+    desc: 'Advanced reasoning and text generation',
+    icon: Brain,
+    color: 'text-purple-500',
+  },
 ];
 
 export const SOUND_MODELS = [
-  { type: 'soundNode', model: 'elevenlabs-tts', label: 'ElevenLabs TTS', desc: 'AI text-to-speech with realistic voices', icon: Mic, color: 'text-cyan-400' },
-  { type: 'soundNode', model: 'elevenlabs-sfx', label: 'ElevenLabs SFX', desc: 'Generate sound effects from text', icon: Music, color: 'text-orange-400' },
-  { type: 'soundNode', model: 'elevenlabs-sts', label: 'ElevenLabs STS', desc: 'Voice-to-voice style transfer', icon: AudioLines, color: 'text-teal-400' },
-  { type: 'soundNode', model: 'elevenlabs-isolate', label: 'Audio Isolate', desc: 'Isolate vocals from background noise', icon: Headphones, color: 'text-pink-400' },
+  {
+    type: 'soundNode',
+    model: 'elevenlabs-tts',
+    label: 'ElevenLabs TTS',
+    desc: 'AI text-to-speech with realistic voices',
+    icon: Mic,
+    color: 'text-cyan-400',
+  },
+  {
+    type: 'soundNode',
+    model: 'elevenlabs-sfx',
+    label: 'ElevenLabs SFX',
+    desc: 'Generate sound effects from text',
+    icon: Music,
+    color: 'text-orange-400',
+  },
+  {
+    type: 'soundNode',
+    model: 'elevenlabs-sts',
+    label: 'ElevenLabs STS',
+    desc: 'Voice-to-voice style transfer',
+    icon: AudioLines,
+    color: 'text-teal-400',
+  },
+  {
+    type: 'soundNode',
+    model: 'elevenlabs-isolate',
+    label: 'Audio Isolate',
+    desc: 'Isolate vocals from background noise',
+    icon: Headphones,
+    color: 'text-pink-400',
+  },
 ];
 
 export const TOOLS_NODES = [
-  { type: 'triggerNode', model: 'trigger', label: 'Start Trigger', desc: 'Connect to pipeline start', icon: PlaySquare, color: 'text-indigo-500', bg: 'bg-indigo-500/10' },
-  { type: 'promptNode', model: 'prompt', label: 'Prompt Node', desc: 'Text input for models', icon: Type, color: 'text-violet-400', bg: 'bg-violet-500/10' },
-  { type: 'downloadNode', model: 'download', label: 'Download Node', desc: 'Save upstream media', icon: HardDriveDownload, color: 'text-sky-500', bg: 'bg-sky-500/10' },
-  { type: 'nullNode', model: 'null', label: 'Null Node', desc: 'Pass-through proxy node', icon: Type, isNull: true, color: 'text-muted-foreground', bg: 'bg-muted/10' },
+  {
+    type: 'triggerNode',
+    model: 'trigger',
+    label: 'Start Trigger',
+    desc: 'Connect to pipeline start',
+    icon: PlaySquare,
+    color: 'text-indigo-500',
+    bg: 'bg-indigo-500/10',
+  },
+  {
+    type: 'promptNode',
+    model: 'prompt',
+    label: 'Prompt Node',
+    desc: 'Text input for models',
+    icon: Type,
+    color: 'text-violet-400',
+    bg: 'bg-violet-500/10',
+  },
+  {
+    type: 'downloadNode',
+    model: 'download',
+    label: 'Download Node',
+    desc: 'Save upstream media',
+    icon: HardDriveDownload,
+    color: 'text-sky-500',
+    bg: 'bg-sky-500/10',
+  },
+  {
+    type: 'nullNode',
+    model: 'null',
+    label: 'Null Node',
+    desc: 'Pass-through proxy node',
+    icon: Type,
+    isNull: true,
+    color: 'text-muted-foreground',
+    bg: 'bg-muted/10',
+  },
 ];
 
 let id = 0;
@@ -79,28 +213,51 @@ function NodeSystemFlow() {
   const reactFlowWrapper = useRef<HTMLDivElement>(null);
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
-  const [draggedNode, setDraggedNode] = useState<{ type: string; model: string; label: string; desc: string } | null>(null);
-  const [menu, setMenu] = useState<{ clientX: number, clientY: number, top: number, left: number } | null>(null);
+  const [draggedNode, setDraggedNode] = useState<{
+    type: string;
+    model: string;
+    label: string;
+    desc: string;
+  } | null>(null);
+  const [menu, setMenu] = useState<{
+    clientX: number;
+    clientY: number;
+    top: number;
+    left: number;
+  } | null>(null);
   const { screenToFlowPosition, getNodes, getEdges } = useReactFlow();
 
   const { executePipeline, isGlobalExecuting } = usePipelineExecutor();
 
   // Section states
-  const [openSections, setOpenSections] = useState({ video: true, image: true, llm: true, sound: true, tools: true });
-  const toggleSection = (s: keyof typeof openSections) => setOpenSections(o => ({ ...o, [s]: !o[s] }));
+  const [openSections, setOpenSections] = useState({
+    video: true,
+    image: true,
+    llm: true,
+    sound: true,
+    tools: true,
+  });
+  const toggleSection = (s: keyof typeof openSections) =>
+    setOpenSections((o) => ({ ...o, [s]: !o[s] }));
 
   // Responsive sidebar state
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
 
   // Clipboard for Copy & Paste
-  const clipboardRef = useRef<{ nodes: Node[], edges: Edge[] } | null>(null);
+  const clipboardRef = useRef<{ nodes: Node[]; edges: Edge[] } | null>(null);
 
   const onConnect = useCallback(
     (params: Connection | Edge) => setEdges((eds) => addEdge(params, eds)),
-    [setEdges],
+    [setEdges]
   );
 
-  const onDragStart = (event: DragEvent, nodeType: string, model: string, label: string, desc: string) => {
+  const onDragStart = (
+    event: DragEvent,
+    nodeType: string,
+    model: string,
+    label: string,
+    desc: string
+  ) => {
     setDraggedNode({ type: nodeType, model, label, desc });
     event.dataTransfer.setData('text/plain', 'model_node');
     event.dataTransfer.effectAllowed = 'move';
@@ -108,114 +265,140 @@ function NodeSystemFlow() {
 
   const onDragEnter = useCallback((event: React.DragEvent) => {
     event.preventDefault();
-    event.dataTransfer.dropEffect = event.dataTransfer.types.includes('Files') ? 'copy' : 'move';
+    event.dataTransfer.dropEffect = event.dataTransfer.types.includes('Files')
+      ? 'copy'
+      : 'move';
   }, []);
 
   const onDragOver = useCallback((event: React.DragEvent) => {
     event.preventDefault();
     // Accept both internal node drags AND external file drops
-    event.dataTransfer.dropEffect = event.dataTransfer.types.includes('Files') ? 'copy' : 'move';
+    event.dataTransfer.dropEffect = event.dataTransfer.types.includes('Files')
+      ? 'copy'
+      : 'move';
   }, []);
 
-  const onDrop = useCallback((event: React.DragEvent) => {
-    event.preventDefault();
-    if (!reactFlowWrapper.current) return;
+  const onDrop = useCallback(
+    (event: React.DragEvent) => {
+      event.preventDefault();
+      if (!reactFlowWrapper.current) return;
 
-    const position = screenToFlowPosition({
-      x: event.clientX,
-      y: event.clientY,
-    });
-
-    // === External file drop (OS → Canvas) ===
-    const files = event.dataTransfer.files;
-    if (files && files.length > 0) {
-      Array.from(files).forEach((file, index) => {
-        const mimeType = file.type || '';
-        let mediaType: 'image' | 'video' | 'audio' | 'unknown' = 'unknown';
-        if (mimeType.startsWith('image/')) mediaType = 'image';
-        else if (mimeType.startsWith('video/')) mediaType = 'video';
-        else if (mimeType.startsWith('audio/')) mediaType = 'audio';
-
-        // Read file as data URL for preview
-        const reader = new FileReader();
-        reader.onload = (e) => {
-          const dataUrl = e.target?.result as string;
-          const newNode: Node = {
-            id: getId(),
-            type: 'mediaNode',
-            position: { x: position.x + index * 30, y: position.y + index * 30 },
-            data: {
-              url: dataUrl,
-              fileName: file.name,
-              mediaType,
-              mimeType: file.type,
-            },
-          };
-          setNodes((nds) => nds.concat(newNode));
-        };
-        reader.readAsDataURL(file);
+      const position = screenToFlowPosition({
+        x: event.clientX,
+        y: event.clientY,
       });
-      return;
-    }
 
-    // === Internal node palette drag ===
-    if (!draggedNode) return;
+      // === External file drop (OS → Canvas) ===
+      const files = event.dataTransfer.files;
+      if (files && files.length > 0) {
+        Array.from(files).forEach((file, index) => {
+          const mimeType = file.type || '';
+          let mediaType: 'image' | 'video' | 'audio' | 'unknown' = 'unknown';
+          if (mimeType.startsWith('image/')) mediaType = 'image';
+          else if (mimeType.startsWith('video/')) mediaType = 'video';
+          else if (mimeType.startsWith('audio/')) mediaType = 'audio';
 
-    const newNode = {
-      id: getId(),
-      type: draggedNode.type,
-      position,
-      data: { label: draggedNode.label, model: draggedNode.model, description: draggedNode.desc },
-    };
+          // Read file as data URL for preview
+          const reader = new FileReader();
+          reader.onload = (e) => {
+            const dataUrl = e.target?.result as string;
+            const newNode: Node = {
+              id: getId(),
+              type: 'mediaNode',
+              position: {
+                x: position.x + index * 30,
+                y: position.y + index * 30,
+              },
+              data: {
+                url: dataUrl,
+                fileName: file.name,
+                mediaType,
+                mimeType: file.type,
+              },
+            };
+            setNodes((nds) => nds.concat(newNode));
+          };
+          reader.readAsDataURL(file);
+        });
+        return;
+      }
 
-    setNodes((nds) => nds.concat(newNode));
-    setDraggedNode(null);
-  }, [screenToFlowPosition, setNodes, draggedNode]);
+      // === Internal node palette drag ===
+      if (!draggedNode) return;
+
+      const newNode = {
+        id: getId(),
+        type: draggedNode.type,
+        position,
+        data: {
+          label: draggedNode.label,
+          model: draggedNode.model,
+          description: draggedNode.desc,
+        },
+      };
+
+      setNodes((nds) => nds.concat(newNode));
+      setDraggedNode(null);
+    },
+    [screenToFlowPosition, setNodes, draggedNode]
+  );
 
   // Handle right-click on the canvas background
-  const onPaneContextMenu = useCallback((event: React.MouseEvent | MouseEvent) => {
-    event.preventDefault();
-    if (!reactFlowWrapper.current) return;
-    const bounds = reactFlowWrapper.current.getBoundingClientRect();
+  const onPaneContextMenu = useCallback(
+    (event: React.MouseEvent | MouseEvent) => {
+      event.preventDefault();
+      if (!reactFlowWrapper.current) return;
+      const bounds = reactFlowWrapper.current.getBoundingClientRect();
 
-    setMenu({
-      clientX: event.clientX,
-      clientY: event.clientY,
-      top: event.clientY - bounds.top,
-      left: event.clientX - bounds.left
-    });
-  }, []);
+      setMenu({
+        clientX: event.clientX,
+        clientY: event.clientY,
+        top: event.clientY - bounds.top,
+        left: event.clientX - bounds.left,
+      });
+    },
+    []
+  );
 
   // Force context menu on right-click release, even if d3-zoom was dragging
   useEffect(() => {
     const handleGlobalMouseUp = (e: MouseEvent) => {
       // Only care about right-click release
       if (e.button !== 2) return;
-      
+
       // Check if we are inside the reactFlowWrapper
-      if (!reactFlowWrapper.current || !reactFlowWrapper.current.contains(e.target as globalThis.Node)) {
-         return;
+      if (
+        !reactFlowWrapper.current ||
+        !reactFlowWrapper.current.contains(e.target as globalThis.Node)
+      ) {
+        return;
       }
 
       // Check if we dropped over a node or edge (we only want pane menu)
       const target = e.target as HTMLElement;
-      if (target.closest('.react-flow__node') || target.closest('.react-flow__edge')) {
-        return; 
+      if (
+        target.closest('.react-flow__node') ||
+        target.closest('.react-flow__edge')
+      ) {
+        return;
       }
 
       const bounds = reactFlowWrapper.current.getBoundingClientRect();
-      
-      setMenu({ 
-        clientX: e.clientX, 
-        clientY: e.clientY, 
-        top: e.clientY - bounds.top, 
-        left: e.clientX - bounds.left 
+
+      setMenu({
+        clientX: e.clientX,
+        clientY: e.clientY,
+        top: e.clientY - bounds.top,
+        left: e.clientX - bounds.left,
       });
     };
 
     // Use capture phase to guarantee we get it before d3 can stop it
     window.addEventListener('mouseup', handleGlobalMouseUp, { capture: true });
-    return () => window.removeEventListener('mouseup', handleGlobalMouseUp, { capture: true });
+    return () =>
+      window.removeEventListener('mouseup', handleGlobalMouseUp, {
+        capture: true,
+      });
   }, []);
 
   const onPaneClick = useCallback(() => {
@@ -223,49 +406,55 @@ function NodeSystemFlow() {
   }, []);
 
   // Use the menu coordinates to add the node precisely where the user right clicked
-  const addNodeFromMenu = useCallback((nodeType: string, model: string, label: string, desc: string) => {
-    if (!menu) return;
+  const addNodeFromMenu = useCallback(
+    (nodeType: string, model: string, label: string, desc: string) => {
+      if (!menu) return;
 
-    const position = screenToFlowPosition({
-      x: menu.clientX,
-      y: menu.clientY,
-    });
+      const position = screenToFlowPosition({
+        x: menu.clientX,
+        y: menu.clientY,
+      });
 
-    const newNode = {
-      id: getId(),
-      type: nodeType,
-      position,
-      data: { label, model, description: desc },
-    };
+      const newNode = {
+        id: getId(),
+        type: nodeType,
+        position,
+        data: { label, model, description: desc },
+      };
 
-    setNodes((nds) => nds.concat(newNode));
-    setMenu(null);
-  }, [menu, screenToFlowPosition, setNodes]);
+      setNodes((nds) => nds.concat(newNode));
+      setMenu(null);
+    },
+    [menu, screenToFlowPosition, setNodes]
+  );
 
   // Fallback for easy click-to-add functionality
-  const onClickAdd = useCallback((nodeType: string, model: string, label: string, desc: string) => {
-    if (!reactFlowWrapper.current) return;
+  const onClickAdd = useCallback(
+    (nodeType: string, model: string, label: string, desc: string) => {
+      if (!reactFlowWrapper.current) return;
 
-    // Add to center of wrapper bounds
-    const bounds = reactFlowWrapper.current.getBoundingClientRect();
-    const position = screenToFlowPosition({
-      x: bounds.left + bounds.width / 2,
-      y: bounds.top + bounds.height / 2,
-    });
+      // Add to center of wrapper bounds
+      const bounds = reactFlowWrapper.current.getBoundingClientRect();
+      const position = screenToFlowPosition({
+        x: bounds.left + bounds.width / 2,
+        y: bounds.top + bounds.height / 2,
+      });
 
-    // Add slight random offset so they don't perfectly overlap if clicked twice
-    position.x += (Math.random() - 0.5) * 50;
-    position.y += (Math.random() - 0.5) * 50;
+      // Add slight random offset so they don't perfectly overlap if clicked twice
+      position.x += (Math.random() - 0.5) * 50;
+      position.y += (Math.random() - 0.5) * 50;
 
-    const newNode = {
-      id: getId(),
-      type: nodeType,
-      position,
-      data: { label, model, description: desc },
-    };
+      const newNode = {
+        id: getId(),
+        type: nodeType,
+        position,
+        data: { label, model, description: desc },
+      };
 
-    setNodes((nds) => nds.concat(newNode));
-  }, [screenToFlowPosition, setNodes]);
+      setNodes((nds) => nds.concat(newNode));
+    },
+    [screenToFlowPosition, setNodes]
+  );
 
   // === Pipeline Action Handler (Chat → Node Editor) ===
   useEffect(() => {
@@ -295,11 +484,20 @@ function NodeSystemFlow() {
             }
             case 'add_node': {
               // Use the pre-calculated ID if available, otherwise generate a new one
-              const newId = (action.nodeId && idMap[action.nodeId]) ? idMap[action.nodeId] : getId();
+              const newId =
+                action.nodeId && idMap[action.nodeId]
+                  ? idMap[action.nodeId]
+                  : getId();
               const type = action.nodeType || 'modelNode';
 
               let xPos = 100;
-              if (type === 'triggerNode' || type === 'nullNode' || type === 'mediaNode' || type === 'downloadNode') xPos = 100;
+              if (
+                type === 'triggerNode' ||
+                type === 'nullNode' ||
+                type === 'mediaNode' ||
+                type === 'downloadNode'
+              )
+                xPos = 100;
               else if (type === 'promptNode') xPos = 500;
               else if (type === 'modelNode') xPos = 900;
 
@@ -324,18 +522,24 @@ function NodeSystemFlow() {
               break;
             }
             case 'set_prompt': {
-              const realId = action.nodeId ? (idMap[action.nodeId] || action.nodeId) : lastAddedId;
+              const realId = action.nodeId
+                ? idMap[action.nodeId] || action.nodeId
+                : lastAddedId;
               if (realId && action.prompt) {
-                updatedNodes = updatedNodes.map(n =>
-                  n.id === realId ? { ...n, data: { ...n.data, prompt: action.prompt } } : n
+                updatedNodes = updatedNodes.map((n) =>
+                  n.id === realId
+                    ? { ...n, data: { ...n.data, prompt: action.prompt } }
+                    : n
                 );
               }
               break;
             }
             case 'remove_node': {
-              const realId = action.nodeId ? (idMap[action.nodeId] || action.nodeId) : null;
+              const realId = action.nodeId
+                ? idMap[action.nodeId] || action.nodeId
+                : null;
               if (realId) {
-                updatedNodes = updatedNodes.filter(n => n.id !== realId);
+                updatedNodes = updatedNodes.filter((n) => n.id !== realId);
               }
               break;
             }
@@ -366,9 +570,13 @@ function NodeSystemFlow() {
               break;
             }
             case 'remove_node': {
-              const realId = action.nodeId ? (idMap[action.nodeId] || action.nodeId) : null;
+              const realId = action.nodeId
+                ? idMap[action.nodeId] || action.nodeId
+                : null;
               if (realId) {
-                updatedEdges = updatedEdges.filter(e => e.source !== realId && e.target !== realId);
+                updatedEdges = updatedEdges.filter(
+                  (e) => e.source !== realId && e.target !== realId
+                );
               }
               break;
             }
@@ -384,15 +592,19 @@ function NodeSystemFlow() {
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       // Don't intercept if user is typing in an input/textarea
-      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+      if (
+        e.target instanceof HTMLInputElement ||
+        e.target instanceof HTMLTextAreaElement
+      )
+        return;
 
       const isCtrl = e.ctrlKey || e.metaKey;
 
       // Select All (Ctrl+A)
       if (isCtrl && (e.code === 'KeyA' || e.key.toLowerCase() === 'a')) {
         e.preventDefault();
-        setNodes(nds => nds.map(n => ({ ...n, selected: true })));
-        setEdges(eds => eds.map(edge => ({ ...edge, selected: true })));
+        setNodes((nds) => nds.map((n) => ({ ...n, selected: true })));
+        setEdges((eds) => eds.map((edge) => ({ ...edge, selected: true })));
         return;
       }
 
@@ -400,14 +612,15 @@ function NodeSystemFlow() {
       if (isCtrl && (e.code === 'KeyC' || e.key.toLowerCase() === 'c')) {
         const currentNodes = getNodes();
         const currentEdges = getEdges();
-        const selectedNodes = currentNodes.filter(n => n.selected);
+        const selectedNodes = currentNodes.filter((n) => n.selected);
         if (selectedNodes.length === 0) return;
 
         e.preventDefault();
 
-        const selectedNodeIds = new Set(selectedNodes.map(n => n.id));
-        const selectedEdges = currentEdges.filter(edge =>
-          selectedNodeIds.has(edge.source) && selectedNodeIds.has(edge.target)
+        const selectedNodeIds = new Set(selectedNodes.map((n) => n.id));
+        const selectedEdges = currentEdges.filter(
+          (edge) =>
+            selectedNodeIds.has(edge.source) && selectedNodeIds.has(edge.target)
         );
 
         clipboardRef.current = { nodes: selectedNodes, edges: selectedEdges };
@@ -423,7 +636,7 @@ function NodeSystemFlow() {
         const idMap: Record<string, string> = {};
 
         // Increment position slightly so they don't perfectly stack
-        const newNodes = clipboard.nodes.map(node => {
+        const newNodes = clipboard.nodes.map((node) => {
           const newId = getId();
           idMap[node.id] = newId;
           return {
@@ -431,26 +644,26 @@ function NodeSystemFlow() {
             id: newId,
             selected: true, // Auto-select newly pasted nodes
             position: {
-              x: node.position.x + 40 + (Math.random() * 20),
-              y: node.position.y + 40 + (Math.random() * 20)
-            }
+              x: node.position.x + 40 + Math.random() * 20,
+              y: node.position.y + 40 + Math.random() * 20,
+            },
           };
         });
 
-        const newEdges = clipboard.edges.map(edge => ({
+        const newEdges = clipboard.edges.map((edge) => ({
           ...edge,
           id: `e_${idMap[edge.source]}_${idMap[edge.target]}_${getId()}`,
           source: idMap[edge.source],
           target: idMap[edge.target],
-          selected: false
+          selected: false,
         }));
 
-        setNodes(nds => [
-          ...nds.map(n => ({ ...n, selected: false })), // Deselect existing nodes
-          ...newNodes
+        setNodes((nds) => [
+          ...nds.map((n) => ({ ...n, selected: false })), // Deselect existing nodes
+          ...newNodes,
         ]);
 
-        setEdges(eds => [...eds, ...newEdges]);
+        setEdges((eds) => [...eds, ...newEdges]);
 
         // Update clipboard positions to allow repeated pasting offsets
         clipboardRef.current = { nodes: newNodes, edges: newEdges };
@@ -467,16 +680,18 @@ function NodeSystemFlow() {
       nodes,
       edges,
       version: 1,
-      exportedAt: new Date().toISOString()
+      exportedAt: new Date().toISOString(),
     };
 
     try {
       const filePath = await save({
-        filters: [{
-          name: 'JSON File',
-          extensions: ['json']
-        }],
-        defaultPath: `pipefx_pipeline_${Math.floor(Date.now() / 1000)}.json`
+        filters: [
+          {
+            name: 'JSON File',
+            extensions: ['json'],
+          },
+        ],
+        defaultPath: `pipefx_pipeline_${Math.floor(Date.now() / 1000)}.json`,
       });
 
       if (filePath) {
@@ -499,14 +714,25 @@ function NodeSystemFlow() {
             onClick={() => setIsSidebarOpen(!isSidebarOpen)}
             title="Toggle Sidebar"
           >
-            {isSidebarOpen ? <PanelLeftClose className="h-4 w-4" /> : <PanelLeft className="h-4 w-4" />}
+            {isSidebarOpen ? (
+              <PanelLeftClose className="h-4 w-4" />
+            ) : (
+              <PanelLeft className="h-4 w-4" />
+            )}
           </Button>
           <Workflow className="h-5 w-5 text-primary" />
-          <h2 className="font-semibold text-sm max-md:hidden">Pipeline Editor</h2>
+          <h2 className="font-semibold text-sm max-md:hidden">
+            Pipeline Editor
+          </h2>
         </div>
 
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" className="h-8 gap-1.5 text-xs" onClick={handleSaveGraph}>
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-8 gap-1.5 text-xs"
+            onClick={handleSaveGraph}
+          >
             <Save className="h-3.5 w-3.5" />
             Save Graph
           </Button>
@@ -535,8 +761,17 @@ function NodeSystemFlow() {
         {isSidebarOpen && (
           <div className="w-64 max-md:absolute max-md:z-40 max-md:h-full max-md:border-r max-md:shadow-2xl border-r bg-card/95 backdrop-blur-md md:bg-card/50 flex flex-col p-4 shrink-0 overflow-y-auto transition-all animate-in slide-in-from-left-8 duration-200">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">AI Nodes</h3>
-              <Button variant="ghost" size="icon" className="h-6 w-6" title="Click nodes to add or drag"><Plus className="w-3 h-3" /></Button>
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                AI Nodes
+              </h3>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-6 w-6"
+                title="Click nodes to add or drag"
+              >
+                <Plus className="w-3 h-3" />
+              </Button>
             </div>
 
             <div className="space-y-4">
@@ -547,24 +782,48 @@ function NodeSystemFlow() {
                   className="flex items-center justify-between w-full text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2 hover:text-foreground transition-colors outline-hidden"
                 >
                   <span>Video Models</span>
-                  {openSections.video ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+                  {openSections.video ? (
+                    <ChevronDown className="h-3 w-3" />
+                  ) : (
+                    <ChevronRight className="h-3 w-3" />
+                  )}
                 </button>
                 {openSections.video && (
                   <div className="space-y-2">
-                    {VIDEO_MODELS.map(node => (
+                    {VIDEO_MODELS.map((node) => (
                       <div
                         key={node.model}
                         className="p-3 border rounded-lg bg-background shadow-sm flex items-start gap-3 cursor-grab hover:border-primary/50 transition-colors active:cursor-grabbing hover:bg-muted/30 [&>*]:pointer-events-none"
                         draggable={true}
-                        onDragStart={(e) => onDragStart(e, node.type, node.model, node.label, node.desc)}
-                        onClick={() => onClickAdd(node.type, node.model, node.label, node.desc)}
+                        onDragStart={(e) =>
+                          onDragStart(
+                            e,
+                            node.type,
+                            node.model,
+                            node.label,
+                            node.desc
+                          )
+                        }
+                        onClick={() =>
+                          onClickAdd(
+                            node.type,
+                            node.model,
+                            node.label,
+                            node.desc
+                          )
+                        }
                       >
                         <GripVertical className="w-4 h-4 mt-0.5 text-muted-foreground opacity-50 shrink-0 pointer-events-none" />
                         <div className="pointer-events-none">
                           <div className="font-medium text-sm flex items-center gap-1.5">
-                            <node.icon className={`w-3.5 h-3.5 ${node.color}`} /> {node.label}
+                            <node.icon
+                              className={`w-3.5 h-3.5 ${node.color}`}
+                            />{' '}
+                            {node.label}
                           </div>
-                          <div className="text-[10px] text-muted-foreground mt-1 leading-snug">{node.desc}</div>
+                          <div className="text-[10px] text-muted-foreground mt-1 leading-snug">
+                            {node.desc}
+                          </div>
                         </div>
                       </div>
                     ))}
@@ -579,24 +838,48 @@ function NodeSystemFlow() {
                   className="flex items-center justify-between w-full text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2 mt-4 hover:text-foreground transition-colors outline-hidden"
                 >
                   <span>Image Models</span>
-                  {openSections.image ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+                  {openSections.image ? (
+                    <ChevronDown className="h-3 w-3" />
+                  ) : (
+                    <ChevronRight className="h-3 w-3" />
+                  )}
                 </button>
                 {openSections.image && (
                   <div className="space-y-2">
-                    {IMAGE_MODELS.map(node => (
+                    {IMAGE_MODELS.map((node) => (
                       <div
                         key={node.model}
                         className="p-3 border rounded-lg bg-background shadow-sm flex items-start gap-3 cursor-grab hover:border-primary/50 transition-colors active:cursor-grabbing hover:bg-muted/30 [&>*]:pointer-events-none"
                         draggable={true}
-                        onDragStart={(e) => onDragStart(e, node.type, node.model, node.label, node.desc)}
-                        onClick={() => onClickAdd(node.type, node.model, node.label, node.desc)}
+                        onDragStart={(e) =>
+                          onDragStart(
+                            e,
+                            node.type,
+                            node.model,
+                            node.label,
+                            node.desc
+                          )
+                        }
+                        onClick={() =>
+                          onClickAdd(
+                            node.type,
+                            node.model,
+                            node.label,
+                            node.desc
+                          )
+                        }
                       >
                         <GripVertical className="w-4 h-4 mt-0.5 text-muted-foreground opacity-50 shrink-0 pointer-events-none" />
                         <div className="pointer-events-none">
                           <div className="font-medium text-sm flex items-center gap-1.5">
-                            <node.icon className={`w-3.5 h-3.5 ${node.color}`} /> {node.label}
+                            <node.icon
+                              className={`w-3.5 h-3.5 ${node.color}`}
+                            />{' '}
+                            {node.label}
                           </div>
-                          <div className="text-[10px] text-muted-foreground mt-1 leading-snug">{node.desc}</div>
+                          <div className="text-[10px] text-muted-foreground mt-1 leading-snug">
+                            {node.desc}
+                          </div>
                         </div>
                       </div>
                     ))}
@@ -611,24 +894,48 @@ function NodeSystemFlow() {
                   className="flex items-center justify-between w-full text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2 mt-4 hover:text-foreground transition-colors outline-hidden"
                 >
                   <span>LLM Models</span>
-                  {openSections.llm ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+                  {openSections.llm ? (
+                    <ChevronDown className="h-3 w-3" />
+                  ) : (
+                    <ChevronRight className="h-3 w-3" />
+                  )}
                 </button>
                 {openSections.llm && (
                   <div className="space-y-2">
-                    {LLM_MODELS.map(node => (
+                    {LLM_MODELS.map((node) => (
                       <div
                         key={node.model}
                         className="p-3 border rounded-lg bg-background shadow-sm flex items-start gap-3 cursor-grab hover:border-primary/50 transition-colors active:cursor-grabbing hover:bg-muted/30 [&>*]:pointer-events-none"
                         draggable={true}
-                        onDragStart={(e) => onDragStart(e, node.type, node.model, node.label, node.desc)}
-                        onClick={() => onClickAdd(node.type, node.model, node.label, node.desc)}
+                        onDragStart={(e) =>
+                          onDragStart(
+                            e,
+                            node.type,
+                            node.model,
+                            node.label,
+                            node.desc
+                          )
+                        }
+                        onClick={() =>
+                          onClickAdd(
+                            node.type,
+                            node.model,
+                            node.label,
+                            node.desc
+                          )
+                        }
                       >
                         <GripVertical className="w-4 h-4 mt-0.5 text-muted-foreground opacity-50 shrink-0 pointer-events-none" />
                         <div className="pointer-events-none">
                           <div className="font-medium text-sm flex items-center gap-1.5">
-                            <node.icon className={`w-3.5 h-3.5 ${node.color}`} /> {node.label}
+                            <node.icon
+                              className={`w-3.5 h-3.5 ${node.color}`}
+                            />{' '}
+                            {node.label}
                           </div>
-                          <div className="text-[10px] text-muted-foreground mt-1 leading-snug">{node.desc}</div>
+                          <div className="text-[10px] text-muted-foreground mt-1 leading-snug">
+                            {node.desc}
+                          </div>
                         </div>
                       </div>
                     ))}
@@ -643,24 +950,48 @@ function NodeSystemFlow() {
                   className="flex items-center justify-between w-full text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2 mt-4 hover:text-foreground transition-colors outline-hidden"
                 >
                   <span>Sound Models</span>
-                  {openSections.sound ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+                  {openSections.sound ? (
+                    <ChevronDown className="h-3 w-3" />
+                  ) : (
+                    <ChevronRight className="h-3 w-3" />
+                  )}
                 </button>
                 {openSections.sound && (
                   <div className="space-y-2">
-                    {SOUND_MODELS.map(node => (
+                    {SOUND_MODELS.map((node) => (
                       <div
                         key={node.model}
                         className="p-3 border rounded-lg bg-background shadow-sm flex items-start gap-3 cursor-grab hover:border-primary/50 transition-colors active:cursor-grabbing hover:bg-muted/30 [&>*]:pointer-events-none"
                         draggable={true}
-                        onDragStart={(e) => onDragStart(e, node.type, node.model, node.label, node.desc)}
-                        onClick={() => onClickAdd(node.type, node.model, node.label, node.desc)}
+                        onDragStart={(e) =>
+                          onDragStart(
+                            e,
+                            node.type,
+                            node.model,
+                            node.label,
+                            node.desc
+                          )
+                        }
+                        onClick={() =>
+                          onClickAdd(
+                            node.type,
+                            node.model,
+                            node.label,
+                            node.desc
+                          )
+                        }
                       >
                         <GripVertical className="w-4 h-4 mt-0.5 text-muted-foreground opacity-50 shrink-0 pointer-events-none" />
                         <div className="pointer-events-none">
                           <div className="font-medium text-sm flex items-center gap-1.5">
-                            <node.icon className={`w-3.5 h-3.5 ${node.color}`} /> {node.label}
+                            <node.icon
+                              className={`w-3.5 h-3.5 ${node.color}`}
+                            />{' '}
+                            {node.label}
                           </div>
-                          <div className="text-[10px] text-muted-foreground mt-1 leading-snug">{node.desc}</div>
+                          <div className="text-[10px] text-muted-foreground mt-1 leading-snug">
+                            {node.desc}
+                          </div>
                         </div>
                       </div>
                     ))}
@@ -675,26 +1006,57 @@ function NodeSystemFlow() {
                   className="flex items-center justify-between w-full text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2 mt-4 hover:text-foreground transition-colors outline-hidden"
                 >
                   <span>Tools</span>
-                  {openSections.tools ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+                  {openSections.tools ? (
+                    <ChevronDown className="h-3 w-3" />
+                  ) : (
+                    <ChevronRight className="h-3 w-3" />
+                  )}
                 </button>
                 {openSections.tools && (
                   <div className="space-y-2">
-                    {TOOLS_NODES.map(node => (
+                    {TOOLS_NODES.map((node) => (
                       <div
                         key={node.model}
-                        className={`p-3 border rounded-lg ${node.bg || 'bg-background'} border-border/30 shadow-sm flex items-start gap-3 cursor-grab hover:brightness-95 transition-all active:cursor-grabbing hover:border-foreground/20 [&>*]:pointer-events-none`}
+                        className={`p-3 border rounded-lg ${
+                          node.bg || 'bg-background'
+                        } border-border/30 shadow-sm flex items-start gap-3 cursor-grab hover:brightness-95 transition-all active:cursor-grabbing hover:border-foreground/20 [&>*]:pointer-events-none`}
                         draggable={true}
-                        onDragStart={(e) => onDragStart(e, node.type, node.model, node.label, node.desc)}
-                        onClick={() => onClickAdd(node.type, node.model, node.label, node.desc)}
+                        onDragStart={(e) =>
+                          onDragStart(
+                            e,
+                            node.type,
+                            node.model,
+                            node.label,
+                            node.desc
+                          )
+                        }
+                        onClick={() =>
+                          onClickAdd(
+                            node.type,
+                            node.model,
+                            node.label,
+                            node.desc
+                          )
+                        }
                       >
-                        <GripVertical className={`w-4 h-4 mt-0.5 ${node.color} opacity-50 shrink-0 pointer-events-none`} />
+                        <GripVertical
+                          className={`w-4 h-4 mt-0.5 ${node.color} opacity-50 shrink-0 pointer-events-none`}
+                        />
                         <div className="pointer-events-none">
-                          <div className={`font-bold text-sm flex items-center gap-1.5 ${node.color}`}>
-                            {node.isNull && <div className="w-3.5 h-3.5 rounded-full border-2 border-dashed border-muted-foreground" />}
-                            {!node.isNull && <node.icon className="w-3.5 h-3.5" />}
+                          <div
+                            className={`font-bold text-sm flex items-center gap-1.5 ${node.color}`}
+                          >
+                            {node.isNull && (
+                              <div className="w-3.5 h-3.5 rounded-full border-2 border-dashed border-muted-foreground" />
+                            )}
+                            {!node.isNull && (
+                              <node.icon className="w-3.5 h-3.5" />
+                            )}
                             {node.label}
                           </div>
-                          <div className="text-[10px] text-muted-foreground/80 mt-1 leading-snug">{node.desc}</div>
+                          <div className="text-[10px] text-muted-foreground/80 mt-1 leading-snug">
+                            {node.desc}
+                          </div>
                         </div>
                       </div>
                     ))}
@@ -704,11 +1066,17 @@ function NodeSystemFlow() {
 
               {/* Media Drop Zone Hint */}
               <div className="mt-4 pt-4 border-t border-border/50">
-                <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">Media</h3>
+                <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">
+                  Media
+                </h3>
                 <div className="flex flex-col items-center justify-center p-4 border-2 border-dashed border-muted-foreground/30 rounded-lg bg-muted/20 text-muted-foreground/50 gap-2 hover:border-cyan-500/50 hover:text-cyan-400/80 hover:bg-cyan-500/5 transition-all">
                   <Upload className="h-5 w-5" />
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-center leading-tight">Drag files onto canvas</span>
-                  <span className="text-[9px] opacity-60">Images • Videos • Audio</span>
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-center leading-tight">
+                    Drag files onto canvas
+                  </span>
+                  <span className="text-[9px] opacity-60">
+                    Images • Videos • Audio
+                  </span>
                 </div>
               </div>
             </div>
@@ -746,7 +1114,12 @@ function NodeSystemFlow() {
               nodeColor="hsl(var(--primary))"
               maskColor="hsl(var(--background) / 0.7)"
             />
-            <Background variant={BackgroundVariant.Dots} gap={16} size={1} color="hsl(var(--muted-foreground) / 0.2)" />
+            <Background
+              variant={BackgroundVariant.Dots}
+              gap={16}
+              size={1}
+              color="hsl(var(--muted-foreground) / 0.2)"
+            />
           </ReactFlow>
 
           {/* Custom Context Menu */}
@@ -755,7 +1128,9 @@ function NodeSystemFlow() {
               className="absolute z-50 w-52 bg-card/95 backdrop-blur-md border border-border shadow-2xl p-1.5 animate-in fade-in zoom-in-95 duration-150 rounded-xl"
               style={{ top: menu.top, left: menu.left }}
             >
-              <div className="px-2 py-1.5 text-[10px] font-bold text-muted-foreground uppercase tracking-widest opacity-80 mb-1 border-b border-border/50">Add Action Node</div>
+              <div className="px-2 py-1.5 text-[10px] font-bold text-muted-foreground uppercase tracking-widest opacity-80 mb-1 border-b border-border/50">
+                Add Action Node
+              </div>
 
               {/* Video Models Submenu */}
               <div className="relative group/video">
@@ -764,13 +1139,22 @@ function NodeSystemFlow() {
                   <ChevronRight className="h-4 w-4 text-muted-foreground" />
                 </button>
                 <div className="absolute left-full top-0 ml-1.5 w-48 bg-card/95 backdrop-blur-md border border-border shadow-2xl p-1.5 rounded-xl hidden group-hover/video:block animate-in fade-in zoom-in-95 duration-100">
-                  {VIDEO_MODELS.map(node => (
+                  {VIDEO_MODELS.map((node) => (
                     <button
                       key={node.model}
-                      onClick={() => addNodeFromMenu(node.type, node.model, node.label, node.desc)}
+                      onClick={() =>
+                        addNodeFromMenu(
+                          node.type,
+                          node.model,
+                          node.label,
+                          node.desc
+                        )
+                      }
                       className="w-full flex items-center gap-2 px-2 py-2 text-sm hover:bg-muted rounded-md transition-colors text-left group"
                     >
-                      <node.icon className={`h-4 w-4 ${node.color} group-hover:scale-110 transition-transform`} />
+                      <node.icon
+                        className={`h-4 w-4 ${node.color} group-hover:scale-110 transition-transform`}
+                      />
                       <span className="font-medium">{node.label}</span>
                     </button>
                   ))}
@@ -784,13 +1168,22 @@ function NodeSystemFlow() {
                   <ChevronRight className="h-4 w-4 text-muted-foreground" />
                 </button>
                 <div className="absolute left-full top-0 ml-1.5 w-48 bg-card/95 backdrop-blur-md border border-border shadow-2xl p-1.5 rounded-xl hidden group-hover/image:block animate-in fade-in zoom-in-95 duration-100">
-                  {IMAGE_MODELS.map(node => (
+                  {IMAGE_MODELS.map((node) => (
                     <button
                       key={node.model}
-                      onClick={() => addNodeFromMenu(node.type, node.model, node.label, node.desc)}
+                      onClick={() =>
+                        addNodeFromMenu(
+                          node.type,
+                          node.model,
+                          node.label,
+                          node.desc
+                        )
+                      }
                       className="w-full flex items-center gap-2 px-2 py-2 text-sm hover:bg-muted rounded-md transition-colors text-left group"
                     >
-                      <node.icon className={`h-4 w-4 ${node.color} group-hover:scale-110 transition-transform`} />
+                      <node.icon
+                        className={`h-4 w-4 ${node.color} group-hover:scale-110 transition-transform`}
+                      />
                       <span className="font-medium">{node.label}</span>
                     </button>
                   ))}
@@ -804,13 +1197,22 @@ function NodeSystemFlow() {
                   <ChevronRight className="h-4 w-4 text-muted-foreground" />
                 </button>
                 <div className="absolute left-full top-0 ml-1.5 w-48 bg-card/95 backdrop-blur-md border border-border shadow-2xl p-1.5 rounded-xl hidden group-hover/llm:block animate-in fade-in zoom-in-95 duration-100">
-                  {LLM_MODELS.map(node => (
+                  {LLM_MODELS.map((node) => (
                     <button
                       key={node.model}
-                      onClick={() => addNodeFromMenu(node.type, node.model, node.label, node.desc)}
+                      onClick={() =>
+                        addNodeFromMenu(
+                          node.type,
+                          node.model,
+                          node.label,
+                          node.desc
+                        )
+                      }
                       className="w-full flex items-center gap-2 px-2 py-2 text-sm hover:bg-muted rounded-md transition-colors text-left group"
                     >
-                      <node.icon className={`h-4 w-4 ${node.color} group-hover:scale-110 transition-transform`} />
+                      <node.icon
+                        className={`h-4 w-4 ${node.color} group-hover:scale-110 transition-transform`}
+                      />
                       <span className="font-medium">{node.label}</span>
                     </button>
                   ))}
@@ -824,13 +1226,22 @@ function NodeSystemFlow() {
                   <ChevronRight className="h-4 w-4 text-muted-foreground" />
                 </button>
                 <div className="absolute left-full top-0 ml-1.5 w-48 bg-card/95 backdrop-blur-md border border-border shadow-2xl p-1.5 rounded-xl hidden group-hover/sound:block animate-in fade-in zoom-in-95 duration-100">
-                  {SOUND_MODELS.map(node => (
+                  {SOUND_MODELS.map((node) => (
                     <button
                       key={node.model}
-                      onClick={() => addNodeFromMenu(node.type, node.model, node.label, node.desc)}
+                      onClick={() =>
+                        addNodeFromMenu(
+                          node.type,
+                          node.model,
+                          node.label,
+                          node.desc
+                        )
+                      }
                       className="w-full flex items-center gap-2 px-2 py-2 text-sm hover:bg-muted rounded-md transition-colors text-left group"
                     >
-                      <node.icon className={`h-4 w-4 ${node.color} group-hover:scale-110 transition-transform`} />
+                      <node.icon
+                        className={`h-4 w-4 ${node.color} group-hover:scale-110 transition-transform`}
+                      />
                       <span className="font-medium">{node.label}</span>
                     </button>
                   ))}
@@ -846,15 +1257,30 @@ function NodeSystemFlow() {
                   <ChevronRight className="h-4 w-4 text-muted-foreground" />
                 </button>
                 <div className="absolute left-full top-0 ml-1.5 w-48 bg-card/95 backdrop-blur-md border border-border shadow-2xl p-1.5 rounded-xl hidden group-hover/tools:block animate-in fade-in zoom-in-95 duration-100">
-                  {TOOLS_NODES.map(node => (
+                  {TOOLS_NODES.map((node) => (
                     <button
                       key={node.model}
-                      onClick={() => addNodeFromMenu(node.type, node.model, node.label, node.desc)}
+                      onClick={() =>
+                        addNodeFromMenu(
+                          node.type,
+                          node.model,
+                          node.label,
+                          node.desc
+                        )
+                      }
                       className="w-full flex items-center gap-2 px-2 py-2 text-sm hover:bg-muted rounded-md transition-colors text-left group"
                     >
-                      {node.isNull && <div className="h-3 w-3 rounded-full border-2 border-dashed border-muted-foreground mx-0.5 group-hover:scale-110 transition-transform" />}
-                      {!node.isNull && <node.icon className={`h-4 w-4 ${node.color} group-hover:scale-110 transition-transform`} />}
-                      <span className={`font-bold ${node.color}`}>{node.label}</span>
+                      {node.isNull && (
+                        <div className="h-3 w-3 rounded-full border-2 border-dashed border-muted-foreground mx-0.5 group-hover:scale-110 transition-transform" />
+                      )}
+                      {!node.isNull && (
+                        <node.icon
+                          className={`h-4 w-4 ${node.color} group-hover:scale-110 transition-transform`}
+                        />
+                      )}
+                      <span className={`font-bold ${node.color}`}>
+                        {node.label}
+                      </span>
                     </button>
                   ))}
                 </div>

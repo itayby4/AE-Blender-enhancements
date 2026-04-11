@@ -1,8 +1,20 @@
 // Pipeline command types that the AI can send to control the node editor
 export interface PipelineAction {
-  type: 'add_node' | 'remove_node' | 'connect_nodes' | 'set_prompt' | 'execute_pipeline' | 'clear_canvas';
+  type:
+    | 'add_node'
+    | 'remove_node'
+    | 'connect_nodes'
+    | 'set_prompt'
+    | 'execute_pipeline'
+    | 'clear_canvas';
   // add_node
-  nodeType?: 'modelNode' | 'promptNode' | 'triggerNode' | 'nullNode' | 'mediaNode' | 'downloadNode';
+  nodeType?:
+    | 'modelNode'
+    | 'promptNode'
+    | 'triggerNode'
+    | 'nullNode'
+    | 'mediaNode'
+    | 'downloadNode';
   model?: string;
   label?: string;
   prompt?: string;
@@ -23,7 +35,7 @@ let pendingQueue: PipelineAction[][] = [];
 
 export function onPipelineActions(callback: PipelineListener) {
   listener = callback;
-  
+
   // Instantly flush any commands that were dispatched while we were unmounted or loading
   if (pendingQueue.length > 0) {
     const toFlush = [...pendingQueue];
@@ -32,8 +44,10 @@ export function onPipelineActions(callback: PipelineListener) {
       callback(queueItem);
     }
   }
-  
-  return () => { listener = null; };
+
+  return () => {
+    listener = null;
+  };
 }
 
 export function dispatchPipelineActions(actions: PipelineAction[]) {
