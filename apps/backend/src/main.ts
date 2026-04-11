@@ -100,7 +100,7 @@ async function main() {
 
           // Extract pipeline actions from AI response if present
           let cleanText = text;
-          let actions: any[] = [];
+          const actions: any[] = [];
 
           // First, try to extract from markdown blocks
           const actionBlockRegex =

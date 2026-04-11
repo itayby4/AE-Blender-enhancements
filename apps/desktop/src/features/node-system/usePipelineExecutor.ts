@@ -17,7 +17,7 @@ class Semaphore {
   release(): void {
     if (this.queue.length > 0) {
       const next = this.queue.shift();
-      next && next();
+      if (next) next();
     } else {
       this.count++;
     }
@@ -198,7 +198,7 @@ export function usePipelineExecutor() {
                 prompt: prompt,
               }),
             });
-          } catch (saveErr) {}
+          } catch { /* ignore */ }
 
           // Execution succeeded! Update node with result media
           setNodes((nds) =>

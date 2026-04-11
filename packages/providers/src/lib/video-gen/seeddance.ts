@@ -54,7 +54,7 @@ function createSeedDanceProvider(
         );
       }
 
-      let data = (await response.json()) as any;
+      const data = (await response.json()) as any;
       if (!data.id) {
         throw new Error(
           `Replicate API creation returned error: ${JSON.stringify(data)}`

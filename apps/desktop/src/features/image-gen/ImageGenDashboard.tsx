@@ -147,7 +147,6 @@ export function ImageGenDashboard() {
           <div className="absolute inset-0 overflow-y-auto scrollbar-none z-0">
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-[2px] pb-[300px] w-full">
               {generatedImages.map((src, i) => (
-                // eslint-disable-next-line @next/next/no-img-element
                 <img
                   key={`${i}-${window.btoa(src.slice(0, 10))}`}
                   src={src}
@@ -226,7 +225,6 @@ export function ImageGenDashboard() {
                 <div className="flex items-center gap-2 shrink-0">
                   {imageRef && (
                     <div className="relative h-11 w-11 rounded-xl overflow-hidden group border border-border/50 bg-muted shrink-0 shadow-sm">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
                         src={imageRef}
                         alt="Source"
@@ -435,7 +433,6 @@ export function ImageGenDashboard() {
           >
             <X className="w-6 h-6" />
           </button>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={selectedImage}
             alt="Enlarged render"

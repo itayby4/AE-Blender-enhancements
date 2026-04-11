@@ -44,7 +44,7 @@ export function createAgent(config: AgentConfig): Agent {
       if (activeProvider === 'gpt-5.4' || activeProvider.startsWith('gpt')) {
         if (!openaiClient) throw new Error('OpenAI API key is not configured.');
         const openAiTools = mapToolsToOpenAI(tools);
-        let messages: any[] = [
+        const messages: any[] = [
           { role: 'system', content: systemPrompt },
           ...normalizedHistory,
           { role: 'user', content: message },
@@ -112,7 +112,7 @@ export function createAgent(config: AgentConfig): Agent {
         if (!anthropicClient)
           throw new Error('Anthropic API key is not configured.');
         const claudeTools = mapToolsToAnthropic(tools);
-        let messages: Anthropic.MessageParam[] = [
+        const messages: Anthropic.MessageParam[] = [
           ...normalizedHistory,
           { role: 'user', content: message },
         ];

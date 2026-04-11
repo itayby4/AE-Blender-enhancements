@@ -71,7 +71,7 @@ export async function runTranscriptionPipeline(
     const vadSplitScript = path.join(process.cwd(), 'stools', 'vad_split.py');
 
     for (const chunk of resJson.audio_chunks) {
-      let actualPath = resolveChunkPath(chunk.path);
+      const actualPath = resolveChunkPath(chunk.path);
       if (!actualPath) continue;
 
       try {

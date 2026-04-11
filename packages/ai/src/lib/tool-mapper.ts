@@ -41,7 +41,7 @@ function normalizeJsonSchema(schema: any): any {
 }
 
 function ensureValidObjectSchema(schema: any): any {
-  let normalized = normalizeJsonSchema(schema);
+  const normalized = normalizeJsonSchema(schema);
   if (!normalized || Object.keys(normalized).length === 0) {
     return { type: 'object', properties: {} };
   }

@@ -318,7 +318,6 @@ export function VideoGenDashboard() {
                     </div>
                     {imageRef ? (
                       <div className="relative h-20 rounded-lg overflow-hidden group border border-border/50">
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img
                           src={imageRef}
                           alt="Reference"
@@ -368,7 +367,6 @@ export function VideoGenDashboard() {
                     </div>
                     {lastFrameRef ? (
                       <div className="relative h-20 rounded-lg overflow-hidden group border border-border/50">
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img
                           src={lastFrameRef}
                           alt="Reference"
@@ -610,7 +608,6 @@ export function VideoGenDashboard() {
                   {gen.status === 'success' && gen.url && (
                     <div className="absolute inset-0 bg-black/5">
                       {gen.type === 'image' ? (
-                        // eslint-disable-next-line @next/next/no-img-element
                         <img
                           src={gen.url}
                           alt="Result"
@@ -667,7 +664,6 @@ export function VideoGenDashboard() {
             {/* Video Container */}
             <div className="flex-1 bg-black flex items-center justify-center relative p-8">
               {expandedVideo.type === 'image' ? (
-                // eslint-disable-next-line @next/next/no-img-element
                 <img
                   src={expandedVideo.url}
                   alt="Expanded"
