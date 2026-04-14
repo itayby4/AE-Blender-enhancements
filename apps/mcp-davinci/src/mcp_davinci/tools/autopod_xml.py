@@ -13,7 +13,7 @@ def register(mcp, connector):
     @mcp.tool()
     def resolve_export_xml(export_path: str) -> str:
         """
-        Exports the currently active DaVinci Resolve timeline as FCPXML 1.8.
+        Exports the currently active DaVinci Resolve timeline as FCP 7 XML.
         Returns JSON with success status and the file path.
         """
         try:
@@ -26,17 +26,17 @@ def register(mcp, connector):
         try:
             abs_path = os.path.abspath(export_path)
 
-            # Export as FCPXML 1.8. The enum value is typically 6.
+            # Export as FCP 7 XML. The enum value is typically 4.
             # Try the attribute first, fall back to magic number.
-            export_type = getattr(resolve, 'EXPORT_FCPXML_1_8', 6)
+            export_type = getattr(resolve, 'EXPORT_FCP_7_XML', 4)
             export_subtype = getattr(resolve, 'EXPORT_NONE', 0)
 
             success = timeline.Export(abs_path, export_type, export_subtype)
             if not success:
                 # Fallback to raw magic number
-                success = timeline.Export(abs_path, 6, 0)
+                success = timeline.Export(abs_path, 4, 0)
                 if not success:
-                    return json.dumps({"error": "Failed to export timeline to FCPXML."})
+                    return json.dumps({"error": "Failed to export timeline to FCP7 XML."})
 
             timeline_name = timeline.GetName()
             return json.dumps({
@@ -46,12 +46,12 @@ def register(mcp, connector):
             })
 
         except Exception as e:
-            return json.dumps({"error": f"Error during FCPXML export: {str(e)}"})
+            return json.dumps({"error": f"Error during FCP7 XML export: {str(e)}"})
 
     @mcp.tool()
     def resolve_import_xml(import_path: str) -> str:
         """
-        Imports an FCPXML file into DaVinci Resolve as a new timeline in the Media Pool.
+        Imports an FCP7 XML file into DaVinci Resolve as a new timeline in the Media Pool.
         """
         try:
             resolve = connector.get_resolve()
@@ -67,15 +67,15 @@ def register(mcp, connector):
 
             file_size = os.path.getsize(abs_path)
             if file_size == 0:
-                return json.dumps({"error": f"FCPXML file is empty: {abs_path}"})
+                return json.dumps({"error": f"FCP7 XML file is empty: {abs_path}"})
 
-            # Import the FCPXML as a new timeline
+            # Import the FCP7 XML as a new timeline
             import_options = {}
             new_timeline = media_pool.ImportTimelineFromFile(abs_path, import_options)
 
             if not new_timeline:
                 return json.dumps({
-                    "error": f"DaVinci Resolve failed to import the FCPXML. File at: {abs_path}",
+                    "error": f"DaVinci Resolve failed to import the FCP7 XML. File at: {abs_path}",
                     "xml_path": abs_path
                 })
 
@@ -85,13 +85,13 @@ def register(mcp, connector):
 
             return json.dumps({
                 "success": True,
-                "message": f"Imported FCPXML as timeline '{timeline_name}'.",
+                "message": f"Imported FCP7 XML as timeline '{timeline_name}'.",
                 "xml_path": abs_path,
                 "timeline_name": timeline_name
             })
 
         except Exception as e:
             return json.dumps({
-                "error": f"Error during FCPXML import: {str(e)}. File at: {abs_path}",
+                "error": f"Error during FCP7 XML import: {str(e)}. File at: {abs_path}",
                 "xml_path": abs_path
             })

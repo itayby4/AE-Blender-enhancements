@@ -215,100 +215,53 @@ def parse_fcpxml(root):
             duration_sec = fraction_to_float(dur_str)
 
     # ── Collect all asset refs used in the timeline ──
-    # In DaVinci FCPXML, the structure is:
-    #   <spine>
-    #     <clip name="CamA" ...>           ← wrapper (no ref attr)
-    #       <video ref="r1" .../>          ← actual asset reference for video
-    #       <clip lane="1" ...>            ← nested camera 2
-    #         <video ref="r3" .../>
-    #       </clip>
-    #       <asset-clip ref="r4" .../>     ← audio on a lane
-    #       <asset-clip ref="r5" .../>
-    #     </clip>
-    #   </spine>
-    #
-    # So we must:
-    #  1. Iterate ALL <video> elements to find video asset refs
-    #  2. Iterate ALL <asset-clip> elements to find audio/video asset refs
-    #  3. Also check <audio> elements
+    # In DaVinci FCPXML:
+    # - Video tracks are represented by <video ref="..."> or <asset-clip ref="...">
+    # - Audio tracks are represented by <audio ref="..."> (often nested in video) or <asset-clip ref="...">
+    
+    seen_video_refs = set()
+    seen_audio_refs = set()
+
+    for el in root.iter():
+        ref = el.get('ref', '')
+        if not ref:
+            continue
+            
+        asset_info = assets.get(ref)
+        if not asset_info:
+            continue
+            
+        # Determine if this element provides video on the timeline
+        if el.tag in ('video', 'asset-clip', 'clip', 'mc-clip', 'ref-clip') and asset_info.get('hasVideo'):
+            seen_video_refs.add(ref)
+            
+        # Determine if this element provides audio on the timeline
+        if el.tag in ('audio', 'asset-clip', 'clip', 'mc-clip', 'ref-clip') and asset_info.get('hasAudio'):
+            seen_audio_refs.add(ref)
 
     seen_video_paths = []
     cameras = []
     video_paths = []
     unique_audio_files = []
 
-    # Pass 1: Find all <video ref="..."> elements (these are always video)
-    for vid_el in root.iter('video'):
-        ref = vid_el.get('ref', '')
-        asset_info = assets.get(ref)
-        if not asset_info:
-            continue
-        path = asset_info['path']
+    # Map video refs to cameras
+    for ref in seen_video_refs:
+        path = assets[ref]['path']
         if path and path not in seen_video_paths:
             seen_video_paths.append(path)
             track_idx = len(cameras) + 1
             cameras.append({
                 "id": str(track_idx),
-                "name": asset_info.get('name', f"Camera {track_idx}"),
+                "name": assets[ref].get('name', f"Camera {track_idx}"),
                 "path": path
             })
             video_paths.append(path)
 
-    # Pass 2: Find all <asset-clip ref="..."> elements
-    for ac_el in root.iter('asset-clip'):
-        ref = ac_el.get('ref', '')
-        asset_info = assets.get(ref)
-        if not asset_info:
-            continue
-        path = asset_info['path']
-        if not path:
-            continue
-
-        if asset_info['hasVideo'] and not asset_info['hasAudio']:
-            # Pure video asset-clip
-            if path not in seen_video_paths:
-                seen_video_paths.append(path)
-                track_idx = len(cameras) + 1
-                cameras.append({
-                    "id": str(track_idx),
-                    "name": asset_info.get('name', f"Camera {track_idx}"),
-                    "path": path
-                })
-                video_paths.append(path)
-        elif asset_info['hasAudio'] and not asset_info['hasVideo']:
-            # Pure audio asset-clip
-            if path not in unique_audio_files:
-                unique_audio_files.append(path)
-        else:
-            # Has both video and audio — classify by lane
-            # Items on lane >= 2 that are audio-only files are audio
-            # Items on lane 0 or 1 (or no lane) are usually video
-            lane = ac_el.get('lane', '')
-            if lane and int(lane) >= 2 and not asset_info['hasVideo']:
-                if path not in unique_audio_files:
-                    unique_audio_files.append(path)
-            elif asset_info['hasVideo']:
-                if path not in seen_video_paths:
-                    seen_video_paths.append(path)
-                    track_idx = len(cameras) + 1
-                    cameras.append({
-                        "id": str(track_idx),
-                        "name": asset_info.get('name', f"Camera {track_idx}"),
-                        "path": path
-                    })
-                    video_paths.append(path)
-
-    # Pass 3: Any remaining assets that are audio-only and not yet captured
-    # (safety net for unusual layouts)
-    for asset_id, info in assets.items():
-        if info['hasAudio'] and not info['hasVideo']:
-            if info['path'] and info['path'] not in unique_audio_files:
-                # Check if this asset is actually used in the timeline
-                # by seeing if any element references it
-                for el in root.iter():
-                    if el.get('ref') == asset_id:
-                        unique_audio_files.append(info['path'])
-                        break
+    # Map audio refs to audio_sources
+    for ref in seen_audio_refs:
+        path = assets[ref]['path']
+        if path and path not in unique_audio_files:
+            unique_audio_files.append(path)
 
     return fps, duration_sec, cameras, video_paths, unique_audio_files
 
