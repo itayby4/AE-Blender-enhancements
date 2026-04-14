@@ -5,6 +5,28 @@
 import { getDatabase } from './database.js';
 import type { Project, ProjectDTO } from './types.js';
 
+/**
+ * Ensure a project row exists for the given ID.
+ * If it doesn't exist, auto-creates a placeholder project.
+ * This prevents FK constraint failures when knowledge or tasks
+ * reference a project detected from an external app (e.g. DaVinci Resolve)
+ * that hasn't been formally registered yet.
+ */
+export function ensureProject(projectId: string, name?: string): void {
+  const db = getDatabase();
+  const existing = db
+    .prepare('SELECT id FROM projects WHERE id = ?')
+    .get(projectId) as { id: string } | undefined;
+  if (existing) return;
+
+  const now = Date.now();
+  db.prepare(
+    `INSERT INTO projects (id, name, status, created_at, updated_at)
+     VALUES (?, ?, 'active', ?, ?)`
+  ).run(projectId, name ?? `Project ${projectId}`, now, now);
+  console.log(`[Memory] Auto-created project placeholder: ${projectId}`);
+}
+
 function toDTO(row: Project): ProjectDTO {
   return {
     id: row.id,

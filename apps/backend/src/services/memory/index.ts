@@ -10,6 +10,7 @@ export { getDatabase, closeDatabase } from './database.js';
 
 // Projects
 export {
+  ensureProject,
   listProjects,
   getProject,
   createProject,

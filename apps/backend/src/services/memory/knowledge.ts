@@ -6,6 +6,7 @@
  */
 
 import { getDatabase } from './database.js';
+import { ensureProject } from './projects.js';
 import type {
   Knowledge,
   KnowledgeDTO,
@@ -34,6 +35,12 @@ function toDTO(row: Knowledge): KnowledgeDTO {
 export function addKnowledge(item: KnowledgeInsert): KnowledgeDTO {
   const db = getDatabase();
   const now = Date.now();
+
+  // Auto-create the project if it doesn't exist yet (prevents FK constraint failure)
+  if (item.projectId) {
+    ensureProject(item.projectId);
+  }
+
   const result = db.prepare(
     `INSERT INTO knowledge (project_id, category, subject, content, source, confidence, created_at, updated_at)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
