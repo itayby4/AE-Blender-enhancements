@@ -94,7 +94,10 @@ export function assembleLegacyContext(projectId: string): string {
 // ──────────────────────── Formatters ────────────────────────
 
 function formatProjectSection(project: ProjectDTO): string {
-  const lines = [`### Active Project: "${project.name}"`];
+  const lines = [
+    `### Active Project: "${project.name}"`,
+    `- Project ID: ${project.id}  *(always use this ID when calling tools that require projectId)*`,
+  ];
   if (project.genre) lines.push(`- Genre: ${project.genre}`);
   if (project.targetPlatforms?.length) {
     lines.push(`- Target Platforms: ${project.targetPlatforms.join(', ')}`);
