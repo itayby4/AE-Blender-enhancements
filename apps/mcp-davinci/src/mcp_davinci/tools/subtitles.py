@@ -66,7 +66,7 @@ def register(mcp, connector):
         unique_id = int(time.time())
 
         if animation:
-            desktop = os.path.join(os.environ.get('USERPROFILE', os.path.expanduser('~')), 'Desktop')
+            output_dir = tempfile.gettempdir()
             new_timeline_name = f"{timeline_name_str} AUTO SUB {unique_id}"
             fcpxml_path = build_subtitle_fcpxml(
                 subtitles=normalised, 
@@ -74,7 +74,7 @@ def register(mcp, connector):
                 width=int(project.GetSetting('timelineResolutionWidth') or 1920), 
                 height=int(project.GetSetting('timelineResolutionHeight') or 1080), 
                 timeline_name=new_timeline_name, 
-                output_dir=desktop, 
+                output_dir=output_dir, 
                 tc_start=tc_start_sec, 
                 animation=True
             )
@@ -116,8 +116,8 @@ def register(mcp, connector):
             
         else:
             # --- 1) Generate SRT backup ---
-            desktop = os.path.join(os.environ.get('USERPROFILE', os.path.expanduser('~')), 'Desktop')
-            srt_path = os.path.join(desktop, f"{timeline_name_str} AUTO SUB {unique_id}.srt")
+            output_dir = tempfile.gettempdir()
+            srt_path = os.path.join(output_dir, f"{timeline_name_str} AUTO SUB {unique_id}.srt")
     
             srt_content = ""
             for i, sub in enumerate(normalised, 1):
