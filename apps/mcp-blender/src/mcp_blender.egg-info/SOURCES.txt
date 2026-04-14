@@ -1,0 +1,11 @@
+pyproject.toml
+src/mcp_blender/__init__.py
+src/mcp_blender/blender_connector.py
+src/mcp_blender/server.py
+src/mcp_blender.egg-info/PKG-INFO
+src/mcp_blender.egg-info/SOURCES.txt
+src/mcp_blender.egg-info/dependency_links.txt
+src/mcp_blender.egg-info/entry_points.txt
+src/mcp_blender.egg-info/requires.txt
+src/mcp_blender.egg-info/top_level.txt
+src/mcp_blender/tools/__init__.py

@@ -1,0 +1,49 @@
+---
+description: Enforce thin backend pattern -- apps/backend is wiring only, no business logic
+globs:
+  - apps/backend/**/*.ts
+---
+
+# Backend Architecture Rules
+
+The backend (`apps/backend`) is a thin wiring layer. Its sole responsibility is:
+
+1. Load configuration from environment (`config.ts`).
+2. Register connectors and create the AI agent (`main.ts`).
+3. Run the HTTP server and route requests (`main.ts`).
+
+## Allowed in `apps/backend`
+
+- Environment variable loading and validation.
+- `ConnectorConfig` declarations for each supported application.
+- `ConnectorRegistry` setup: `register()` + `connectAll()`.
+- `createAgent()` call with config.
+- HTTP server with CORS, body parsing, routing to `agent.chat()`.
+- The system prompt string (it is deployment-specific configuration).
+
+## Forbidden in `apps/backend`
+
+- **MCP client or transport code.** Use `ConnectorRegistry` and `createConnector()` from `@pipefx/mcp`.
+- **AI model API calls.** Use `createAgent()` and `agent.chat()` from `@pipefx/ai`.
+- **Tool definitions or tool mapping.** This is handled by `@pipefx/ai` and the Python MCP servers.
+- **Application-specific logic** (DaVinci Resolve API calls, Premiere Pro scripting, etc.).
+- **Utility functions** that could be shared. Move them to the appropriate `packages/` library.
+
+## File Responsibilities
+
+| File        | Does                                         | Does NOT do                        |
+|-------------|----------------------------------------------|------------------------------------|
+| `config.ts` | Loads env vars, defines connector configs    | Import from `@google/genai`        |
+| `main.ts`   | HTTP server, registry setup, agent creation  | Implement tool-call loops          |
+
+## Adding a New Endpoint
+
+If you need a new HTTP endpoint, add it in `main.ts` using the existing pattern:
+
+```typescript
+if (req.method === 'POST' && req.url === '/new-endpoint') {
+  // parse body, delegate to a package, return JSON
+}
+```
+
+If the endpoint requires significant logic, that logic MUST live in a package, not inline in `main.ts`.

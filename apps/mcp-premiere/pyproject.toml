@@ -1,0 +1,13 @@
+[project]
+name = "mcp-premiere"
+version = "0.1.0"
+description = "MCP server for Adobe Premiere Pro"
+requires-python = ">=3.10"
+dependencies = [
+    "mcp[cli]",
+    "pymiere",
+    "setuptools"
+]
+
+[project.scripts]
+mcp-premiere = "mcp_premiere.server:main"
