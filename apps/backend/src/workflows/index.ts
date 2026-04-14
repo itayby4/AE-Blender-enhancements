@@ -6,6 +6,8 @@ import { timelineTranscriptWorkflow } from './transcript.js';
 import { analyzeProjectWorkflow } from './understanding.js';
 import type { WorkflowContext } from './types.js';
 
+export { getTimelineInfoWorkflow, autopodWorkflow } from './autopod.js';
+
 export function registerLocalWorkflows(
   registry: ConnectorRegistry,
   config: { geminiApiKey: string; openaiApiKey: string }

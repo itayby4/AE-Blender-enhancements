@@ -71,6 +71,7 @@ import { SkillBuilderCard } from '../features/skills/SkillBuilderCard';
 import { SkillPlannerPage } from '../features/skills/SkillPlannerPage';
 import { dispatchPipelineActions } from '../lib/pipeline-actions';
 import { cn } from '../lib/utils';
+import { AutopodDashboard } from '../features/autopod/AutopodDashboard';
 import { ProjectBrain } from '../features/project-brain/ProjectBrain';
 import type { ComponentType } from 'react';
 
@@ -799,6 +800,18 @@ export function App() {
             Node Editor
           </button>
 
+          <button
+            onClick={() => setActiveCategory('autopod')}
+            className={`flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-all text-left mt-1 ${
+              activeCategory === 'autopod'
+                ? 'bg-primary text-primary-foreground font-medium shadow-sm'
+                : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+            }`}
+          >
+            <Scissors className="h-4 w-4" />
+            AutoPod Studio
+          </button>
+
           {/* Section: Skills (dynamic) */}
           <div className="px-2 pb-2 mt-4 mb-2 border-b shrink-0">
             <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
@@ -889,6 +902,13 @@ export function App() {
           }`}
         >
           <ImageGenDashboard />
+        </div>
+        <div
+          className={`flex-1 min-h-0 flex-col relative w-full h-full ${
+            activeCategory === 'autopod' ? 'flex' : 'hidden'
+          }`}
+        >
+          <AutopodDashboard activeApp={activeApp} />
         </div>
 
         {/* Dynamic skill UI panels (from SKILL_UI_REGISTRY) */}
@@ -999,7 +1019,7 @@ export function App() {
         {/* Macro pages (fallback for categories not handled above) */}
         <div
           className={`flex-1 min-h-0 flex-col relative w-full h-full ${
-            !['node-system', 'video-gen', 'image-gen', 'skills'].includes(
+            !['node-system', 'video-gen', 'image-gen', 'autopod', 'skills'].includes(
               activeCategory
             ) &&
             !SKILL_UI_REGISTRY[activeCategory] &&

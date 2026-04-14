@@ -8,6 +8,7 @@ from .audio import register as register_audio
 from .xml_export import register as register_xml_export
 from .fusion import register as register_fusion
 from .understanding import register as register_understanding
+from .autopod_xml import register as register_autopod_xml
 
 def register_tools(mcp, connector):
     """Register all tool modules with the MCP server."""
@@ -21,3 +22,4 @@ def register_tools(mcp, connector):
     register_xml_export(mcp, connector)
     register_fusion(mcp, connector)
     register_understanding(mcp, connector)
+    register_autopod_xml(mcp, connector)

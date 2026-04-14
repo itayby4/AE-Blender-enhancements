@@ -3,7 +3,27 @@ import contextlib
 import sys
 import wave
 
-import webrtcvad
+import importlib
+
+# webrtcvad depends on pkg_resources (from setuptools), which was REMOVED in setuptools v70+.
+# We must ensure an older setuptools is installed before importing webrtcvad.
+try:
+    import pkg_resources  # noqa: F401
+except (ImportError, ModuleNotFoundError):
+    import subprocess
+    print("Installing setuptools<70 (required by webrtcvad)...", flush=True)
+    subprocess.check_call([sys.executable, "-m", "pip", "install", "setuptools<70"],
+                          stdout=subprocess.DEVNULL)
+    importlib.invalidate_caches()
+
+try:
+    import webrtcvad
+except (ImportError, ModuleNotFoundError):
+    import subprocess
+    print("Installing webrtcvad...", flush=True)
+    subprocess.check_call([sys.executable, "-m", "pip", "install", "webrtcvad"])
+    importlib.invalidate_caches()
+    import webrtcvad
 
 def read_wave(path):
     """Reads a .wav file.

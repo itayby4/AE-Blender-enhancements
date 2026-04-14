@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE fcpxml>
+<fcpxml version="1.8">
+    <resources>
+        <format id="r0" frameDuration="1/25s" name="FFVideoFormat1080p25" height="1080" width="1920" />
+        <format id="r2" frameDuration="1/50s" name="FFVideoFormat4096x2160p50" height="2160" width="4096" />
+        <asset hasVideo="1" id="r1" format="r0" audioChannels="2" start="2135288/25s" name="A001_05032343_C001.braw" hasAudio="1" src="file://localhost/C:/Users/DSNah/Downloads/Podcvast/A001_05032343_C001.braw" duration="11597/25s" audioSources="1" />
+        <asset hasVideo="1" id="r3" format="r2" audioChannels="1" start="257201/5s" name="A013C110_260414NL_CANON.MXF" hasAudio="1" src="file://localhost/C:/Users/DSNah/Downloads/Podcvast/A013C110_260414NL_CANON.MXF" duration="8964/25s" audioSources="1" />
+        <asset id="r4" audioChannels="2" start="58928/1s" name="ZOOM0019_BU.WAV" hasAudio="1" src="file://localhost/C:/Users/DSNah/Downloads/Podcvast/ZOOM0019_BU.WAV" duration="122357/250s" audioSources="1" />
+        <asset id="r5" audioChannels="2" start="58928/1s" name="ZOOM0019_LR.WAV" hasAudio="1" src="file://localhost/C:/Users/DSNah/Downloads/Podcvast/ZOOM0019_LR.WAV" duration="122357/250s" audioSources="1" />
+    </resources>
+    <library>
+        <event name="Timeline 1 (Resolve)">
+            <project name="Timeline 1 (Resolve) - AutoPod Edit">
+                <sequence format="r0" tcStart="3600/1s" tcFormat="NDF" duration="8964/25s">
+                    <spine>
+                        </spine>
+                </sequence>
+            </project>
+        </event>
+    </library>
+</fcpxml>

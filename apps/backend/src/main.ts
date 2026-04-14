@@ -2,7 +2,7 @@ import { ConnectorRegistry } from '@pipefx/mcp';
 import { createAgent } from '@pipefx/ai';
 import { createServer } from 'http'; // Reload trigger 2
 import { config } from './config.js';
-import { registerLocalWorkflows } from './workflows/index.js';
+import { registerLocalWorkflows, getTimelineInfoWorkflow, autopodWorkflow } from './workflows/index.js';
 import { handleAiModelRequest } from './api/ai-models/router.js';
 import { handleSaveRenderRequest } from './api/save-render.js';
 import { createSubtitleHandler } from './api/subtitles.js';
@@ -823,6 +823,58 @@ async function main() {
       req.on('close', () => {
         memoryTaskManager.off('taskEvent', handleTaskEvent);
         res.end();
+      });
+    } else if (req.method === 'POST' && req.url === '/api/autopod/discover') {
+      let body = '';
+      req.on('data', (chunk: Buffer) => {
+        body += chunk.toString();
+      });
+      req.on('end', async () => {
+        try {
+          const { app_target } = JSON.parse(body);
+          // Ensure the connector is active
+          if (app_target) {
+            await registry.switchActiveConnector(app_target);
+          }
+          // Refresh tool index so premiere_export_xml is available
+          await registry.getAllTools();
+          // Execute discovery workflow directly — no LLM involved
+          const result = await getTimelineInfoWorkflow.execute(
+            { app_target: app_target || 'premiere' },
+            { registry, ai: null as any, openai: null as any }
+          );
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(result);
+        } catch (err: unknown) {
+          const msg = err instanceof Error ? err.message : String(err);
+          res.writeHead(500, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: msg }));
+        }
+      });
+    } else if (req.method === 'POST' && req.url === '/api/autopod/run') {
+      let body = '';
+      req.on('data', (chunk: Buffer) => {
+        body += chunk.toString();
+      });
+      req.on('end', async () => {
+        try {
+          const { app_target, mapping_json, fallback, use_generative } = JSON.parse(body);
+          if (app_target) {
+            await registry.switchActiveConnector(app_target);
+          }
+          await registry.getAllTools();
+          const result = await autopodWorkflow.execute(
+            { app_target: app_target || 'premiere', mapping_json, fallback, use_generative },
+            { registry, ai: null as any, openai: null as any }
+          );
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(result);
+        } catch (err: unknown) {
+          const msg = err instanceof Error ? err.message : String(err);
+          console.error('[AUTOPOD API] Error:', msg);
+          res.writeHead(500, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: msg }));
+        }
       });
     } else {
       res.writeHead(404);
