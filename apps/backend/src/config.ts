@@ -5,23 +5,9 @@ import { resolveVenvPython } from '@pipefx/mcp';
 
 dotenv.config();
 
-const geminiRaw = process.env.GEMINI_API_KEY;
-if (!geminiRaw) {
-  console.error(
-    'ERROR: GEMINI_API_KEY is not set in the environment variables.'
-  );
-  process.exit(1);
-}
-
-const openaiRaw = process.env.OPENAI_API_KEY;
-if (!openaiRaw) {
-  console.error(
-    'ERROR: OPENAI_API_KEY is not set in the environment variables.'
-  );
-  process.exit(1);
-}
-
-const anthropicRaw = process.env.ANTHROPIC_API_KEY;
+const geminiRaw = process.env.GEMINI_API_KEY || '';
+const openaiRaw = process.env.OPENAI_API_KEY || '';
+const anthropicRaw = process.env.ANTHROPIC_API_KEY || '';
 
 let currentDir = __dirname;
 while (
@@ -32,7 +18,7 @@ while (
 }
 const workspaceRoot = currentDir;
 
-export const config = {
+export let config = {
   workspaceRoot,
   port: Number(process.env.PORT) || 3001,
 
@@ -194,3 +180,7 @@ Always use the pipeline_actions block format. The frontend will parse it and exe
     },
   },
 };
+
+export function updateConfig(newSettings: Record<string, any>) {
+  config = { ...config, ...newSettings };
+}

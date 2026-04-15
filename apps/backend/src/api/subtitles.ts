@@ -28,7 +28,6 @@ export function createSubtitleHandler(
           target_language,
           max_words_per_chunk = 5,
           vad_sensitivity = 'low',
-          animation = false,
           max_chars_per_chunk,
           max_chars_per_line,
           start_seconds,
@@ -38,8 +37,9 @@ export function createSubtitleHandler(
         console.log('[SUBTITLES] Starting subtitle generation pipeline:', {
           target_language,
           max_words_per_chunk,
+          max_chars_per_chunk,
+          max_chars_per_line,
           vad_sensitivity,
-          animation,
           start_seconds,
           end_seconds,
         });
@@ -52,7 +52,6 @@ export function createSubtitleHandler(
           start_seconds:
             start_seconds != null ? Number(start_seconds) : undefined,
           end_seconds: end_seconds != null ? Number(end_seconds) : undefined,
-          animation: Boolean(animation),
           target_language: target_language || undefined,
           vad_sensitivity: vad_sensitivity as 'low' | 'high',
           use_vad: true,
@@ -79,7 +78,9 @@ export function createSubtitleHandler(
         // Import subtitles into the DaVinci timeline
         const subResult = await registry.callTool('add_timeline_subtitle', {
           subtitles_json: JSON.stringify(segments),
-          animation: Boolean(animation),
+          max_words: Number(max_words_per_chunk) || undefined,
+          max_chars: max_chars_per_chunk != null ? Number(max_chars_per_chunk) : undefined,
+          max_chars_per_line: max_chars_per_line != null ? Number(max_chars_per_line) : undefined,
         });
 
         const resultText = Array.isArray(subResult.content)

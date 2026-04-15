@@ -1,7 +1,8 @@
 import { ConnectorRegistry } from '@pipefx/mcp';
 import { createAgent } from '@pipefx/ai';
 import { createServer } from 'http'; // Reload trigger 2
-import { config } from './config.js';
+import { config, updateConfig } from './config.js';
+import { loadSettings, saveSettings } from './utils/settings.js';
 import { registerLocalWorkflows, getTimelineInfoWorkflow, autopodWorkflow } from './workflows/index.js';
 import { handleAiModelRequest } from './api/ai-models/router.js';
 import { handleSaveRenderRequest } from './api/save-render.js';
@@ -34,6 +35,9 @@ import type { KnowledgeCategory, TaskEvent } from './services/memory/index.js';
 async function main() {
   console.log('Starting PipeFX AI Engine...');
 
+  const loadedSettings = await loadSettings();
+  updateConfig(loadedSettings);
+
   const registry = new ConnectorRegistry();
   registry.register(config.connectors.resolve);
   if (config.connectors.premiere) registry.register(config.connectors.premiere);
@@ -62,7 +66,7 @@ async function main() {
   }
 
   // Create shared context for direct pipeline calls
-  const workflowContext = {
+  let workflowContext = {
     registry,
     ai: new GoogleGenAI({ apiKey: config.geminiApiKey }),
     openai: new OpenAI({ apiKey: config.openaiApiKey }),
@@ -320,14 +324,14 @@ async function main() {
     }
   );
 
-  const handleSubtitleGenerate = createSubtitleHandler(
+  let handleSubtitleGenerate = createSubtitleHandler(
     registry,
     workflowContext
   );
 
   await registry.switchActiveConnector('resolve');
 
-  const agent = createAgent({
+  let agent = createAgent({
     model: config.geminiModel,
     apiKey: config.geminiApiKey,
     openaiApiKey: config.openaiApiKey,
@@ -344,6 +348,53 @@ async function main() {
     if (req.method === 'OPTIONS') {
       res.writeHead(200);
       res.end();
+      return;
+    }
+
+    if (req.method === 'GET' && req.url === '/api/settings') {
+      const currentSettings = await loadSettings();
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(currentSettings));
+      return;
+    }
+
+    if (req.method === 'POST' && req.url === '/api/settings') {
+      let body = '';
+      req.on('data', chunk => { body += chunk.toString(); });
+      req.on('end', async () => {
+        try {
+          const newSettings = JSON.parse(body);
+          await saveSettings(newSettings);
+          updateConfig(newSettings);
+          
+          workflowContext = {
+            registry,
+            ai: new GoogleGenAI({ apiKey: config.geminiApiKey }),
+            openai: new OpenAI({ apiKey: config.openaiApiKey })
+          };
+
+          handleSubtitleGenerate = createSubtitleHandler(
+            registry,
+            workflowContext
+          );
+
+          agent = createAgent({
+            model: config.geminiModel,
+            apiKey: config.geminiApiKey,
+            openaiApiKey: config.openaiApiKey,
+            anthropicApiKey: config.anthropicApiKey,
+            systemPrompt: config.systemPrompt,
+            registry,
+          });
+
+          console.log('[Settings] Hot-Reloaded AI agent successfully');
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ success: true }));
+        } catch (err: any) {
+          res.writeHead(500);
+          res.end(JSON.stringify({ error: err.message }));
+        }
+      });
       return;
     }
 

@@ -74,6 +74,7 @@ import { cn } from '../lib/utils';
 import { AutopodDashboard } from '../features/autopod/AutopodDashboard';
 import { ProjectBrain } from '../features/project-brain/ProjectBrain';
 import type { ComponentType } from 'react';
+import { PreferencesModal } from '../features/settings/PreferencesModal';
 
 /** Map icon names from skill frontmatter to lucide components for sidebar */
 const SIDEBAR_ICON_MAP: Record<
@@ -226,6 +227,9 @@ export function App() {
     'gemini-3.1-pro-preview'
   );
   const [activeApp, setActiveApp] = useState('resolve');
+  const [isPreferencesOpen, setIsPreferencesOpen] = useState(false);
+  const [isSettingsDropdownOpen, setIsSettingsDropdownOpen] = useState(false);
+  const [attachedImages, setAttachedImages] = useState<string[]>([]);
 
   const [projects, setProjects] = useState<any[]>([]);
   const [activeProjectId, setActiveProjectId] = useState<string>('');
@@ -542,14 +546,48 @@ export function App() {
           <button className="px-3 hover:bg-muted hover:text-foreground rounded-sm transition-colors py-0.5">
             View
           </button>
-          <button className="px-3 hover:bg-muted hover:text-foreground rounded-sm transition-colors py-0.5 font-medium text-foreground">
-            Preferences
-          </button>
+          
+          <div className="relative isolate z-50">
+            <button 
+              className="px-3 hover:bg-muted hover:text-foreground rounded-sm transition-colors py-0.5 font-medium text-foreground outline-none"
+              onClick={() => setIsSettingsDropdownOpen(!isSettingsDropdownOpen)}
+              onBlur={() => setTimeout(() => setIsSettingsDropdownOpen(false), 200)}
+            >
+              Preferences
+            </button>
+            {isSettingsDropdownOpen && (
+              <div className="absolute top-full left-0 mt-1 w-48 rounded-md border bg-popover p-1 text-popover-foreground shadow-md animate-in fade-in-0 zoom-in-95">
+                <div className="px-2 py-1.5 text-xs font-semibold">Settings</div>
+                <div className="-mx-1 my-1 h-px bg-border flex w-[calc(100%+8px)]" />
+                <button 
+                  className="relative flex w-full cursor-pointer select-none items-center rounded-sm px-2 py-1.5 text-xs outline-none hover:bg-accent hover:text-accent-foreground"
+                  onClick={() => setIsPreferencesOpen(true)}
+                >
+                  API Keys
+                </button>
+                <button 
+                  className="relative flex w-full cursor-not-allowed select-none items-center rounded-sm px-2 py-1.5 text-xs outline-none opacity-50"
+                  disabled
+                >
+                  Theme Colors (Coming Soon)
+                </button>
+                <button 
+                  className="relative flex w-full cursor-not-allowed select-none items-center rounded-sm px-2 py-1.5 text-xs outline-none opacity-50"
+                  disabled
+                >
+                  Save Location (Coming Soon)
+                </button>
+              </div>
+            )}
+          </div>
+
           <button className="px-3 hover:bg-muted hover:text-foreground rounded-sm transition-colors py-0.5">
             Help
           </button>
         </div>
       </div>
+      
+      <PreferencesModal isOpen={isPreferencesOpen} onClose={() => setIsPreferencesOpen(false)} />
 
       {/* Toolbar */}
       <header className="flex h-14 items-center justify-between border-b px-4 bg-card shrink-0">
