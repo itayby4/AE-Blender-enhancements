@@ -1,5 +1,5 @@
 /**
- * PipeFX AI Brain — Event-sourced task persistence (procedural memory).
+ * PipeFX AI Brain ΓÇö Event-sourced task persistence (procedural memory).
  *
  * Every task mutation is recorded as an immutable event in the `task_events`
  * table. The `tasks` table is a materialized view kept in sync for fast
@@ -20,7 +20,7 @@ import type {
   TaskEvent,
 } from '@pipefx/tasks';
 
-// ──────────────────────── DB Row Types ────────────────────────
+// ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ DB Row Types ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
 
 interface TaskRow {
   id: string;
@@ -50,11 +50,11 @@ function rowToDTO(row: TaskRow): TaskDTO {
   };
 }
 
-// ──────────────────────── Event Persistence ────────────────────────
+// ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ Event Persistence ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
 
 function appendEvent(event: TaskEvent): void {
   const db = getDatabase();
-  const taskId = 'taskId' in event ? event.taskId : null;
+  const taskId = 'taskId' in event ? event.taskId : 'global';
   db.prepare(
     `INSERT INTO task_events (task_id, type, payload, timestamp) VALUES (?, ?, ?, ?)`
   ).run(
@@ -65,7 +65,7 @@ function appendEvent(event: TaskEvent): void {
   );
 }
 
-// ──────────────────────── Materialized View Sync ────────────────────────
+// ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ Materialized View Sync ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
 
 function materializeTask(dto: TaskDTO): void {
   const db = getDatabase();
@@ -86,7 +86,7 @@ function materializeTask(dto: TaskDTO): void {
   );
 }
 
-// ──────────────────────── MemoryTaskManager ────────────────────────
+// ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ MemoryTaskManager ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
 
 /**
  * Event-sourced TaskManager backed by SQLite.

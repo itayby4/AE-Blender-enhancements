@@ -5,5 +5,7 @@
   "reels-segmenter.md",
   "node-editor.md",
   "color-analyzer.md",
-  "fusion-assistant.md"
+  "fusion-assistant.md",
+  "auto-subtitles-generator.md",
+  "audio-sync.md"
 ]

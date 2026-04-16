@@ -141,6 +141,7 @@ export function App() {
       setActiveView('skill-planner');
     },
     sessionId: chatHistory.activeSessionId,
+    onSessionIdChange: chatHistory.setActiveSessionId,
     onSaveSession: chatHistory.saveSession,
   });
 

@@ -29,32 +29,32 @@ import {
 
 const LANGUAGES = [
   { value: '', label: 'Original (No Translation)' },
-  { value: 'Hebrew', label: 'עברית — Hebrew' },
+  { value: 'Hebrew', label: '╫ó╫æ╫¿╫Ö╫¬ ΓÇö Hebrew' },
   { value: 'English', label: 'English' },
-  { value: 'Spanish', label: 'Español — Spanish' },
-  { value: 'French', label: 'Français — French' },
-  { value: 'Arabic', label: 'العربية — Arabic' },
-  { value: 'Russian', label: 'Русский — Russian' },
-  { value: 'Portuguese', label: 'Português — Portuguese' },
-  { value: 'German', label: 'Deutsch — German' },
-  { value: 'Japanese', label: '日本語 — Japanese' },
-  { value: 'Korean', label: '한국어 — Korean' },
-  { value: 'Chinese', label: '中文 — Chinese' },
-  { value: 'Italian', label: 'Italiano — Italian' },
-  { value: 'Turkish', label: 'Türkçe — Turkish' },
-  { value: 'Hindi', label: 'हिन्दी — Hindi' },
+  { value: 'Spanish', label: 'Espa├▒ol ΓÇö Spanish' },
+  { value: 'French', label: 'Fran├ºais ΓÇö French' },
+  { value: 'Arabic', label: '╪º┘ä╪╣╪▒╪¿┘è╪⌐ ΓÇö Arabic' },
+  { value: 'Russian', label: '╨á╤â╤ü╤ü╨║╨╕╨╣ ΓÇö Russian' },
+  { value: 'Portuguese', label: 'Portugu├¬s ΓÇö Portuguese' },
+  { value: 'German', label: 'Deutsch ΓÇö German' },
+  { value: 'Japanese', label: 'µùÑµ£¼Φ¬₧ ΓÇö Japanese' },
+  { value: 'Korean', label: 'φò£Ω╡¡∞û┤ ΓÇö Korean' },
+  { value: 'Chinese', label: 'Σ╕¡µûç ΓÇö Chinese' },
+  { value: 'Italian', label: 'Italiano ΓÇö Italian' },
+  { value: 'Turkish', label: 'T├╝rk├ºe ΓÇö Turkish' },
+  { value: 'Hindi', label: 'αñ╣αñ┐αñ¿αÑìαñªαÑÇ ΓÇö Hindi' },
 ];
 
 const VAD_MODES = [
   {
     value: 'low',
     label: 'Normal',
-    description: 'Standard segmentation — good for clear speech',
+    description: 'Standard segmentation ΓÇö good for clear speech',
   },
   {
     value: 'high',
     label: 'Sensitive',
-    description: 'Catches more speech — use if words are cut off',
+    description: 'Catches more speech ΓÇö use if words are cut off',
   },
 ];
 
@@ -70,11 +70,11 @@ type PipelineStage =
 
 const STAGE_LABELS: Record<PipelineStage, string> = {
   idle: 'Ready',
-  rendering: 'Rendering audio from timeline…',
-  vad: 'Detecting speech segments…',
-  transcribing: 'Transcribing audio via Whisper…',
-  translating: 'Translating subtitles…',
-  importing: 'Importing subtitles into timeline…',
+  rendering: 'Rendering audio from timelineΓÇª',
+  vad: 'Detecting speech segmentsΓÇª',
+  transcribing: 'Transcribing audio via WhisperΓÇª',
+  translating: 'Translating subtitlesΓÇª',
+  importing: 'Importing subtitles into timelineΓÇª',
   done: 'Subtitles generated successfully!',
   error: 'An error occurred.',
 };
@@ -191,7 +191,7 @@ export function SubtitlesDashboard() {
                       id="subtitle-language"
                       className="w-full bg-muted/20"
                     >
-                      <SelectValue placeholder="Select language…" />
+                      <SelectValue placeholder="Select languageΓÇª" />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectGroup>
@@ -204,7 +204,7 @@ export function SubtitlesDashboard() {
                             {lang.label}
                           </SelectItem>
                         ))}
-                        <SelectItem value="_custom">Custom…</SelectItem>
+                        <SelectItem value="_custom">CustomΓÇª</SelectItem>
                       </SelectGroup>
                     </SelectContent>
                   </Select>
@@ -431,7 +431,7 @@ export function SubtitlesDashboard() {
               {isRunning ? (
                 <>
                   <Loader2 className="h-4 w-4 animate-spin" />
-                  Processing…
+                  ProcessingΓÇª
                 </>
               ) : (
                 <>

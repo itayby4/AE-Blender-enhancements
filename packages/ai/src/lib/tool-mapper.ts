@@ -6,15 +6,16 @@ import type { Tool } from '@pipefx/mcp';
  * can discover and call any of them.
  */
 export function mapToolsToGemini(tools: Tool[]) {
-  return tools.map((tool) => ({
-    functionDeclarations: [
-      {
+  if (tools.length === 0) return [];
+  return [
+    {
+      functionDeclarations: tools.map((tool) => ({
         name: tool.name,
         description: tool.description,
         parameters: tool.inputSchema,
-      },
-    ],
-  }));
+      })),
+    },
+  ];
 }
 
 /**

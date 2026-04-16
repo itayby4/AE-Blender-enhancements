@@ -6,7 +6,7 @@ import { runTranscriptionPipeline } from '../workflows/pipeline.js';
 /**
  * Handler for POST /api/subtitles/generate
  *
- * Directly invokes the subtitle pipeline (render → VAD → transcribe → translate → import)
+ * Directly invokes the subtitle pipeline (render ΓåÆ VAD ΓåÆ transcribe ΓåÆ translate ΓåÆ import)
  * without going through the AI agent loop.
  */
 export function createSubtitleHandler(
@@ -65,14 +65,14 @@ export function createSubtitleHandler(
           res.end(
             JSON.stringify({
               error:
-                'No segments could be transcribed — the audio may be silent.',
+                'No segments could be transcribed ΓÇö the audio may be silent.',
             })
           );
           return;
         }
 
         console.log(
-          `[SUBTITLES] Pipeline produced ${segments.length} segments. Importing into timeline…`
+          `[SUBTITLES] Pipeline produced ${segments.length} segments. Importing into timelineΓÇª`
         );
 
         // Import subtitles into the DaVinci timeline

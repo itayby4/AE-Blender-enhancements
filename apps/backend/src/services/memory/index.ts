@@ -1,5 +1,5 @@
 /**
- * PipeFX AI Brain — Memory engine barrel exports.
+ * PipeFX AI Brain ΓÇö Memory engine barrel exports.
  *
  * Single import point for all memory services:
  *   import { getDatabase, createProject, addKnowledge, ... } from './services/memory/index.js';
@@ -58,6 +58,20 @@ export {
   assembleProjectContext,
   assembleLegacyContext,
 } from './context.js';
+
+// Chat session persistence
+export {
+  createChatSession,
+  appendChatMessage,
+  getChatSession,
+  getChatMessages,
+  listChatSessions,
+  deleteChatSession,
+  updateChatSessionTitle,
+  getLatestChatSession,
+  chatSessionExists,
+} from './chat-sessions.js';
+export type { ChatSessionDTO, ChatMessageDTO } from './chat-sessions.js';
 
 // Migration
 export { migrateJsonProjects } from './migrate.js';

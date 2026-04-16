@@ -2,6 +2,7 @@ import type { ComponentType } from 'react';
 import { SubtitlesDashboard } from '../subtitles/SubtitlesDashboard';
 import { AnimatedSubtitlesUI } from './AnimatedSubtitlesUI';
 import { AutopodDashboard } from '../autopod/AutopodDashboard';
+import { AudioSyncDashboard } from '../audio-sync/AudioSyncDashboard';
 
 /**
  * Registry mapping skill IDs to their React UI components.
@@ -12,4 +13,5 @@ export const SKILL_UI_REGISTRY: Record<string, ComponentType> = {
   'auto-subtitles': SubtitlesDashboard,
   'animated-subtitles': AnimatedSubtitlesUI,
   'autopod': AutopodDashboard,
+  'audio-sync': AudioSyncDashboard,
 };

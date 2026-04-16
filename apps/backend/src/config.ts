@@ -3,12 +3,7 @@ import * as path from 'path';
 import * as fs from 'fs';
 import { resolveVenvPython } from '@pipefx/mcp';
 
-dotenv.config();
-
-const geminiRaw = process.env.GEMINI_API_KEY || '';
-const openaiRaw = process.env.OPENAI_API_KEY || '';
-const anthropicRaw = process.env.ANTHROPIC_API_KEY || '';
-
+// Resolve workspace root first so we can find the correct .env
 let currentDir = __dirname;
 while (
   !fs.existsSync(path.join(currentDir, 'nx.json')) &&
@@ -17,6 +12,13 @@ while (
   currentDir = path.dirname(currentDir);
 }
 const workspaceRoot = currentDir;
+
+// Load .env from apps/backend/.env (CWD is workspace root, not apps/backend)
+dotenv.config({ path: path.join(workspaceRoot, 'apps', 'backend', '.env') });
+
+const geminiRaw = process.env.GEMINI_API_KEY || '';
+const openaiRaw = process.env.OPENAI_API_KEY || '';
+const anthropicRaw = process.env.ANTHROPIC_API_KEY || '';
 
 export let config = {
   workspaceRoot,
@@ -104,7 +106,7 @@ Your system instructions for what to do when \`execute\` sends parameters...
 \`\`\`
 When the user asks for changes to an existing plan, just reply with a new \`\`\`plan block containing the updated YAML and content.
 
-Example — user says "build me a pipeline with a prompt and Kling":
+Example ΓÇö user says "build me a pipeline with a prompt and Kling":
 \`\`\`pipeline_actions
 [
   {"type":"add_node","nodeType":"triggerNode","label":"Start Pipeline","nodeId":"t1"},

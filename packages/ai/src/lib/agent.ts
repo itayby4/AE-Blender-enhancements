@@ -1,299 +1,217 @@
-import { GoogleGenAI } from '@google/genai';
-import OpenAI from 'openai';
-import Anthropic from '@anthropic-ai/sdk';
-import {
-  mapToolsToGemini,
-  mapToolsToOpenAI,
-  mapToolsToAnthropic,
-} from './tool-mapper.js';
 import type { Agent, AgentConfig, ChatOptions } from './types.js';
+import type { Provider, ProviderMessage, ProviderToolResult, ProviderResponse } from './providers/types.js';
+import { GeminiProvider } from './providers/gemini.js';
+import { OpenAIProvider } from './providers/openai.js';
+import { AnthropicProvider } from './providers/anthropic.js';
+import { shouldCompact, compactHistory, DEFAULT_COMPACTION_CONFIG } from './compaction.js';
 
+/**
+ * Resolve the correct Provider instance and model name for the given request.
+ */
+function resolveProvider(
+  config: AgentConfig,
+  providerOverride?: string
+): { provider: Provider; model: string } {
+  const id = providerOverride || 'gemini';
+
+  if (id === 'claude-opus-4.6' || id === 'claude-sonnet-4.6' || id.startsWith('claude')) {
+    if (!config.anthropicApiKey) throw new Error('Anthropic API key is not configured.');
+
+    // Map UI model IDs to Anthropic API model identifiers
+    const modelMap: Record<string, string> = {
+      'claude-opus-4.6': 'claude-opus-4-6-20260401',
+      'claude-sonnet-4.6': 'claude-sonnet-4-6-20260201',
+    };
+
+    return {
+      provider: new AnthropicProvider(config.anthropicApiKey),
+      model: modelMap[id] ?? id,
+    };
+  }
+
+  if (id === 'gpt-5.4' || id.startsWith('gpt')) {
+    if (!config.openaiApiKey) throw new Error('OpenAI API key is not configured.');
+    return { provider: new OpenAIProvider(config.openaiApiKey), model: id };
+  }
+
+  // Default: Gemini
+  return { provider: new GeminiProvider(config.apiKey), model: config.model };
+}
+
+/**
+ * Extract text content from an MCP tool result.
+ */
+function extractToolContent(result: any): string {
+  if (Array.isArray(result.content)) {
+    return result.content
+      .filter((c: any) => c.type === 'text')
+      .map((c: any) => c.text)
+      .join('\n');
+  }
+  return String(result.content);
+}
+
+/**
+ * Execute tool calls and return results.
+ */
+async function executeToolCalls(
+  toolCalls: { id: string; name: string; args: Record<string, unknown> }[],
+  config: AgentConfig,
+  options?: ChatOptions
+): Promise<ProviderToolResult[]> {
+  return Promise.all(
+    toolCalls.map(async (call) => {
+      try {
+        if (options?.onToolCallStart) {
+          options.onToolCallStart(call.name, call.args);
+        }
+        const result = await config.registry.callTool(call.name, call.args);
+        if (options?.onToolCallComplete) {
+          options.onToolCallComplete(call.name, result);
+        }
+        return {
+          callId: call.id,
+          name: call.name,
+          content: extractToolContent(result),
+        };
+      } catch (err: unknown) {
+        const error = err instanceof Error ? err : new Error(String(err));
+        if (options?.onToolCallComplete) {
+          options.onToolCallComplete(call.name, null, error);
+        }
+        return {
+          callId: call.id,
+          name: call.name,
+          content: String(err),
+          isError: true,
+        };
+      }
+    })
+  );
+}
+
+/**
+ * Creates an Agent with a unified tool-call loop that supports streaming.
+ *
+ * Inspired by Claw-Code's separation of concerns:
+ * - Provider clients handle API format differences (crates/api/src/providers/)
+ * - The conversation runtime runs a single provider-agnostic loop (crates/runtime/conversation.rs)
+ */
 export function createAgent(config: AgentConfig): Agent {
-  const geminiClient = new GoogleGenAI({ apiKey: config.apiKey });
-  const openaiClient = config.openaiApiKey
-    ? new OpenAI({ apiKey: config.openaiApiKey })
-    : null;
-  const anthropicClient = config.anthropicApiKey
-    ? new Anthropic({ apiKey: config.anthropicApiKey })
-    : null;
-
   return {
     async chat(message: string, options?: ChatOptions): Promise<string> {
-      const activeProvider =
-        options?.providerOverride || 'gemini-3.1-pro-preview';
-      const activeModel = options?.modelOverride ?? (activeProvider.startsWith('gemini') ? activeProvider : config.model);
+      const { provider, model } = resolveProvider(config, options?.providerOverride);
       const systemPrompt = options?.systemPromptOverride ?? config.systemPrompt;
+      const useStreaming = !!options?.onStreamChunk;
 
+      // Build tool list (optionally filtered by skill)
       let tools = await config.registry.getAllTools();
       if (options?.allowedTools) {
         const allowed = new Set(options.allowedTools);
         tools = tools.filter((t) => allowed.has(t.name));
       }
 
-      // Format history natively as simplified user/assistant strings to convert later
-      // The frontend sends Gemini-like format: { role: 'user'|'model', parts: [{text}] }
+      // Normalize history from frontend format to ProviderMessage[]
       const rawHistory: any[] = options?.history || [];
-      const normalizedHistory = rawHistory.map((m: any) => ({
-        role: (m.role === 'model' ? 'assistant' : 'user') as
-          | 'assistant'
-          | 'user',
+      let messages: ProviderMessage[] = rawHistory.map((m: any) => ({
+        role: (m.role === 'model' ? 'assistant' : 'user') as 'user' | 'assistant',
         content: m.parts?.[0]?.text || '',
       }));
+      messages.push({ role: 'user', content: message });
 
-      // --- OpenAI Flow ---
-      if (activeProvider === 'gpt-5.4' || activeProvider.startsWith('gpt')) {
-        if (!openaiClient) throw new Error('OpenAI API key is not configured.');
-        const openAiTools = mapToolsToOpenAI(tools);
-        const messages: any[] = [
-          { role: 'system', content: systemPrompt },
-          ...normalizedHistory,
-          { role: 'user', content: message },
-        ];
-
-        let response = await openaiClient.chat.completions.create({
-          model: activeProvider,
-          messages,
-          tools: openAiTools.length > 0 ? openAiTools : undefined,
-        });
-
-        while (
-          response.choices[0].message.tool_calls &&
-          response.choices[0].message.tool_calls.length > 0
-        ) {
-          if (options?.signal?.aborted) throw new Error('AbortError');
-          const m = response.choices[0].message;
-          // Emit intermediate text as Chain of Thought
-          if (m.content && options?.onThought) {
-            options.onThought(m.content);
+      // ΓöÇΓöÇ Context Compaction ΓöÇΓöÇ
+      // Check if the conversation is getting too long and compact if needed.
+      if (shouldCompact(messages, DEFAULT_COMPACTION_CONFIG)) {
+        const compactionResult = compactHistory(messages, DEFAULT_COMPACTION_CONFIG);
+        if (compactionResult.removedCount > 0) {
+          messages = compactionResult.compactedMessages;
+          if (options?.onCompaction) {
+            options.onCompaction(
+              compactionResult.removedCount,
+              compactionResult.summary
+            );
           }
-          messages.push(m);
-
-          const toolResults = await Promise.all(
-            m.tool_calls!.map(async (call) => {
-              const callObj = call as any;
-              try {
-                const args = JSON.parse(callObj.function.arguments);
-                if (options?.onToolCallStart) {
-                  options.onToolCallStart(callObj.function.name, args);
-                }
-                const result = await config.registry.callTool(
-                  callObj.function.name,
-                  args
-                );
-                if (options?.onToolCallComplete) {
-                  options.onToolCallComplete(callObj.function.name, result);
-                }
-                const contentStr = Array.isArray(result.content)
-                  ? result.content
-                      .filter((c: any) => c.type === 'text')
-                      .map((c: any) => c.text)
-                      .join('\n')
-                  : String(result.content);
-                return {
-                  tool_call_id: callObj.id,
-                  role: 'tool' as const,
-                  name: callObj.function.name,
-                  content: contentStr,
-                };
-              } catch (err: any) {
-                if (options?.onToolCallComplete) {
-                  options.onToolCallComplete(callObj.function.name, null, err instanceof Error ? err : new Error(String(err)));
-                }
-                return {
-                  tool_call_id: callObj.id,
-                  role: 'tool' as const,
-                  name: callObj.function.name,
-                  content: String(err),
-                };
-              }
-            })
+          console.log(
+            `[Agent] Context compacted: removed ${compactionResult.removedCount} messages, ${messages.length} remaining`
           );
-          messages.push(...toolResults);
-          response = await openaiClient.chat.completions.create({
-            model: activeProvider,
-            messages,
-            tools: openAiTools.length > 0 ? openAiTools : undefined,
-          });
         }
-        return response.choices[0].message.content ?? 'No response content.';
       }
 
-      // --- Anthropic Flow ---
-      if (
-        activeProvider === 'claude-sonnet-4.6' ||
-        activeProvider.startsWith('claude')
-      ) {
-        if (!anthropicClient)
-          throw new Error('Anthropic API key is not configured.');
-        const claudeTools = mapToolsToAnthropic(tools);
-        const messages: Anthropic.MessageParam[] = [
-          ...normalizedHistory,
-          { role: 'user', content: message },
-        ];
+      const chatParams = { model, systemPrompt, messages, tools };
 
-        let response = await anthropicClient.messages.create({
-          model:
-            activeProvider === 'claude-sonnet-4.6'
-              ? 'claude-opus-4-6'
-              : activeProvider,
-          system: systemPrompt,
-          max_tokens: 4000,
-          messages,
-          tools: claudeTools.length > 0 ? claudeTools : undefined,
-        });
+      // --- Streaming Agent Loop ---
+      if (useStreaming) {
+        if (options.signal?.aborted) throw new Error('AbortError');
 
-        while (response.stop_reason === 'tool_use') {
-          if (options?.signal?.aborted) throw new Error('AbortError');
-          const toolUses = response.content.filter(
-            (c): c is Anthropic.ToolUseBlock => c.type === 'tool_use'
-          );
-          // Emit intermediate text as Chain of Thought
-          const thinkingBlocks = response.content.filter(
-            (c) => c.type === 'text'
-          );
-          if (thinkingBlocks.length > 0 && options?.onThought) {
-            for (const block of thinkingBlocks) {
-              if (block.type === 'text' && block.text) {
-                options.onThought(block.text);
-              }
+        let response: ProviderResponse | null = null;
+
+        // First round: stream initial chat
+        const stream = provider.chatStream(chatParams);
+        for await (const event of stream) {
+          if (options.signal?.aborted) throw new Error('AbortError');
+          if (event.type === 'text') {
+            options.onStreamChunk!(event.text);
+          } else if (event.type === 'done') {
+            response = event.response;
+          }
+        }
+
+        if (!response) throw new Error('Stream ended without done event');
+
+        // Tool call loop (streaming)
+        while (response.toolCalls.length > 0) {
+          if (options.signal?.aborted) throw new Error('AbortError');
+
+          // Emit intermediate text as thought
+          if (response.text && options.onThought) {
+            options.onThought(response.text);
+          }
+
+          const toolResults = await executeToolCalls(response.toolCalls, config, options);
+
+          // Continue with tool results (streaming)
+          const continueStream = provider.continueWithToolResultsStream({
+            ...chatParams,
+            toolResults,
+            previousResponse: response.raw,
+          });
+
+          response = null;
+          for await (const event of continueStream) {
+            if (options.signal?.aborted) throw new Error('AbortError');
+            if (event.type === 'text') {
+              options.onStreamChunk!(event.text);
+            } else if (event.type === 'done') {
+              response = event.response;
             }
           }
-          messages.push({ role: 'assistant', content: response.content });
 
-          const toolResults: Anthropic.ToolResultBlockParam[] = [];
-
-          const resolvedResults = await Promise.all(
-            toolUses.map(async (call) => {
-              try {
-                if (options?.onToolCallStart) {
-                  options.onToolCallStart(call.name, call.input as any);
-                }
-                const result = await config.registry.callTool(
-                  call.name,
-                  call.input as any
-                );
-                if (options?.onToolCallComplete) {
-                  options.onToolCallComplete(call.name, result);
-                }
-                const contentStr = Array.isArray(result.content)
-                  ? result.content
-                      .filter((c: any) => c.type === 'text')
-                      .map((c: any) => c.text)
-                      .join('\n')
-                  : String(result.content);
-                return {
-                  type: 'tool_result' as const,
-                  tool_use_id: call.id,
-                  content: contentStr,
-                };
-              } catch (err: any) {
-                if (options?.onToolCallComplete) {
-                  options.onToolCallComplete(call.name, null, err instanceof Error ? err : new Error(String(err)));
-                }
-                return {
-                  type: 'tool_result' as const,
-                  tool_use_id: call.id,
-                  content: String(err),
-                  is_error: true,
-                };
-              }
-            })
-          );
-          toolResults.push(...resolvedResults);
-
-          messages.push({ role: 'user', content: toolResults });
-          response = await anthropicClient.messages.create({
-            model:
-              activeProvider === 'claude-sonnet-4.6'
-                ? 'claude-opus-4-6'
-                : activeProvider,
-            system: systemPrompt,
-            max_tokens: 4000,
-            messages,
-            tools: claudeTools.length > 0 ? claudeTools : undefined,
-          });
+          if (!response) throw new Error('Stream ended without done event');
         }
 
-        const finalContent = response.content.find((c) => c.type === 'text');
-        return finalContent?.type === 'text'
-          ? finalContent.text
-          : 'No response content.';
+        return response.text ?? 'I processed your request, but I have no text response.';
       }
 
-      // --- Default: Gemini Flow ---
-      const geminiTools = mapToolsToGemini(tools);
-      const chat = geminiClient.chats.create({
-        model: activeModel,
-        history: rawHistory,
-        config: {
-          systemInstruction: systemPrompt,
-          tools: geminiTools.length > 0 ? geminiTools : undefined,
-        },
-      });
+      // --- Non-streaming Agent Loop (backward compatible) ---
+      let response = await provider.chat(chatParams);
 
-      let response = await chat.sendMessage({ message });
-
-      while (response.functionCalls && response.functionCalls.length > 0) {
+      while (response.toolCalls.length > 0) {
         if (options?.signal?.aborted) throw new Error('AbortError');
-        const call = response.functionCalls[0];
-        const callName = call.name ?? 'unknown_tool';
 
-        // Emit intermediate text as Chain of Thought
         if (response.text && options?.onThought) {
           options.onThought(response.text);
         }
 
-        try {
-          const args = (call.args as Record<string, unknown>) ?? {};
-          if (options?.onToolCallStart) {
-            options.onToolCallStart(callName, args);
-          }
-          const result = await config.registry.callTool(
-            callName,
-            args
-          );
-          if (options?.onToolCallComplete) {
-            options.onToolCallComplete(callName, result);
-          }
+        const toolResults = await executeToolCalls(response.toolCalls, config, options);
 
-          const contentStr = Array.isArray(result.content)
-            ? result.content
-                .filter((c: any) => c.type === 'text')
-                .map((c: any) => c.text)
-                .join('\n')
-            : String(result.content);
-
-          response = await chat.sendMessage({
-            message: [
-              {
-                functionResponse: {
-                  name: callName,
-                  response: { result: contentStr },
-                },
-              },
-            ],
-          });
-        } catch (toolError) {
-          if (options?.onToolCallComplete) {
-            options.onToolCallComplete(callName, null, toolError instanceof Error ? toolError : new Error(String(toolError)));
-          }
-          response = await chat.sendMessage({
-            message: [
-              {
-                functionResponse: {
-                  name: callName,
-                  response: { error: String(toolError) },
-                },
-              },
-            ],
-          });
-        }
+        response = await provider.continueWithToolResults({
+          ...chatParams,
+          toolResults,
+          previousResponse: response.raw,
+        });
       }
 
-      return (
-        response.text ??
-        'I processed your request, but I have no text response.'
-      );
+      return response.text ?? 'I processed your request, but I have no text response.';
     },
   };
 }

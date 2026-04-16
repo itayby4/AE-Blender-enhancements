@@ -1,15 +1,28 @@
-import subprocess
+﻿import subprocess
 import os
+import sys
 import tempfile
 import numpy as np
 import wave
 
+if sys.stdout.encoding != 'utf-8':
+    try:
+        sys.stdout.reconfigure(encoding='utf-8')
+    except AttributeError:
+        pass
+
 def extract_audio(media_path: str, sample_rate: int = 16000) -> str:
     """Extracts mono audio using ffmpeg to a temporary wav file."""
+    # Look for bundled ffmpeg next to this script first
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    ffmpeg = os.path.join(script_dir, 'ffmpeg.exe')
+    if not os.path.exists(ffmpeg):
+        ffmpeg = 'ffmpeg'  # Fallback to system PATH
+
     temp_wav = tempfile.NamedTemporaryFile(suffix='.wav', delete=False).name
     try:
         cmd = [
-            'ffmpeg', '-y',
+            ffmpeg, '-y',
             '-i', media_path,
             '-ac', '1',
             '-ar', str(sample_rate),

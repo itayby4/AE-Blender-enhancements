@@ -1,5 +1,4 @@
-import { useState, useRef, useCallback, useEffect } from 'react';
-import { sendChat, type ChatPayload } from '../lib/api.js';
+import { useState, useRef, useCallback } from 'react';
 import type { Skill } from '../lib/load-skills.js';
 import { parseMessageContent } from '../features/skills/ChatCard.js';
 import { dispatchPipelineActions } from '../lib/pipeline-actions.js';
@@ -12,9 +11,14 @@ export interface ChatMessage {
 }
 
 const INITIAL_CHAT: ChatMessage[] = [];
+const API_BASE = 'http://localhost:3001';
+
+/** Safety timeout for a single chat request (2 minutes). */
+const STREAM_TIMEOUT = 120_000;
 
 /**
  * Hook: encapsulates all chat state and the send/abort logic.
+ * Uses SSE streaming to the `/chat/stream` endpoint.
  */
 export function useChat(deps: {
   skills: Skill[];
@@ -26,6 +30,7 @@ export function useChat(deps: {
   onPlanDetected?: (content: string) => void;
   // History integration
   sessionId?: string | null;
+  onSessionIdChange?: (sessionId: string) => void;
   onSaveSession?: (sessionId: string, messages: ChatMessage[]) => void;
 }) {
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>(INITIAL_CHAT);
@@ -38,6 +43,11 @@ export function useChat(deps: {
       if (!text.trim() || isAiTyping) return;
 
       abortControllerRef.current = new AbortController();
+
+      // Combine manual abort with a safety timeout
+      const timeoutId = setTimeout(() => {
+        abortControllerRef.current?.abort();
+      }, STREAM_TIMEOUT);
 
       const newMsg: ChatMessage = { id: Date.now(), sender: 'user', text };
       setChatMessages((prev) => [...prev, newMsg]);
@@ -60,69 +70,163 @@ export function useChat(deps: {
       const taskId = `chat-${Date.now()}`;
       setCurrentChatTaskId(taskId);
 
-      const payload: ChatPayload = {
-        message: text,
-        skill: activeSkillContext,
-        history: historyPayload,
-        llmModel: deps.selectedLlmModel,
-        activeApp: deps.activeApp,
-        projectId: deps.activeProjectId || undefined,
-        taskId,
-      };
+      // Create a placeholder AI message that we'll update with streaming text
+      const aiMsgId = Date.now() + 1;
+      setChatMessages((prev) => [
+        ...prev,
+        { id: aiMsgId, sender: 'ai', text: '', taskId },
+      ]);
+
+      let streamedText = '';
 
       try {
-        const data = await sendChat(payload, abortControllerRef.current.signal);
-
-        const responseText = data.text?.trim()
-          ? data.text
-          : data.actions?.length
-          ? `Generated ${data.actions.length} pipeline actions in the Node Editor.`
-          : 'Done.';
-
-        const aiMsg = { id: Date.now(), sender: 'ai' as const, text: responseText, taskId };
-        setChatMessages((prev) => {
-          const next = [...prev, aiMsg];
-          // Auto-save to history after every AI response
-          if (deps.sessionId && deps.onSaveSession) {
-            deps.onSaveSession(deps.sessionId, next);
-          }
-          return next;
+        const response = await fetch(`${API_BASE}/chat/stream`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            message: text,
+            skill: activeSkillContext,
+            history: historyPayload,
+            llmModel: deps.selectedLlmModel,
+            activeApp: deps.activeApp,
+            projectId: deps.activeProjectId || undefined,
+            taskId,
+            sessionId: deps.sessionId || undefined,
+          }),
+          signal: abortControllerRef.current.signal,
         });
 
-        // Dispatch pipeline actions to node editor
-        if (data.actions?.length) {
-          deps.onNavigate?.('node-system');
-          dispatchPipelineActions(data.actions);
+        if (!response.ok || !response.body) {
+          throw new Error('Failed to connect to AI Engine');
         }
 
-        // Detect plan blocks
-        const parts = parseMessageContent(responseText);
-        const planPart = parts.find(
-          (p) => typeof p === 'object' && p.type === 'plan'
-        );
-        if (planPart) {
-          deps.onPlanDetected?.((planPart as any).content);
+        // Read SSE stream
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = '';
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split('\n');
+          buffer = lines.pop() || '';
+
+          for (const line of lines) {
+            if (!line.startsWith('data: ')) continue;
+            try {
+              const event = JSON.parse(line.slice(6));
+
+              switch (event.type) {
+                case 'chunk':
+                  streamedText += event.text;
+                  setChatMessages((prev) =>
+                    prev.map((m) =>
+                      m.id === aiMsgId ? { ...m, text: streamedText } : m
+                    )
+                  );
+                  break;
+
+                case 'tool_start':
+                  // Tool calls are already handled by the TaskManager SSE
+                  break;
+
+                case 'tool_done':
+                  break;
+
+                case 'thought':
+                  // Could show thoughts in the UI in the future
+                  break;
+
+                case 'done':
+                  // Track session ID from backend
+                  if (event.sessionId) {
+                    deps.onSessionIdChange?.(event.sessionId);
+                  }
+                  // Final text — update with the complete response
+                  if (event.text && event.text.trim()) {
+                    setChatMessages((prev) =>
+                      prev.map((m) =>
+                        m.id === aiMsgId
+                          ? { ...m, text: event.text }
+                          : m
+                      )
+                    );
+                    streamedText = event.text;
+                  } else if (!streamedText.trim()) {
+                    setChatMessages((prev) =>
+                      prev.map((m) =>
+                        m.id === aiMsgId
+                          ? { ...m, text: 'Done.' }
+                          : m
+                      )
+                    );
+                  }
+
+                  // Dispatch pipeline actions to node editor
+                  if (event.actions?.length) {
+                    deps.onNavigate?.('node-system');
+                    dispatchPipelineActions(event.actions);
+                  }
+                  break;
+
+                case 'error':
+                  setChatMessages((prev) =>
+                    prev.map((m) =>
+                      m.id === aiMsgId
+                        ? { ...m, text: event.error || 'An error occurred.' }
+                        : m
+                    )
+                  );
+                  break;
+
+                case 'compaction':
+                  // Context compaction occurred — log it
+                  console.log(`[Compaction] Removed ${event.removedCount} older messages`);
+                  break;
+              }
+            } catch (_e) {
+              // Ignore malformed SSE lines
+            }
+          }
+        }
+
+        // Detect plan blocks in final response
+        const finalText = streamedText;
+        if (finalText) {
+          const parts = parseMessageContent(finalText);
+          const planPart = parts.find(
+            (p) => typeof p === 'object' && p.type === 'plan'
+          );
+          if (planPart) {
+            deps.onPlanDetected?.((planPart as any).content);
+          }
         }
 
         setIsAiTyping(false);
       } catch (error: any) {
-        if (error.name === 'AbortError' || error.status === 499) {
-          setChatMessages((prev) => [
-            ...prev,
-            { id: Date.now(), sender: 'ai', text: 'Agent stopped by user.' },
-          ]);
+        if (error.name === 'AbortError') {
+          setChatMessages((prev) =>
+            prev.map((m) =>
+              m.id === aiMsgId
+                ? { ...m, text: streamedText || 'Agent stopped by user.' }
+                : m
+            )
+          );
         } else {
           console.error('Failed to chat:', error);
-          setChatMessages((prev) => [
-            ...prev,
-            {
-              id: Date.now(),
-              sender: 'ai',
-              text: 'Error connecting to the backend. Is it running?',
-            },
-          ]);
+          setChatMessages((prev) =>
+            prev.map((m) =>
+              m.id === aiMsgId
+                ? { ...m, text: 'Error connecting to the backend. Is it running?' }
+                : m
+            )
+          );
         }
         setIsAiTyping(false);
+      } finally {
+        clearTimeout(timeoutId);
       }
     },
     [isAiTyping, chatMessages, deps]

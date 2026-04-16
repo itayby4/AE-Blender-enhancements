@@ -4,6 +4,7 @@ import type { Connector, ConnectorConfig, Tool, ToolResult } from './types.js';
 
 export function createConnector(config: ConnectorConfig): Connector {
   const TOOL_TIMEOUT = 600_000; // 10 minutes
+  const RECONNECT_COOLDOWN = 15_000; // Don't reconnect more than once per 15 seconds
 
   let client = new Client(
     { name: `pipefx-${config.id}`, version: '1.0.0' },
@@ -12,9 +13,16 @@ export function createConnector(config: ConnectorConfig): Connector {
   client.onerror = (err) => console.error('MCP Client Error:', err);
 
   let connected = false;
+  let lastReconnectAttempt = 0;
 
   async function connectClient(): Promise<void> {
     const transport = createTransport(config.transport);
+
+    // Track connection drops so isConnected() returns accurate state.
+    client.onclose = () => {
+      connected = false;
+    };
+
     await client.connect(transport);
     connected = true;
   }
@@ -43,7 +51,7 @@ export function createConnector(config: ConnectorConfig): Connector {
       }
       connected = false;
 
-      // Create a fresh client — the old one may be in a broken state
+      // Create a fresh client ΓÇö the old one may be in a broken state
       client = new Client(
         { name: `pipefx-${config.id}`, version: '1.0.0' },
         { capabilities: {} }
@@ -51,6 +59,7 @@ export function createConnector(config: ConnectorConfig): Connector {
       client.onerror = (err) =>
         console.error(`MCP Client Error (${config.id}):`, err);
       await connectClient();
+      lastReconnectAttempt = Date.now();
       console.log(`Reconnected to "${config.id}" (${config.name})`);
     },
 
@@ -102,16 +111,35 @@ export function createConnector(config: ConnectorConfig): Connector {
           isError: result.isError as boolean | undefined,
         };
       } catch (err) {
+        // Cooldown: don't reconnect if we just reconnected recently.
+        // This prevents storm-reconnect when the external app isn't running.
+        const now = Date.now();
+        if (now - lastReconnectAttempt < RECONNECT_COOLDOWN) {
+          throw new Error(
+            `Tool call "${name}" on "${config.id}" failed. ` +
+            `Reconnect skipped (cooldown). Is the external application running?`
+          );
+        }
+
         console.warn(
-          `Tool call "${name}" on "${config.id}" failed, attempting reconnect...`,
-          err
+          `Tool call "${name}" on "${config.id}" failed, attempting reconnect...`
         );
-        await this.reconnect();
-        const result = await executeWithTimeout();
-        return {
-          content: result.content,
-          isError: result.isError as boolean | undefined,
-        };
+        lastReconnectAttempt = now;
+
+        try {
+          await this.reconnect();
+          const result = await executeWithTimeout();
+          return {
+            content: result.content,
+            isError: result.isError as boolean | undefined,
+          };
+        } catch (reconnectErr) {
+          // Reconnect failed too ΓÇö throw without the massive stack trace
+          throw new Error(
+            `Tool call "${name}" on "${config.id}" failed after reconnect attempt. ` +
+            `Is the external application running?`
+          );
+        }
       }
     },
 

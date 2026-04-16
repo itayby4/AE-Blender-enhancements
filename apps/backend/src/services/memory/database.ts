@@ -1,5 +1,5 @@
 /**
- * PipeFX AI Brain — SQLite database initialization & schema management.
+ * PipeFX AI Brain ΓÇö SQLite database initialization & schema management.
  *
  * Single `.db` file holds all persistent state for the AI cognitive architecture.
  * Uses WAL mode for crash safety and concurrent read performance.
@@ -12,7 +12,7 @@ import { config } from '../../config.js';
 
 let db: Database.Database | null = null;
 
-const SCHEMA_VERSION = 2;
+const SCHEMA_VERSION = 3;
 
 /** Get the path to the SQLite database file. */
 function getDbPath(): string {
@@ -159,6 +159,38 @@ function createSchema(database: Database.Database): void {
       success_count INTEGER DEFAULT 0,
       last_used INTEGER
     );
+
+    -- ============ CHAT PERSISTENCE ============
+
+    CREATE TABLE IF NOT EXISTS chat_sessions (
+      id TEXT PRIMARY KEY,
+      project_id TEXT,
+      title TEXT,
+      model TEXT,
+      message_count INTEGER DEFAULT 0,
+      created_at INTEGER NOT NULL,
+      updated_at INTEGER NOT NULL,
+      FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE SET NULL
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_chat_sessions_project
+      ON chat_sessions(project_id);
+    CREATE INDEX IF NOT EXISTS idx_chat_sessions_updated
+      ON chat_sessions(updated_at);
+
+    CREATE TABLE IF NOT EXISTS chat_messages (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      session_id TEXT NOT NULL,
+      role TEXT NOT NULL,
+      content TEXT NOT NULL,
+      tool_calls TEXT,
+      thought TEXT,
+      timestamp INTEGER NOT NULL,
+      FOREIGN KEY (session_id) REFERENCES chat_sessions(id) ON DELETE CASCADE
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_chat_messages_session
+      ON chat_messages(session_id);
   `);
 
   // FTS5 virtual table (separate because CREATE VIRTUAL TABLE doesn't support IF NOT EXISTS well)
@@ -171,7 +203,7 @@ function createSchema(database: Database.Database): void {
       );
     `);
   } catch {
-    // Table already exists — that's fine
+    // Table already exists ΓÇö that's fine
   }
 
   // Set schema version
@@ -205,7 +237,7 @@ function createFtsTriggers(database: Database.Database): void {
 /** Migrate an existing database from one schema version to the next. */
 function migrateSchema(database: Database.Database, fromVersion: number): void {
   if (fromVersion < 2) {
-    console.log('[Memory] Migration v1 → v2: Adding task_events table and thoughts column');
+    console.log('[Memory] Migration v1 ΓåÆ v2: Adding task_events table and thoughts column');
     database.exec(`
       CREATE TABLE IF NOT EXISTS task_events (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -225,12 +257,51 @@ function migrateSchema(database: Database.Database, fromVersion: number): void {
     try {
       database.exec(`ALTER TABLE tasks ADD COLUMN thoughts TEXT`);
     } catch {
-      // Column already exists — fine
+      // Column already exists ΓÇö fine
     }
 
     database.prepare(
       `INSERT OR REPLACE INTO schema_meta (key, value) VALUES ('version', ?)`
     ).run(String(2));
+  }
+
+  if (fromVersion < 3) {
+    console.log('[Memory] Migration v2 ΓåÆ v3: Adding chat persistence tables');
+    database.exec(`
+      CREATE TABLE IF NOT EXISTS chat_sessions (
+        id TEXT PRIMARY KEY,
+        project_id TEXT,
+        title TEXT,
+        model TEXT,
+        message_count INTEGER DEFAULT 0,
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL,
+        FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE SET NULL
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_chat_sessions_project
+        ON chat_sessions(project_id);
+      CREATE INDEX IF NOT EXISTS idx_chat_sessions_updated
+        ON chat_sessions(updated_at);
+
+      CREATE TABLE IF NOT EXISTS chat_messages (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        session_id TEXT NOT NULL,
+        role TEXT NOT NULL,
+        content TEXT NOT NULL,
+        tool_calls TEXT,
+        thought TEXT,
+        timestamp INTEGER NOT NULL,
+        FOREIGN KEY (session_id) REFERENCES chat_sessions(id) ON DELETE CASCADE
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_chat_messages_session
+        ON chat_messages(session_id);
+    `);
+
+    database.prepare(
+      `INSERT OR REPLACE INTO schema_meta (key, value) VALUES ('version', ?)`
+    ).run(String(3));
   }
 }
 
@@ -262,7 +333,7 @@ export function getDatabase(): Database.Database {
       .get() as { value: string } | undefined;
 
     if (!versionRow) {
-      // Pre-versioning DB or corrupted — recreate
+      // Pre-versioning DB or corrupted ΓÇö recreate
       console.log('[Memory] No schema version found, initializing schema...');
       createSchema(db);
       createFtsTriggers(db);

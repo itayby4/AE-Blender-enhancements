@@ -1,5 +1,5 @@
-"""
-PipeFX — Timeline audio rendering tool for DaVinci Resolve.
+﻿"""
+PipeFX ΓÇö Timeline audio rendering tool for DaVinci Resolve.
 
 Renders the current timeline's audio to WAV files in chunks,
 suitable for passing to speech-to-text APIs (Whisper, etc.).

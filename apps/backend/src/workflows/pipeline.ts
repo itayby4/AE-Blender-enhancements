@@ -77,7 +77,7 @@ export async function runTranscriptionPipeline(
       if (!actualPath) continue;
 
       try {
-        console.log(`🔪 VAD splitting: ${actualPath}`);
+        console.log(`≡ƒö¬ VAD splitting: ${actualPath}`);
         const aggressiveness = options.vad_sensitivity === 'high' ? 0 : 1; // 0 is most sensitive to speech, 3 is least. Defaults to 1.
         const stdout = execSync(
           `python "${vadSplitScript}" "${actualPath}" ${chunk.offset_seconds} --aggressiveness ${aggressiveness}`
@@ -106,7 +106,7 @@ export async function runTranscriptionPipeline(
   }
 
   console.log(
-    `🚀 Transcribing ${chunksToTranscribe.length} chunks via Whisper (parallel)...`
+    `≡ƒÜÇ Transcribing ${chunksToTranscribe.length} chunks via Whisper (parallel)...`
   );
 
   // --- Step 3: Whisper transcription (PARALLEL) ---
@@ -143,7 +143,7 @@ export async function runTranscriptionPipeline(
   for (const { segments, offset } of allRawSegments) {
     for (let b = 0; b < segments.length; b += BATCH_SIZE) {
       const batch = segments.slice(b, b + BATCH_SIZE);
-      const batchPrompt = `Translate these subtitle segments to ${languageTarget}. Auto-detect the source language – if already ${languageTarget}, keep as-is. Return JSON with a "segments" array. Keep all original keys (id, seek, start, end, etc.) and ONLY change the "text" field to ${languageTarget}. Do NOT split or merge segments.\n\nJSON:\n${JSON.stringify(
+      const batchPrompt = `Translate these subtitle segments to ${languageTarget}. Auto-detect the source language ΓÇô if already ${languageTarget}, keep as-is. Return JSON with a "segments" array. Keep all original keys (id, seek, start, end, etc.) and ONLY change the "text" field to ${languageTarget}. Do NOT split or merge segments.\n\nJSON:\n${JSON.stringify(
         { segments: batch }
       )}`;
 
