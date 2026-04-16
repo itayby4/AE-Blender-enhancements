@@ -301,44 +301,46 @@ export function ChatPanel({
           <div className="absolute top-1/4 right-1/4 w-1 h-1 rounded-full bg-primary opacity-[0.10] hero-node-pulse" style={{ animationDelay: '0.6s' }} />
           <div className="absolute top-3/4 left-1/3 w-1 h-1 rounded-full bg-primary opacity-[0.10] hero-node-pulse" style={{ animationDelay: '1.8s' }} />
         </div>
-        <div className="flex flex-col gap-3 p-5 pb-4 chat-content-width mx-auto">
-          {messages.map((msg) => (
+        <div className="flex flex-col gap-1 p-5 pb-4 chat-content-width mx-auto">
+          {messages.map((msg, msgIdx) => {
+            // Group consecutive user messages; show separator between user/ai
+            const prevMsg = msgIdx > 0 ? messages[msgIdx - 1] : null;
+            const showSenderSwitch = prevMsg && prevMsg.sender !== msg.sender;
+
+            return (
             <div key={msg.id} className="flex flex-col">
+              {/* Visual separator when switching between user/ai */}
+              {showSenderSwitch && <div className="h-3" />}
+
               {msg.sender === 'user' ? (
-                /* ── User Command Card ── */
-                <div className="flex gap-3 group mt-5 first:mt-0">
-                  {/* Avatar */}
-                  <div className="h-8 w-8 rounded-xl flex items-center justify-center shrink-0 mt-1 bg-primary/15 text-primary border border-primary/30 shadow-sm">
-                    <User className="h-3.5 w-3.5" />
-                  </div>
-                  {/* Card */}
-                  <div className="flex-1 min-w-0 rounded-2xl bg-card border border-border shadow-sm overflow-hidden">
-                    {/* Card accent + header */}
-                    <div className="h-0.5 bg-gradient-to-r from-primary/50 via-primary/20 to-transparent" />
-                    <div className="px-4 pt-2.5 pb-0.5">
-                      <span className="text-[10px] font-bold text-primary tracking-[0.1em] uppercase">You</span>
-                    </div>
-                    {/* Card body */}
-                    <div className="px-4 pt-1 pb-4 text-[14.5px] text-foreground font-medium leading-relaxed select-text cursor-text whitespace-pre-wrap">
-                      {msg.text}
-                    </div>
+                /* ── User Message ── Clean, right-aligned, minimal */
+                <div className="flex justify-end mt-1 first:mt-0 group animate-msg-in">
+                  <div
+                    className={cn(
+                      'max-w-[85%] rounded-2xl rounded-br-md px-4 py-3',
+                      'bg-primary/10 text-foreground',
+                      'text-[14px] leading-relaxed font-medium',
+                      'select-text cursor-text whitespace-pre-wrap',
+                    )}
+                  >
+                    {msg.text}
                   </div>
                 </div>
               ) : (
-                /* ── AI Response ── */
-                <div className="flex gap-3 group mt-3">
-                  {/* Avatar */}
-                  <div className="h-8 w-8 rounded-xl flex items-center justify-center shrink-0 mt-1 bg-card border border-primary/30 text-primary shadow-sm relative">
-                    <div className="absolute inset-0 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-300" style={{ boxShadow: '0 0 12px oklch(from var(--primary) l c h / 0.2)' }} />
-                    <span className="font-mono text-[12px] font-bold leading-none select-none">◈</span>
+                /* ── AI Response ── Full-width card with avatar */
+                <div className="flex gap-3 group mt-1 animate-msg-in">
+                  {/* Avatar — sticky at top */}
+                  <div className="h-7 w-7 rounded-lg flex items-center justify-center shrink-0 mt-1.5 bg-primary/10 border border-primary/25 text-primary">
+                    <span className="font-mono text-[11px] font-bold leading-none select-none">◈</span>
                   </div>
-                  {/* Content with left accent stripe */}
-                  <div className="flex-1 min-w-0 border-l-2 border-primary/30 pl-4 py-1">
-                    <div className="text-[10px] font-bold text-primary tracking-[0.1em] uppercase mb-2">PipeFX</div>
-                    <div className="text-[14.5px] text-foreground/90 leading-relaxed select-text cursor-text">
-                    <div className="space-y-3">
+                  {/* Content */}
+                  <div className="flex-1 min-w-0 pt-0.5 pb-1">
+                    <div className="text-[14px] text-foreground/90 leading-relaxed select-text cursor-text">
+                    <div className="space-y-2.5">
                       {parseMessageContent(msg.text).map((part, i) => {
                         if (typeof part === 'string') {
+                          // Don't render empty text parts (during streaming init)
+                          if (!part.trim()) return null;
                           return (
                             <div key={i} style={{ whiteSpace: 'pre-wrap' }}>
                               {part}
@@ -387,32 +389,30 @@ export function ChatPanel({
                       })}
                     </div>
                     </div>
-                  </div>
-                </div>
-              )}
 
-              {/* Inline message feedback — visible on hover */}
-              {msg.sender === 'ai' && (
-                <div className="pl-11 msg-actions flex items-center gap-1 mt-0.5">
-                  <button
-                    onClick={() => handleCopy(msg.text)}
-                    className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors"
-                    title="Copy message"
-                  >
-                    <Copy className="w-3.5 h-3.5" />
-                  </button>
-                  <button
-                    className="p-1.5 rounded-md text-muted-foreground hover:text-success hover:bg-success/10 transition-colors"
-                    title="Good response"
-                  >
-                    <ThumbsUp className="w-3.5 h-3.5" />
-                  </button>
-                  <button
-                    className="p-1.5 rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
-                    title="Bad response"
-                  >
-                    <ThumbsDown className="w-3.5 h-3.5" />
-                  </button>
+                    {/* Inline feedback actions — reveal on hover */}
+                    <div className="msg-actions flex items-center gap-0.5 mt-1.5 -ml-1">
+                      <button
+                        onClick={() => handleCopy(msg.text)}
+                        className="p-1.5 rounded-md text-muted-foreground/50 hover:text-foreground hover:bg-muted/60 transition-colors"
+                        title="Copy message"
+                      >
+                        <Copy className="w-3 h-3" />
+                      </button>
+                      <button
+                        className="p-1.5 rounded-md text-muted-foreground/50 hover:text-success hover:bg-success/10 transition-colors"
+                        title="Good response"
+                      >
+                        <ThumbsUp className="w-3 h-3" />
+                      </button>
+                      <button
+                        className="p-1.5 rounded-md text-muted-foreground/50 hover:text-destructive hover:bg-destructive/10 transition-colors"
+                        title="Bad response"
+                      >
+                        <ThumbsDown className="w-3 h-3" />
+                      </button>
+                    </div>
+                  </div>
                 </div>
               )}
 
@@ -422,7 +422,7 @@ export function ChatPanel({
                 if (task.steps.length === 0) return null;
                 const isExpanded = expandedThoughts.has(msg.taskId!);
                 return (
-                  <div className="ml-11">
+                  <div className="ml-10 mt-1">
                     <button
                       onClick={() => toggleThought(msg.taskId!)}
                       className="flex items-center gap-2 text-xs text-muted-foreground hover:text-foreground transition-colors mb-1"
@@ -448,25 +448,26 @@ export function ChatPanel({
                 );
               })()}
             </div>
-          ))}
+          );
+          })}
 
           {/* Typing indicator with live CoT */}
           {isTyping && (
-            <div className="flex flex-col gap-2">
-              <div className="flex gap-3 text-[15px]">
-                <div className="h-8 w-8 rounded-lg flex items-center justify-center shrink-0 bg-muted border border-border/50">
-                  <Bot className="h-4 w-4" />
+            <div className="flex flex-col gap-2 mt-1 animate-msg-in">
+              <div className="flex gap-3">
+                <div className="h-7 w-7 rounded-lg flex items-center justify-center shrink-0 mt-0.5 bg-primary/10 border border-primary/25 text-primary">
+                  <span className="font-mono text-[11px] font-bold leading-none select-none">◈</span>
                 </div>
-                <div className="py-3 px-4 rounded-2xl bg-muted/60 rounded-tl-md border border-border/30 text-muted-foreground flex items-center gap-1.5">
-                  <span className="w-1.5 h-1.5 rounded-full bg-primary animate-thinking-pulse" style={{ animationDelay: '0ms' }} />
-                  <span className="w-1.5 h-1.5 rounded-full bg-primary animate-thinking-pulse" style={{ animationDelay: '200ms' }} />
-                  <span className="w-1.5 h-1.5 rounded-full bg-primary animate-thinking-pulse" style={{ animationDelay: '400ms' }} />
+                <div className="flex items-center gap-1.5 py-2">
+                  <span className="w-1.5 h-1.5 rounded-full bg-primary/60 animate-thinking-pulse" style={{ animationDelay: '0ms' }} />
+                  <span className="w-1.5 h-1.5 rounded-full bg-primary/60 animate-thinking-pulse" style={{ animationDelay: '200ms' }} />
+                  <span className="w-1.5 h-1.5 rounded-full bg-primary/60 animate-thinking-pulse" style={{ animationDelay: '400ms' }} />
                 </div>
               </div>
 
               {/* Live Chain of Thought while typing */}
               {currentTaskId && taskMap.get(currentTaskId) && (
-                <div className="ml-11">
+                <div className="ml-10">
                   <ChainOfThoughtBlock task={taskMap.get(currentTaskId)!} isLive />
                 </div>
               )}
