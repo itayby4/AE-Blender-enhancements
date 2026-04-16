@@ -57,7 +57,7 @@ export function SkillBuilderCard({
       <CardContent className="p-3">
         <div className="flex items-center justify-between mb-2">
           <div className="font-semibold text-sm flex items-center gap-2">
-            ✨ AI Generated Skill:{' '}
+            AI Generated Skill:{' '}
             <span className="text-primary">{skillName}</span>
           </div>
           {status === 'idle' && (

@@ -1,28 +1,34 @@
-import { useRef, useState } from 'react';
+import { useRef, useState, useMemo } from 'react';
 import {
   Bot,
-  Subtitles,
+  Captions,
   Scissors,
   Smartphone,
   Network,
   Wand2,
   Zap,
   Clapperboard,
-  Settings,
   ArrowRight,
   Trash2,
+  Search,
+  Upload,
+  X,
+  CheckCircle2,
+  AlertCircle,
+  LayoutGrid,
 } from 'lucide-react';
 import type { ComponentType } from 'react';
-import { Card, CardContent } from '../../components/ui/card';
-import { Badge } from '../../components/ui/badge';
-import { Button } from '../../components/ui/button';
-import { ScrollArea } from '../../components/ui/scroll-area';
-import { type Skill, parseSkillFromContent } from '../../lib/load-skills';
+import { Card, CardContent } from '../../components/ui/card.js';
+import { Badge } from '../../components/ui/badge.js';
+import { Button } from '../../components/ui/button.js';
+import { ScrollArea } from '../../components/ui/scroll-area.js';
+import { cn } from '../../lib/utils.js';
+import { type Skill, parseSkillFromContent } from '../../lib/load-skills.js';
 
 /** Map icon string names from skill frontmatter to lucide components */
 const ICON_MAP: Record<string, ComponentType<{ className?: string }>> = {
   bot: Bot,
-  subtitles: Subtitles,
+  subtitles: Captions,
   scissors: Scissors,
   smartphone: Smartphone,
   network: Network,
@@ -73,13 +79,50 @@ export function SkillsPage({
     'idle' | 'success' | 'error'
   >('idle');
   const [importMessage, setImportMessage] = useState('');
-  // Group skills by category
-  const grouped = skills.reduce<Record<string, Skill[]>>((acc, skill) => {
-    const cat = skill.category || 'general';
-    if (!acc[cat]) acc[cat] = [];
-    acc[cat].push(skill);
-    return acc;
-  }, {});
+  const [searchQuery, setSearchQuery] = useState('');
+  const [activeFilter, setActiveFilter] = useState<string>('all');
+
+  // The currently-active skill (non-default)
+  const activeSkill = skills.find(
+    (s) => s.id === selectedSkillId && s.id !== 'default'
+  );
+
+  // Filter skills by search + category
+  const filteredSkills = useMemo(() => {
+    let result = skills;
+
+    // Search filter
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      result = result.filter(
+        (s) =>
+          s.name.toLowerCase().includes(q) ||
+          s.description?.toLowerCase().includes(q) ||
+          s.triggerCommand?.toLowerCase().includes(q) ||
+          s.category?.toLowerCase().includes(q)
+      );
+    }
+
+    // Category filter
+    if (activeFilter !== 'all') {
+      result = result.filter(
+        (s) => (s.category || 'general') === activeFilter
+      );
+    }
+
+    return result;
+  }, [skills, searchQuery, activeFilter]);
+
+  // Group filtered skills by category
+  const grouped = filteredSkills.reduce<Record<string, Skill[]>>(
+    (acc, skill) => {
+      const cat = skill.category || 'general';
+      if (!acc[cat]) acc[cat] = [];
+      acc[cat].push(skill);
+      return acc;
+    },
+    {}
+  );
 
   // Add any categories from skills that aren't in CATEGORY_ORDER to the end
   const dynamicCategories = Object.keys(grouped).filter(
@@ -90,6 +133,14 @@ export function SkillsPage({
   const sortedCategories = allCategoriesOrder.filter(
     (cat) => grouped[cat]?.length
   );
+
+  // Categories that have at least one skill (for filter chips)
+  const availableCategories = useMemo(() => {
+    const cats = new Set(skills.map((s) => s.category || 'general'));
+    return CATEGORY_ORDER.filter((c) => cats.has(c)).concat(
+      [...cats].filter((c) => !CATEGORY_ORDER.includes(c))
+    );
+  }, [skills]);
 
   const handleSkillClick = (skill: Skill) => {
     if (skill.hasUI) {
@@ -152,189 +203,263 @@ export function SkillsPage({
     e.target.value = '';
   };
 
+  const isSearching = searchQuery.trim().length > 0;
+
   return (
-    <ScrollArea className="flex-1 min-h-0 p-6 relative">
-      <div className="max-w-5xl mx-auto pb-10">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-8">
-          <div>
-            <h2 className="text-2xl font-bold tracking-tight flex items-center gap-3">
-              <div className="h-9 w-9 rounded-lg bg-primary/10 flex items-center justify-center">
-                <Zap className="h-5 w-5 text-primary" />
-              </div>
-              AI Skills
-            </h2>
-            <p className="text-sm text-muted-foreground mt-1">
-              Select a skill to enhance your AI assistant or open its dashboard
-            </p>
-          </div>
+    <div className="flex flex-col h-full">
+      {/* ── Header ── */}
+      <div className="shrink-0 border-b bg-card">
+        {/* Title row */}
+        <div className="flex items-center justify-between px-5 py-3">
+          <h2 className="text-sm font-semibold text-foreground tracking-tight">Skills</h2>
           <div className="flex items-center gap-2">
-            <Badge variant="outline" className="text-xs gap-1">
-              {skills.length} skills
+            <Badge variant="outline" className="text-[10px] font-mono h-5 px-1.5">
+              {skills.length}
             </Badge>
-            <Button size="sm" variant="outline" className="gap-2">
-              <Settings className="h-3.5 w-3.5" />
-              Manage
+
+            {/* Import status feedback */}
+            {importStatus !== 'idle' && (
+              <span className={cn(
+                'text-[11px] font-medium flex items-center gap-1',
+                importStatus === 'success' ? 'text-success' : 'text-destructive'
+              )}>
+                {importStatus === 'success'
+                  ? <><CheckCircle2 className="h-3 w-3" /> {importMessage}</>
+                  : <><AlertCircle className="h-3 w-3" /> {importMessage}</>
+                }
+              </span>
+            )}
+
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".md"
+              className="hidden"
+              onChange={handleImportFile}
+            />
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-7 text-xs gap-1.5"
+              onClick={() => fileInputRef.current?.click()}
+            >
+              <Upload className="h-3 w-3" />
+              Import
             </Button>
           </div>
         </div>
 
-        {/* Tip */}
-        <div className="mb-8 p-4 rounded-xl bg-primary/5 border border-primary/10">
-          <p className="text-xs text-muted-foreground">
-            <span className="font-semibold text-foreground">💡 Tip:</span> Type{' '}
-            <kbd className="px-1.5 py-0.5 rounded bg-muted border text-[10px] font-mono font-bold">
-              /
-            </kbd>{' '}
-            in the chat to quickly search and activate skills.
-          </p>
-        </div>
-
-        {/* Categorized Skill Cards */}
-        {sortedCategories.map((category) => (
-          <div key={category} className="mb-8">
-            <div className="flex items-center gap-2 mb-4">
-              <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                {CATEGORY_LABELS[category] || category}
-              </h3>
-              <div className="flex-1 h-px bg-border" />
-            </div>
-
-            <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4">
-              {grouped[category].map((skill) => {
-                const IconComp = ICON_MAP[skill.icon || 'bot'] || Bot;
-                const isSelected = selectedSkillId === skill.id;
-
-                return (
-                  <Card
-                    key={skill.id}
-                    onClick={() => handleSkillClick(skill)}
-                    className={`group relative cursor-pointer active:scale-[0.97] transition-all duration-200 border-border/60 hover:border-primary/50 hover:shadow-lg bg-card/80 backdrop-blur-sm overflow-hidden ${
-                      isSelected
-                        ? 'ring-2 ring-primary border-primary shadow-md'
-                        : ''
-                    }`}
-                  >
-                    {/* Gradient overlay on hover */}
-                    <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-
-                    <CardContent className="p-5 flex flex-col h-36 relative z-10">
-                      {/* Top row: icon + badges */}
-                      <div className="flex items-start justify-between mb-3">
-                        <div className="h-10 w-10 rounded-xl bg-muted flex items-center justify-center group-hover:bg-primary group-hover:text-primary-foreground transition-colors duration-200 shadow-sm">
-                          <IconComp className="h-5 w-5" />
-                        </div>
-                        <div className="flex gap-1 items-center relative z-20">
-                          {skill.hasUI && (
-                            <Badge
-                              variant="secondary"
-                              className="text-[9px] px-1.5 py-0 h-5 bg-primary/10 text-primary border-primary/20 mr-1"
-                            >
-                              Dashboard
-                            </Badge>
-                          )}
-                          {skill.id !== 'default' && (
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                onDeleteSkill?.(skill);
-                              }}
-                              className="opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-destructive/10 hover:text-destructive rounded-md text-muted-foreground"
-                              title="Delete Skill"
-                            >
-                              <Trash2 className="h-3.5 w-3.5" />
-                            </button>
-                          )}
-                        </div>
-                      </div>
-
-                      {/* Name */}
-                      <div className="font-semibold text-sm leading-tight group-hover:text-primary transition-colors">
-                        {skill.name}
-                      </div>
-
-                      {/* Description */}
-                      {skill.description && (
-                        <p className="text-[11px] text-muted-foreground mt-1.5 leading-relaxed line-clamp-2 flex-1">
-                          {skill.description}
-                        </p>
-                      )}
-
-                      {/* Bottom row: trigger command */}
-                      <div className="flex items-center justify-between mt-auto pt-2">
-                        {skill.triggerCommand && (
-                          <span className="text-[10px] font-mono text-muted-foreground/70 bg-muted/50 px-1.5 py-0.5 rounded">
-                            /{skill.triggerCommand}
-                          </span>
-                        )}
-                        {skill.hasUI && (
-                          <ArrowRight className="h-3.5 w-3.5 text-muted-foreground/40 group-hover:text-primary group-hover:translate-x-0.5 transition-all" />
-                        )}
-                      </div>
-                    </CardContent>
-                  </Card>
-                );
-              })}
-            </div>
+        {/* Search + filter bar */}
+        <div className="px-5 pb-3 flex flex-col gap-2">
+          {/* Search input */}
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground/60" />
+            <input
+              type="text"
+              placeholder='Search skills... (type / in chat to activate)'
+              className="w-full h-8 pl-9 pr-8 rounded-lg bg-muted/50 border border-border/50 text-xs text-foreground placeholder:text-muted-foreground/50 outline-none focus:ring-1 focus:ring-primary/50 focus:border-primary/30 transition-colors"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery('')}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 p-0.5 rounded text-muted-foreground/50 hover:text-foreground transition-colors"
+              >
+                <X className="h-3 w-3" />
+              </button>
+            )}
           </div>
-        ))}
 
-        {/* Import Skill */}
-        <div className="mt-4">
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept=".md"
-            className="hidden"
-            onChange={handleImportFile}
-          />
-          <Card
-            onClick={() => fileInputRef.current?.click()}
-            className={`cursor-pointer border-dashed border-2 transition-colors bg-transparent max-w-[200px] ${
-              importStatus === 'success'
-                ? 'border-green-500/50 bg-green-500/5'
-                : importStatus === 'error'
-                ? 'border-destructive/50 bg-destructive/5'
-                : 'hover:border-primary/50 hover:bg-primary/5'
-            }`}
-          >
-            <CardContent className="p-5 flex flex-col items-center justify-center text-center h-36 text-muted-foreground hover:text-primary">
-              {importStatus === 'idle' ? (
-                <>
-                  <div className="h-10 w-10 rounded-xl border-2 border-current border-dashed flex items-center justify-center mb-2">
-                    <span className="text-xl leading-none">+</span>
-                  </div>
-                  <div className="font-medium text-sm">Import Skill</div>
-                  <div className="text-[10px] mt-1 opacity-70">
-                    Drop a .md file
-                  </div>
-                </>
-              ) : (
-                <>
-                  <div
-                    className={`text-2xl mb-2 ${
-                      importStatus === 'success'
-                        ? 'text-green-500'
-                        : 'text-destructive'
-                    }`}
-                  >
-                    {importStatus === 'success' ? '✅' : '❌'}
-                  </div>
-                  <div
-                    className={`font-medium text-xs ${
-                      importStatus === 'success'
-                        ? 'text-green-500'
-                        : 'text-destructive'
-                    }`}
-                  >
-                    {importMessage}
-                  </div>
-                </>
+          {/* Category filter chips */}
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <button
+              onClick={() => setActiveFilter('all')}
+              className={cn(
+                'px-2.5 py-1 rounded-md text-[11px] font-medium transition-colors',
+                activeFilter === 'all'
+                  ? 'bg-primary/15 text-primary border border-primary/25'
+                  : 'text-muted-foreground hover:text-foreground hover:bg-muted/60 border border-transparent'
               )}
-            </CardContent>
-          </Card>
+            >
+              All
+            </button>
+            {availableCategories.map((cat) => (
+              <button
+                key={cat}
+                onClick={() => setActiveFilter(activeFilter === cat ? 'all' : cat)}
+                className={cn(
+                  'px-2.5 py-1 rounded-md text-[11px] font-medium transition-colors',
+                  activeFilter === cat
+                    ? 'bg-primary/15 text-primary border border-primary/25'
+                    : 'text-muted-foreground hover:text-foreground hover:bg-muted/60 border border-transparent'
+                )}
+              >
+                {CATEGORY_LABELS[cat] || cat}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
-    </ScrollArea>
+
+      {/* ── Content ── */}
+      <ScrollArea className="flex-1 min-h-0">
+        <div className="p-5 pb-10">
+          {/* Active skill banner */}
+          {activeSkill && !isSearching && (
+            <div className="mb-5 flex items-center gap-3 px-4 py-3 rounded-xl bg-primary/10 border border-primary/20">
+              <div className="h-7 w-7 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                {(() => {
+                  const IC = ICON_MAP[activeSkill.icon || 'bot'] || Bot;
+                  return <IC className="h-3.5 w-3.5 text-primary" />;
+                })()}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-[13px] font-semibold text-foreground truncate">
+                  {activeSkill.name} <span className="font-normal text-muted-foreground">is active</span>
+                </p>
+                <p className="text-[11px] text-muted-foreground">Type in chat to use this skill</p>
+              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-7 text-xs text-muted-foreground hover:text-foreground shrink-0"
+                onClick={() => onSelectSkill({ id: 'default', name: 'Default Assistant' })}
+              >
+                Deactivate
+              </Button>
+            </div>
+          )}
+
+          {/* Empty state */}
+          {filteredSkills.length === 0 && (
+            <div className="flex flex-col items-center justify-center py-20 text-center">
+              <LayoutGrid className="h-10 w-10 text-muted-foreground/30 mb-4" />
+              <p className="text-sm font-medium text-muted-foreground">No skills found</p>
+              <p className="text-xs text-muted-foreground/60 mt-1">
+                {isSearching ? 'Try a different search term' : 'Import a skill to get started'}
+              </p>
+            </div>
+          )}
+
+          {/* Categorized skill cards */}
+          {sortedCategories.map((category) => (
+            <div key={category} className="mb-6">
+              {/* Category header — only show when not filtering to a single category */}
+              {(activeFilter === 'all' || isSearching) && sortedCategories.length > 1 && (
+                <div className="flex items-center gap-2 mb-3">
+                  <h3 className="text-[10px] font-bold uppercase tracking-[0.1em] text-muted-foreground">
+                    {CATEGORY_LABELS[category] || category}
+                  </h3>
+                  <div className="flex-1 h-px bg-border/60" />
+                  <span className="text-[10px] text-muted-foreground/50">{grouped[category].length}</span>
+                </div>
+              )}
+
+              {/* Responsive grid — auto-fit instead of fixed columns */}
+              <div className="grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))' }}>
+                {grouped[category].map((skill) => {
+                  const IconComp = ICON_MAP[skill.icon || 'bot'] || Bot;
+                  const isSelected = selectedSkillId === skill.id;
+                  const isDashboard = !!skill.hasUI;
+
+                  return (
+                    <Card
+                      key={skill.id}
+                      onClick={() => handleSkillClick(skill)}
+                      className={cn(
+                        'group relative cursor-pointer transition-all duration-200 overflow-hidden',
+                        'border-border/60 bg-card hover:border-primary/40 hover:shadow-md',
+                        'active:scale-[0.98]',
+                        isDashboard && 'border-l-2 border-l-primary/30',
+                        isSelected && 'ring-2 ring-primary/60 border-primary/50 bg-primary/[0.03] shadow-md',
+                      )}
+                    >
+                      <CardContent className="p-4 flex flex-col min-h-[130px] relative">
+                        {/* Top row: icon + action area */}
+                        <div className="flex items-start justify-between mb-2.5">
+                          <div className={cn(
+                            'h-9 w-9 rounded-xl flex items-center justify-center shrink-0 transition-colors duration-200 shadow-sm',
+                            isSelected
+                              ? 'bg-primary text-primary-foreground'
+                              : 'bg-primary/10 text-primary group-hover:bg-primary group-hover:text-primary-foreground'
+                          )}>
+                            <IconComp className="h-4 w-4" />
+                          </div>
+                          <div className="flex gap-1 items-center relative z-20">
+                            {isDashboard && (
+                              <Badge
+                                variant="secondary"
+                                className="text-[9px] px-1.5 py-0 h-5 bg-primary/10 text-primary border-primary/20"
+                              >
+                                Dashboard
+                              </Badge>
+                            )}
+                            {isSelected && (
+                              <Badge className="text-[9px] px-1.5 py-0 h-5 bg-primary text-primary-foreground">
+                                Active
+                              </Badge>
+                            )}
+                            {skill.id !== 'default' && (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  onDeleteSkill?.(skill);
+                                }}
+                                className="opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-destructive/10 hover:text-destructive rounded-md text-muted-foreground/50"
+                                title="Delete Skill"
+                              >
+                                <Trash2 className="h-3 w-3" />
+                              </button>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Name */}
+                        <div className={cn(
+                          'font-semibold text-[13px] leading-tight transition-colors',
+                          isSelected ? 'text-primary' : 'text-foreground group-hover:text-primary'
+                        )}>
+                          {skill.name}
+                        </div>
+
+                        {/* Description */}
+                        {skill.description && (
+                          <p className="text-[11px] text-muted-foreground mt-1.5 leading-relaxed line-clamp-2 flex-1">
+                            {skill.description}
+                          </p>
+                        )}
+
+                        {/* Bottom row: trigger command + CTA */}
+                        <div className="flex items-center justify-between mt-auto pt-2.5">
+                          {skill.triggerCommand ? (
+                            <span className="text-[10px] font-mono text-muted-foreground/60 bg-muted/40 px-1.5 py-0.5 rounded">
+                              /{skill.triggerCommand}
+                            </span>
+                          ) : <span />}
+
+                          {/* Always-visible CTA */}
+                          <span className={cn(
+                            'text-[11px] font-medium flex items-center gap-1 transition-colors',
+                            isSelected
+                              ? 'text-primary'
+                              : 'text-muted-foreground/60 group-hover:text-primary'
+                          )}>
+                            {isDashboard ? 'Open' : isSelected ? 'Active' : 'Activate'}
+                            {isDashboard && (
+                              <ArrowRight className="h-3 w-3 group-hover:translate-x-0.5 transition-transform" />
+                            )}
+                          </span>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+        </div>
+      </ScrollArea>
+    </div>
   );
 }

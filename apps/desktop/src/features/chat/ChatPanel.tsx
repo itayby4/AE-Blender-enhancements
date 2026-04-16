@@ -10,12 +10,22 @@ import {
   Circle,
   ChevronDown,
   ChevronRight,
+  History,
+  PlusCircle,
   Trash2,
   Brain,
   Copy,
   ThumbsUp,
   ThumbsDown,
+  Clock,
 } from 'lucide-react';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '../../components/ui/popover.js';
+import { Separator } from '../../components/ui/separator.js';
+import type { ChatSession } from '../../hooks/useChatHistory.js';
 import { Button } from '../../components/ui/button.js';
 import { ScrollArea } from '../../components/ui/scroll-area.js';
 import { Textarea } from '../../components/ui/textarea.js';
@@ -49,6 +59,12 @@ interface ChatPanelProps {
   onNavigate: (view: string) => void;
   onSkillsReloaded: (skills: Skill[]) => void;
   onPlanNavigate: (content: string) => void;
+  // History
+  chatSessions: ChatSession[];
+  onLoadSession: (sessionId: string) => void;
+  onDeleteSession: (sessionId: string) => void;
+  onNewSession: () => void;
+  activeSessionId: string | null;
 }
 
 /**
@@ -76,8 +92,14 @@ export function ChatPanel({
   onNavigate,
   onSkillsReloaded,
   onPlanNavigate,
+  chatSessions,
+  onLoadSession,
+  onDeleteSession,
+  onNewSession,
+  activeSessionId,
 }: ChatPanelProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [isAutocompleteOpen, setIsAutocompleteOpen] = useState(false);
   const [autocompleteQuery, setAutocompleteQuery] = useState('');
   const [expandedThoughts, setExpandedThoughts] = useState<Set<string>>(new Set());
@@ -164,15 +186,91 @@ export function ChatPanel({
             <option value="gpt-5.4">GPT-5.4</option>
             <option value="claude-sonnet-4.6">Claude Sonnet 4.6</option>
           </select>
-          <Button
-            onClick={onClearChat}
-            variant="ghost"
-            size="icon"
-            className="h-8 w-8 text-muted-foreground hover:text-destructive"
-            title="Clear Conversation"
-          >
-            <Trash2 className="h-3.5 w-3.5" />
-          </Button>
+          {/* History popover — replaces the trash bin */}
+          <Popover open={isHistoryOpen} onOpenChange={setIsHistoryOpen}>
+            <PopoverTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 text-muted-foreground hover:text-foreground relative"
+                title="Chat History"
+              >
+                <History className="h-3.5 w-3.5" />
+                {chatSessions.length > 0 && (
+                  <span className="absolute top-1.5 right-1.5 h-1.5 w-1.5 rounded-full bg-primary" />
+                )}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent align="end" className="w-72 p-0 overflow-hidden" sideOffset={6}>
+              {/* Popover header */}
+              <div className="flex items-center justify-between px-3 py-2.5 border-b">
+                <span className="text-xs font-semibold text-foreground tracking-tight">Chat History</span>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 px-2 text-xs gap-1.5 text-primary hover:text-primary hover:bg-primary/10"
+                  onClick={() => {
+                    onNewSession();
+                    onClearChat();
+                    setIsHistoryOpen(false);
+                  }}
+                >
+                  <PlusCircle className="h-3 w-3" />
+                  New Chat
+                </Button>
+              </div>
+
+              {/* Session list */}
+              <ScrollArea className="max-h-72">
+                {chatSessions.length === 0 ? (
+                  <div className="flex flex-col items-center gap-2 py-8 px-4 text-center">
+                    <Clock className="h-7 w-7 text-muted-foreground/40" />
+                    <p className="text-xs text-muted-foreground">No previous chats yet.</p>
+                    <p className="text-[11px] text-muted-foreground/60">Conversations are saved automatically.</p>
+                  </div>
+                ) : (
+                  <div className="py-1">
+                    {chatSessions.map((session) => (
+                      <div
+                        key={session.id}
+                        className={cn(
+                          'flex items-center gap-2 px-3 py-2.5 group cursor-pointer hover:bg-muted/50 transition-colors',
+                          session.id === activeSessionId && 'bg-primary/8 border-l-2 border-primary pl-2.5'
+                        )}
+                        onClick={() => {
+                          onLoadSession(session.id);
+                          setIsHistoryOpen(false);
+                        }}
+                      >
+                        <div className="flex-1 min-w-0">
+                          <p className="text-[13px] font-medium text-foreground truncate leading-snug">
+                            {session.title}
+                          </p>
+                          <p className="text-[11px] text-muted-foreground mt-0.5">
+                            {new Date(session.updatedAt).toLocaleDateString(undefined, {
+                              month: 'short', day: 'numeric',
+                              hour: '2-digit', minute: '2-digit',
+                            })}
+                            {' · '}{session.messages.length} msgs
+                          </p>
+                        </div>
+                        <button
+                          className="shrink-0 p-1 rounded-md text-muted-foreground/30 hover:text-destructive hover:bg-destructive/10 opacity-0 group-hover:opacity-100 transition-all"
+                          title="Delete session"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onDeleteSession(session.id);
+                          }}
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </ScrollArea>
+            </PopoverContent>
+          </Popover>
         </div>
       </div>
 

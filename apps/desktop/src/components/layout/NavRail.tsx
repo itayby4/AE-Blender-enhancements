@@ -49,7 +49,6 @@ export function NavRail({ activeView, onNavigate, skills, className }: NavRailPr
     { id: 'video-gen', label: 'Video Studio', icon: Video, section: 'core' },
     { id: 'image-gen', label: 'Image Studio', icon: ImageIcon, section: 'core' },
     { id: 'node-system', label: 'Node Editor', icon: Network, section: 'core' },
-    { id: 'autopod', label: 'AutoPod', icon: Scissors, section: 'core' },
   ];
 
   // Dynamic skill items with UIs

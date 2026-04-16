@@ -6,11 +6,29 @@ import * as dotenv from 'dotenv';
 
 dotenv.config();
 
+// ────────────────────────────────────────────────────────
+// Types
+// ────────────────────────────────────────────────────────
+
+export interface CustomPalette {
+  id: string;
+  name: string;
+  mode: 'light' | 'dark';
+  accentHue: number;
+  overrides?: Record<string, string>;
+}
+
 export interface AppSettings {
   geminiApiKey: string;
   openaiApiKey: string;
   anthropicApiKey: string;
+  activePalette: string;
+  customPalettes: CustomPalette[];
 }
+
+// ────────────────────────────────────────────────────────
+// Storage
+// ────────────────────────────────────────────────────────
 
 const SETTINGS_DIR = path.join(os.homedir(), '.pipefx');
 const SETTINGS_FILE = path.join(SETTINGS_DIR, 'settings.json');
@@ -20,55 +38,52 @@ if (!existsSync(SETTINGS_DIR)) {
   mkdirSync(SETTINGS_DIR, { recursive: true });
 }
 
+const DEFAULTS: AppSettings = {
+  geminiApiKey: process.env.GEMINI_API_KEY || '',
+  openaiApiKey: process.env.OPENAI_API_KEY || '',
+  anthropicApiKey: process.env.ANTHROPIC_API_KEY || '',
+  activePalette: 'cool-teal',
+  customPalettes: [],
+};
+
 export async function loadSettings(): Promise<AppSettings> {
   try {
     const data = await fs.readFile(SETTINGS_FILE, 'utf-8');
     const parsed = JSON.parse(data);
     return {
-      geminiApiKey: parsed.geminiApiKey || process.env.GEMINI_API_KEY || '',
-      openaiApiKey: parsed.openaiApiKey || process.env.OPENAI_API_KEY || '',
-      anthropicApiKey: parsed.anthropicApiKey || process.env.ANTHROPIC_API_KEY || '',
+      geminiApiKey: parsed.geminiApiKey || DEFAULTS.geminiApiKey,
+      openaiApiKey: parsed.openaiApiKey || DEFAULTS.openaiApiKey,
+      anthropicApiKey: parsed.anthropicApiKey || DEFAULTS.anthropicApiKey,
+      activePalette: parsed.activePalette || DEFAULTS.activePalette,
+      customPalettes: Array.isArray(parsed.customPalettes) ? parsed.customPalettes : [],
     };
   } catch (error: any) {
     if (error.code === 'ENOENT') {
-      // File doesn't exist, fallback to ENV default
-      const defaultSettings: AppSettings = {
-        geminiApiKey: process.env.GEMINI_API_KEY || '',
-        openaiApiKey: process.env.OPENAI_API_KEY || '',
-        anthropicApiKey: process.env.ANTHROPIC_API_KEY || '',
-      };
-      
       try {
-        await fs.writeFile(SETTINGS_FILE, JSON.stringify(defaultSettings, null, 2), 'utf-8');
-      } catch(e) {
+        await fs.writeFile(SETTINGS_FILE, JSON.stringify(DEFAULTS, null, 2), 'utf-8');
+      } catch (e) {
         console.warn('[Settings] Failed to create default settings file', e);
       }
-      return defaultSettings;
+      return { ...DEFAULTS };
     }
-    
-    // Some other error
+
     console.error('[Settings] Failed to load settings:', error);
-    return {
-      geminiApiKey: process.env.GEMINI_API_KEY || '',
-      openaiApiKey: process.env.OPENAI_API_KEY || '',
-      anthropicApiKey: process.env.ANTHROPIC_API_KEY || '',
-    };
+    return { ...DEFAULTS };
   }
 }
 
-export async function saveSettings(settings: AppSettings): Promise<void> {
-  // Avoid re-reading via loadSettings to prevent loops.
-  let currentSettings: AppSettings;
+export async function saveSettings(settings: Partial<AppSettings>): Promise<void> {
+  let current: AppSettings;
   try {
     const data = await fs.readFile(SETTINGS_FILE, 'utf-8');
-    currentSettings = JSON.parse(data);
-  } catch (e: any) {
-    currentSettings = { geminiApiKey: '', openaiApiKey: '', anthropicApiKey: '' };
+    current = JSON.parse(data);
+  } catch {
+    current = { ...DEFAULTS };
   }
 
-  const newSettings = { ...currentSettings, ...settings };
+  const merged = { ...current, ...settings };
   try {
-    await fs.writeFile(SETTINGS_FILE, JSON.stringify(newSettings, null, 2), 'utf-8');
+    await fs.writeFile(SETTINGS_FILE, JSON.stringify(merged, null, 2), 'utf-8');
   } catch (error) {
     console.error('[Settings] Failed to save settings:', error);
     throw error;

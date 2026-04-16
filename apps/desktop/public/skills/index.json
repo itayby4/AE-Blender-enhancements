@@ -1,9 +1,9 @@
 [
   "rough-cut.md",
   "auto-subtitles.md",
+  "autopod.md",
   "reels-segmenter.md",
   "node-editor.md",
   "color-analyzer.md",
-  "fusion-assistant.md",
-  "fusion-node-generator.md"
+  "fusion-assistant.md"
 ]

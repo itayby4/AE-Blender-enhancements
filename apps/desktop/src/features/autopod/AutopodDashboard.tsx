@@ -45,7 +45,7 @@ interface AutopodDashboardProps {
   activeApp?: string;
 }
 
-export function AutopodDashboard({ activeApp = 'premiere' }: AutopodDashboardProps) {
+export function AutopodDashboard({ activeApp = 'resolve' }: AutopodDashboardProps) {
   const [mappings, setMappings] = useState<MappingRow[]>([]);
   const [fallback, setFallback] = useState('1');
   const [useGenerative, setUseGenerative] = useState(false);

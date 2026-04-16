@@ -1,0 +1,8 @@
+Metadata-Version: 2.4
+Name: mcp-premiere
+Version: 0.1.0
+Summary: MCP server for Adobe Premiere Pro
+Requires-Python: >=3.10
+Requires-Dist: mcp[cli]
+Requires-Dist: pymiere
+Requires-Dist: setuptools

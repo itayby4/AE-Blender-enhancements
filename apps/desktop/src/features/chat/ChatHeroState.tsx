@@ -92,7 +92,7 @@ function AnimatedWordmark() {
  */
 function TypewriterTagline() {
   const [visibleChars, setVisibleChars] = useState(0);
-  const text = 'Your AI creative director';
+  const text = 'Your AI creative assistant';
 
   useEffect(() => {
     const startDelay = setTimeout(() => {

@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import { sendChat, type ChatPayload } from '../lib/api.js';
 import type { Skill } from '../lib/load-skills.js';
 import { parseMessageContent } from '../features/skills/ChatCard.js';
@@ -24,6 +24,9 @@ export function useChat(deps: {
   activeProjectId: string;
   onNavigate?: (view: string) => void;
   onPlanDetected?: (content: string) => void;
+  // History integration
+  sessionId?: string | null;
+  onSaveSession?: (sessionId: string, messages: ChatMessage[]) => void;
 }) {
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>(INITIAL_CHAT);
   const [isAiTyping, setIsAiTyping] = useState(false);
@@ -76,10 +79,15 @@ export function useChat(deps: {
           ? `Generated ${data.actions.length} pipeline actions in the Node Editor.`
           : 'Done.';
 
-        setChatMessages((prev) => [
-          ...prev,
-          { id: Date.now(), sender: 'ai', text: responseText, taskId },
-        ]);
+        const aiMsg = { id: Date.now(), sender: 'ai' as const, text: responseText, taskId };
+        setChatMessages((prev) => {
+          const next = [...prev, aiMsg];
+          // Auto-save to history after every AI response
+          if (deps.sessionId && deps.onSaveSession) {
+            deps.onSaveSession(deps.sessionId, next);
+          }
+          return next;
+        });
 
         // Dispatch pipeline actions to node editor
         if (data.actions?.length) {

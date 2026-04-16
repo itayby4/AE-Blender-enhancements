@@ -234,25 +234,30 @@ export function ProjectBrain({
           )}
 
           {isEmpty && !error && (
-            <div className="flex flex-col items-center py-4 gap-2">
-              <div className="h-10 w-10 rounded-full bg-muted/50 flex items-center justify-center">
-                <Brain className="h-5 w-5 text-muted-foreground" />
+            <div className="flex flex-col items-center py-6 gap-3 animate-panel-enter">
+              <div className="h-12 w-12 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center">
+                <Brain className="h-6 w-6 text-primary" />
               </div>
-              <p className="text-[11px] text-muted-foreground text-center leading-relaxed px-4">
-                No knowledge yet.
-                <br />
-                Ask the AI to{' '}
-                <button
-                  className="text-foreground font-medium hover:underline"
+              <div className="text-center px-4">
+                <p className="text-sm font-medium text-foreground mb-1">
+                  No knowledge yet
+                </p>
+                <p className="text-[11px] text-muted-foreground leading-relaxed mb-3">
+                  The AI will scan your timeline and build a knowledge base of clips, structure, and creative patterns.
+                </p>
+                <Button
+                  variant="secondary"
+                  size="sm"
                   onClick={(e) => {
                     e.stopPropagation();
                     onAnalyzeRequest?.();
                   }}
+                  className="gap-2 bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20"
                 >
-                  analyze the project
-                </button>{' '}
-                to build understanding.
-              </p>
+                  <ScanSearch className="h-3.5 w-3.5" />
+                  Analyze Project
+                </Button>
+              </div>
             </div>
           )}
 
