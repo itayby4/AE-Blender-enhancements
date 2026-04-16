@@ -21,7 +21,7 @@ export function createAgent(config: AgentConfig): Agent {
     async chat(message: string, options?: ChatOptions): Promise<string> {
       const activeProvider =
         options?.providerOverride || 'gemini-3.1-pro-preview';
-      const activeModel = options?.modelOverride ?? config.model;
+      const activeModel = options?.modelOverride ?? (activeProvider.startsWith('gemini') ? activeProvider : config.model);
       const systemPrompt = options?.systemPromptOverride ?? config.systemPrompt;
 
       let tools = await config.registry.getAllTools();

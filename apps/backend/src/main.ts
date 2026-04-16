@@ -454,6 +454,10 @@ async function main() {
             return;
           }
 
+          const historyLen = history?.length ?? 0;
+          console.log(`[Chat] ← "${message.substring(0, 80)}${message.length > 80 ? '...' : ''}" (history: ${historyLen}, model: ${llmModel || 'default'})`);
+          const chatStartTime = Date.now();
+
           let systemPromptOverride = skill?.systemInstruction;
           if (!systemPromptOverride && activeApp) {
             const appNames: Record<string, string> = {
@@ -491,10 +495,12 @@ async function main() {
               history: history,
               signal: abortController.signal,
               onToolCallStart: (toolName) => {
+                console.log(`[Chat]   ⚡ Tool call: ${toolName}`);
                 const idx = memoryTaskManager.addTaskStep(resolvedTaskId, `Calling ${toolName}`, 'in-progress');
                 stepIndices.set(toolName, idx);
               },
               onToolCallComplete: (toolName, _result, err) => {
+                console.log(`[Chat]   ${err ? '✗' : '✓'} Tool done: ${toolName}${err ? ` (error: ${err})` : ''}`);
                 const idx = stepIndices.get(toolName);
                 if (idx !== undefined && idx >= 0) {
                   memoryTaskManager.updateTaskStep(resolvedTaskId, idx, err ? 'error' : 'done');
@@ -506,6 +512,8 @@ async function main() {
             });
 
             memoryTaskManager.finishTask(resolvedTaskId, 'done');
+            const elapsed = ((Date.now() - chatStartTime) / 1000).toFixed(1);
+            console.log(`[Chat] → Response ready (${elapsed}s, ${text.length} chars)`);
 
             // Extract pipeline actions from AI response if present
             let cleanText = text;
@@ -579,6 +587,7 @@ async function main() {
                 res.writeHead(499); // Client Closed Request
                 res.end(JSON.stringify({ error: 'Request cancelled' }));
               } else {
+                console.error(`[Chat] 💥 Agent Error:`, agentError);
                 res.writeHead(500);
                 res.end(
                   JSON.stringify({
