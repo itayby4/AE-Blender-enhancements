@@ -336,10 +336,17 @@ export function ChatPanel({
                   {/* Content */}
                   <div className="flex-1 min-w-0 pt-0.5 pb-1">
                     <div className="text-[14px] text-foreground/90 leading-relaxed select-text cursor-text">
+                    {/* Show pulsing dots INSIDE the bubble while waiting for first chunk */}
+                    {!msg.text.trim() && isTyping ? (
+                      <div className="flex items-center gap-1.5 py-1">
+                        <span className="w-1.5 h-1.5 rounded-full bg-primary/60 animate-thinking-pulse" style={{ animationDelay: '0ms' }} />
+                        <span className="w-1.5 h-1.5 rounded-full bg-primary/60 animate-thinking-pulse" style={{ animationDelay: '200ms' }} />
+                        <span className="w-1.5 h-1.5 rounded-full bg-primary/60 animate-thinking-pulse" style={{ animationDelay: '400ms' }} />
+                      </div>
+                    ) : (
                     <div className="space-y-2.5">
                       {parseMessageContent(msg.text).map((part, i) => {
                         if (typeof part === 'string') {
-                          // Don't render empty text parts (during streaming init)
                           if (!part.trim()) return null;
                           return (
                             <div key={i} style={{ whiteSpace: 'pre-wrap' }}>
@@ -388,9 +395,11 @@ export function ChatPanel({
                         return null;
                       })}
                     </div>
+                    )}
                     </div>
 
-                    {/* Inline feedback actions — reveal on hover */}
+                    {/* Inline feedback actions — only show after message is complete */}
+                    {msg.text.trim() && !isTyping && (
                     <div className="msg-actions flex items-center gap-0.5 mt-1.5 -ml-1">
                       <button
                         onClick={() => handleCopy(msg.text)}
@@ -412,6 +421,7 @@ export function ChatPanel({
                         <ThumbsDown className="w-3 h-3" />
                       </button>
                     </div>
+                    )}
                   </div>
                 </div>
               )}
@@ -451,26 +461,10 @@ export function ChatPanel({
           );
           })}
 
-          {/* Typing indicator with live CoT */}
-          {isTyping && (
-            <div className="flex flex-col gap-2 mt-1 animate-msg-in">
-              <div className="flex gap-3">
-                <div className="h-7 w-7 rounded-lg flex items-center justify-center shrink-0 mt-0.5 bg-primary/10 border border-primary/25 text-primary">
-                  <span className="font-mono text-[11px] font-bold leading-none select-none">◈</span>
-                </div>
-                <div className="flex items-center gap-1.5 py-2">
-                  <span className="w-1.5 h-1.5 rounded-full bg-primary/60 animate-thinking-pulse" style={{ animationDelay: '0ms' }} />
-                  <span className="w-1.5 h-1.5 rounded-full bg-primary/60 animate-thinking-pulse" style={{ animationDelay: '200ms' }} />
-                  <span className="w-1.5 h-1.5 rounded-full bg-primary/60 animate-thinking-pulse" style={{ animationDelay: '400ms' }} />
-                </div>
-              </div>
-
-              {/* Live Chain of Thought while typing */}
-              {currentTaskId && taskMap.get(currentTaskId) && (
-                <div className="ml-10">
-                  <ChainOfThoughtBlock task={taskMap.get(currentTaskId)!} isLive />
-                </div>
-              )}
+          {/* Live Chain of Thought while typing — dots are now inside the AI message bubble */}
+          {isTyping && currentTaskId && taskMap.get(currentTaskId) && (
+            <div className="ml-10 mt-1 animate-msg-in">
+              <ChainOfThoughtBlock task={taskMap.get(currentTaskId)!} isLive />
             </div>
           )}
 
