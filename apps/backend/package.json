@@ -106,6 +106,7 @@
     "@pipefx/mcp": "workspace:*",
     "@pipefx/providers": "workspace:*",
     "@pipefx/tasks": "workspace:*",
+    "@supabase/supabase-js": "^2.103.3",
     "better-sqlite3": "^12.9.0",
     "dotenv": "^17.3.1",
     "jsonwebtoken": "^9.0.3",
