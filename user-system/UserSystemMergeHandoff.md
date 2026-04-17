@@ -1,123 +1,227 @@
-# PipeFX User System — Merge Handoff Guide
+# PipeFX User System — Merge Guide
 
-> This guide explains exactly how to merge the `user-system/` staging folder into the main codebase. Every step is surgical and reversible. Read the whole guide before starting.
-
-**Estimated time:** 30–45 minutes  
-**Risk level:** Low — the new code is additive. Existing SQLite services and routes are untouched.
+> How to integrate the Supabase auth system into PipeFX from a clean `main` branch.  
+> All required files live in the `user-system/` folder. No code needs to be written — just copy, configure, and verify.
 
 ---
 
-## Prerequisites
+## What This Adds
 
-Before merging, you need:
+- **Login/Register page** — email/password + Google OAuth, shown before the main app
+- **Backend auth gate** — every HTTP request verified via Supabase JWT (401 if invalid)
+- **Token injection** — all frontend API calls automatically include `Authorization: Bearer <token>`
+- **Account settings tab** — profile info, display name, password change, sign out
+- **Anti-lock-in** — only 2 files import `@supabase/supabase-js` directly; everything else uses a wrapper
 
-1. **`.env` files populated** — see Step 0 below
-2. **Supabase Auth providers configured** — see Step 0 below
-3. **The main codebase on a clean git branch** — `git checkout -b feature/user-system`
+**What stays the same:** All SQLite services, routes, memory engine, task manager, chat, skills, projects — completely untouched. Supabase is auth-only.
 
 ---
 
-## Step 0: Environment Setup (do this first)
+## File Inventory
 
-### Backend `.env`
+The `user-system/` folder contains 14 files. Each either **replaces** an existing file or is **new**.
 
-Open `apps/backend/.env` and add these three lines:
+### New Files (copy directly — no conflicts)
+
+| File | Purpose |
+|---|---|
+| `apps/backend/src/lib/supabase.ts` | Admin Supabase client for JWT verification |
+| `apps/backend/src/middleware/auth.ts` | `verifyAuth()` — extracts + validates JWT from headers |
+| `apps/backend/.env.example` | Backend env template |
+| `apps/desktop/src/lib/supabase.ts` | Browser Supabase client singleton |
+| `apps/desktop/src/lib/auth-context.tsx` | React auth context, `useAuth()` hook, `getAccessToken()` |
+| `apps/desktop/src/features/auth/LoginPage.tsx` | Login/register UI |
+| `apps/desktop/.env.example` | Desktop env template |
+
+### Replacement Files (overwrite existing)
+
+| File | What changed vs. main |
+|---|---|
+| `apps/backend/src/config.ts` | +3 Supabase env vars (`supabaseUrl`, `supabaseAnonKey`, `supabaseServiceKey`) |
+| `apps/backend/src/main.ts` | +`verifyAuth` import, +`Authorization` in CORS headers, +auth gate before router (~15 lines) |
+| `apps/desktop/src/lib/api.ts` | +`getAccessToken` import, +`Authorization: Bearer` header on every fetch |
+| `apps/desktop/src/hooks/useChat.ts` | +`getAccessToken` import, +token header on SSE `/chat/stream` fetch |
+| `apps/desktop/src/main.tsx` | +`AuthProvider` wrapping `<App />`, +`<Toaster />` at root level |
+| `apps/desktop/src/app/app.tsx` | +`useAuth` import, +auth gate (loading spinner → login page → main app) |
+| `apps/desktop/src/features/settings/SettingsPage.tsx` | +Account tab (profile, display name, password change, sign out) |
+
+---
+
+## Step 1: Create a Branch
+
+```powershell
+git checkout main
+git pull
+git checkout -b feature/user-system
+```
+
+---
+
+## Step 2: Copy New Files
+
+```powershell
+# From workspace root — create directories first
+New-Item -ItemType Directory -Force apps/backend/src/lib
+New-Item -ItemType Directory -Force apps/backend/src/middleware
+New-Item -ItemType Directory -Force apps/desktop/src/features/auth
+
+# Copy new files
+Copy-Item user-system/apps/backend/src/lib/supabase.ts       apps/backend/src/lib/supabase.ts
+Copy-Item user-system/apps/backend/src/middleware/auth.ts     apps/backend/src/middleware/auth.ts
+Copy-Item user-system/apps/desktop/src/lib/supabase.ts        apps/desktop/src/lib/supabase.ts
+Copy-Item user-system/apps/desktop/src/lib/auth-context.tsx   apps/desktop/src/lib/auth-context.tsx
+Copy-Item user-system/apps/desktop/src/features/auth/LoginPage.tsx apps/desktop/src/features/auth/LoginPage.tsx
+```
+
+---
+
+## Step 3: Replace Modified Files
+
+```powershell
+# Backend
+Copy-Item user-system/apps/backend/src/config.ts  apps/backend/src/config.ts -Force
+Copy-Item user-system/apps/backend/src/main.ts     apps/backend/src/main.ts -Force
+
+# Desktop
+Copy-Item user-system/apps/desktop/src/lib/api.ts       apps/desktop/src/lib/api.ts -Force
+Copy-Item user-system/apps/desktop/src/hooks/useChat.ts  apps/desktop/src/hooks/useChat.ts -Force
+Copy-Item user-system/apps/desktop/src/main.tsx          apps/desktop/src/main.tsx -Force
+Copy-Item user-system/apps/desktop/src/app/app.tsx       apps/desktop/src/app/app.tsx -Force
+Copy-Item user-system/apps/desktop/src/features/settings/SettingsPage.tsx apps/desktop/src/features/settings/SettingsPage.tsx -Force
+```
+
+> **⚠ Important:** If `app.tsx` or `SettingsPage.tsx` have been modified on `main` since this user-system was created, you'll need to manually re-apply the auth changes instead of overwriting. The key changes are documented in the "Manual Patch Reference" section at the bottom.
+
+---
+
+## Step 4: Set Up Environment Variables
+
+### Backend — append to `apps/backend/.env`:
 
 ```env
+# Supabase Auth
 SUPABASE_URL=https://hisihmksibzepfurgiup.supabase.co
 SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imhpc2lobWtzaWJ6ZXBmdXJnaXVwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY0MTIxOTQsImV4cCI6MjA5MTk4ODE5NH0.I7SYO4N-BBHhVw_YhkOHzXBagbNZ0vQuukaRijbDpDk
 SUPABASE_SERVICE_ROLE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imhpc2lobWtzaWJ6ZXBmdXJnaXVwIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NjQxMjE5NCwiZXhwIjoyMDkxOTg4MTk0fQ.nANXPuKOM0nR8RgjWUCF9DxTX_Dp8ompTFYiZx9V_tg
 ```
 
-### Desktop `.env`
-
-Create `apps/desktop/.env` (new file):
+### Desktop — create `apps/desktop/.env`:
 
 ```env
 VITE_SUPABASE_URL=https://hisihmksibzepfurgiup.supabase.co
 VITE_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imhpc2lobWtzaWJ6ZXBmdXJnaXVwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY0MTIxOTQsImV4cCI6MjA5MTk4ODE5NH0.I7SYO4N-BBHhVw_YhkOHzXBagbNZ0vQuukaRijbDpDk
 ```
 
-### Supabase Dashboard: Enable Google OAuth
-
-1. Go to [supabase.com/dashboard](https://supabase.com/dashboard) → your project
-2. Authentication → Providers → Google
-3. Enable Google provider
-4. Add your Google OAuth credentials (Client ID + Secret from Google Cloud Console)
-5. Under **URL Configuration** → **Redirect URLs**, add: `http://localhost:5173` (for dev) and your production URL
-
-> The desktop app uses `window.location.origin` as the redirect. For Tauri production builds, this will be updated to use a deep link — see the "Future: Tauri Deep Link" section at the bottom.
+### Verify `.gitignore` includes:
+```
+.env
+apps/backend/.env
+apps/desktop/.env
+```
 
 ---
 
-## Step 1: Copy New Files
+## Step 5: Supabase Dashboard Setup
 
-These are entirely new files — just copy them in:
+Go to [supabase.com/dashboard](https://supabase.com/dashboard) → your project.
 
-| Source (in `user-system/`) | Destination |
+1. **Authentication → Providers → Email:**
+   - Ensure email provider is enabled
+   - **Disable "Confirm email"** for development (avoids rate limit issues)
+
+2. **Authentication → Providers → Google** (optional):
+   - Enable Google provider
+   - Add Google OAuth credentials (from Google Cloud Console)
+
+3. **Authentication → URL Configuration → Redirect URLs:**
+   - Add: `http://localhost:4200`
+   - Add: `http://localhost:5173`
+   - Add your production URL when deployed
+
+---
+
+## Step 6: Install Dependencies
+
+`@supabase/supabase-js` should already be in both `package.json` files. If not:
+
+```powershell
+cd apps/backend && pnpm add @supabase/supabase-js && cd ../..
+cd apps/desktop && pnpm add @supabase/supabase-js && cd ../..
+```
+
+---
+
+## Step 7: Build & Verify
+
+```powershell
+pnpm nx run-many -t build lint typecheck -p @pipefx/backend
+pnpm nx run-many -t build lint typecheck -p @pipefx/desktop
+```
+
+Expected: zero new errors.
+
+---
+
+## Step 8: Test
+
+```powershell
+pnpm nx serve backend
+pnpm nx serve desktop   # in a second terminal
+```
+
+| Test | Expected Result |
 |---|---|
-| `apps/backend/src/lib/supabase.ts` | `apps/backend/src/lib/supabase.ts` |
-| `apps/backend/src/middleware/auth.ts` | `apps/backend/src/middleware/auth.ts` |
-| `apps/desktop/src/lib/supabase.ts` | `apps/desktop/src/lib/supabase.ts` |
-| `apps/desktop/src/lib/auth-context.tsx` | `apps/desktop/src/lib/auth-context.tsx` |
-| `apps/desktop/src/features/auth/LoginPage.tsx` | `apps/desktop/src/features/auth/LoginPage.tsx` |
+| Open app (not signed in) | Login screen with PipeFX logo |
+| Click "Sign up", create account | Success toast, auto-login |
+| Sign in with email/password | Main PipeFX app loads |
+| Use chat, skills, projects | Everything works identically |
+| Settings → Account tab | Shows email, display name, password change, sign out |
+| Click "Sign Out" | Returns to login screen |
+| Close & reopen app | Still signed in (session persists) |
+| `curl http://localhost:3001/api/projects` | Returns 401 (no auth header) |
+
+---
+
+## Step 9: Commit
 
 ```powershell
-# From the workspace root:
-Copy-Item user-system/apps/backend/src/lib/supabase.ts apps/backend/src/lib/supabase.ts
-Copy-Item user-system/apps/backend/src/middleware/auth.ts apps/backend/src/middleware/auth.ts
-New-Item -ItemType Directory -Force apps/desktop/src/features/auth
-Copy-Item user-system/apps/desktop/src/lib/supabase.ts apps/desktop/src/lib/supabase.ts
-Copy-Item user-system/apps/desktop/src/lib/auth-context.tsx apps/desktop/src/lib/auth-context.tsx
-Copy-Item user-system/apps/desktop/src/features/auth/LoginPage.tsx apps/desktop/src/features/auth/LoginPage.tsx
+git add -A
+git commit -m "feat: add Supabase auth gate + login UI + account settings"
 ```
 
 ---
 
-## Step 2: Replace Modified Files
+## What Was NOT Changed
 
-These files have been fully rewritten with the new auth additions:
+These files are identical to `main` — zero modifications:
 
-| Source (in `user-system/`) | Destination | What changed |
-|---|---|---|
-| `apps/backend/src/config.ts` | `apps/backend/src/config.ts` | +3 Supabase env vars |
-| `apps/backend/src/main.ts` | `apps/backend/src/main.ts` | +Auth gate (15 lines), +Authorization in CORS |
-| `apps/desktop/src/lib/api.ts` | `apps/desktop/src/lib/api.ts` | +Token injection on every fetch |
-| `apps/desktop/src/hooks/useChat.ts` | `apps/desktop/src/hooks/useChat.ts` | +Token injection on SSE fetch |
-| `apps/desktop/src/main.tsx` | `apps/desktop/src/main.tsx` | +AuthProvider wrapper |
-
-```powershell
-Copy-Item user-system/apps/backend/src/config.ts apps/backend/src/config.ts
-Copy-Item user-system/apps/backend/src/main.ts apps/backend/src/main.ts
-Copy-Item user-system/apps/desktop/src/lib/api.ts apps/desktop/src/lib/api.ts
-Copy-Item user-system/apps/desktop/src/hooks/useChat.ts apps/desktop/src/hooks/useChat.ts
-Copy-Item user-system/apps/desktop/src/main.tsx apps/desktop/src/main.tsx
-```
+- `apps/backend/src/router.ts`
+- `apps/backend/src/routes/*.ts` (all 7 route handlers)
+- `apps/backend/src/services/memory/*.ts` (all SQLite service files)
+- `apps/backend/src/utils/settings.ts`
+- `apps/desktop/src/hooks/useChatHistory.ts`
+- `apps/desktop/src/hooks/useTaskStream.ts`
+- All other feature components (ChatPanel, ProjectBrain, SkillsPage, etc.)
 
 ---
 
-## Step 3: Patch `app.tsx` — Add Auth Gate
+## Manual Patch Reference
 
-Open `apps/desktop/src/app/app.tsx` and make these two targeted edits:
+If `app.tsx` or `SettingsPage.tsx` have diverged from the versions in `user-system/` — for example, if new features were added on `main` after this user-system was created — apply these changes manually instead of overwriting:
 
-### 3a. Add imports at the top (after existing imports)
+### app.tsx — 2 edits
 
-Find the last import line and add after it:
-
+**Edit 1: Add imports** (after the last existing import):
 ```typescript
 import { useAuth } from '../lib/auth-context.js';
 import { LoginPage } from '../features/auth/LoginPage.js';
 ```
 
-### 3b. Add auth gate at the top of the `App` component function
-
-Find the `export function App()` or `export const App = () => {` line.
-Inside the function body, **before** any existing `useState`/`useEffect` calls, add:
-
+**Edit 2: Add auth gate** (first thing inside `export function App() {`, before any `useState`):
 ```typescript
+// ── Auth Gate ──
 const { user, isLoading } = useAuth();
 
-// Auth gate — show login screen until user is authenticated
 if (isLoading) {
   return (
     <div className="flex items-center justify-center min-h-screen bg-background">
@@ -130,177 +234,62 @@ if (!user) {
 }
 ```
 
-### 3c. (Optional) Add user email display in TitleBar
+### SettingsPage.tsx — 3 edits
 
-In the TitleBar area of `app.tsx`, you can display the user's email and a sign-out button. Find where the TitleBar component is rendered and add a prop or inline element for the user info. Example:
-
+**Edit 1: Add imports** (at the top):
 ```typescript
-// Import signOut from useAuth above
-const { user, isLoading, signOut } = useAuth();
-
-// Then in the JSX where TitleBar is rendered, pass user info:
-// <TitleBar ... userEmail={user.email} onSignOut={signOut} />
-// (Update TitleBar.tsx to accept and render these props)
-```
-
-> This is optional for the initial merge. The app works without it — users can sign out from Settings.
-
----
-
-## Step 4: Patch `SettingsPage.tsx` — Add Account Tab
-
-Open `apps/desktop/src/features/settings/SettingsPage.tsx`.
-
-### 4a. Add import
-
-```typescript
+import { useCallback } from 'react';  // add to existing react import
+import { User, LogOut, Mail, Lock, Check } from 'lucide-react';  // add to existing lucide import
 import { useAuth } from '../../lib/auth-context.js';
+import { supabase } from '../../lib/supabase.js';
+import { toast } from 'sonner';
 ```
 
-### 4b. Add inside the component
-
+**Edit 2: Add Account to the Tab type and tabs array:**
 ```typescript
-const { user, signOut } = useAuth();
+type Tab = 'account' | 'appearance' | 'api-keys' | 'about';
+// Default tab:
+const [activeTab, setActiveTab] = useState<Tab>('account');
+// In the tabs array, add as first entry:
+{ id: 'account', label: 'Account', icon: User },
 ```
 
-### 4c. Add an Account section/tab
-
-Find the tabs/sections in SettingsPage and add a new "Account" section:
-
+**Edit 3: Add Account tab content** (before the Appearance tab in the JSX):
 ```tsx
-{/* Account section */}
-<div className="space-y-3">
-  <h3 className="text-sm font-semibold text-foreground">Account</h3>
-  <div className="rounded-lg border border-border bg-muted/10 p-4">
-    <p className="text-sm text-muted-foreground">Signed in as</p>
-    <p className="text-sm font-medium text-foreground mt-0.5">{user?.email}</p>
-  </div>
-  <button
-    onClick={signOut}
-    className="w-full h-9 rounded-lg border border-destructive/50 text-destructive text-sm font-medium hover:bg-destructive/10 transition-colors"
-  >
-    Sign Out
-  </button>
-</div>
+{activeTab === 'account' && (
+  <AccountTab />
+)}
+```
+
+**Edit 4: Add the `AccountTab` component** at the bottom of the file (the full component is in the `user-system/` version).
+
+### main.tsx — 2 edits
+
+**Edit 1: Add imports:**
+```typescript
+import { AuthProvider } from './lib/auth-context';
+import { Toaster } from './components/ui/sonner';
+```
+
+**Edit 2: Wrap App:**
+```tsx
+<AuthProvider>
+  <App />
+  <Toaster />
+</AuthProvider>
 ```
 
 ---
 
-## Step 5: Verify the `.gitignore`
+## Architecture Notes
 
-Make sure these are in `.gitignore` (they almost certainly already are):
+- **Anti-lock-in:** Only `lib/supabase.ts` (2 files) imports `@supabase/supabase-js`. The rest of the app uses the `auth-context.tsx` wrapper. Swapping to Auth.js / Clerk / etc. only requires changing these 2 files.
+- **Supabase is auth-only.** No project data, knowledge, sessions, or settings are stored in Supabase.
+- **SQLite remains the data layer.** All local data is unchanged.
 
-```
-.env
-*.env
-apps/backend/.env
-apps/desktop/.env
-```
+## Future: Tauri Deep Link for Google OAuth
 
----
-
-## Step 6: Build & Verify
-
-```powershell
-# From workspace root:
-pnpm nx run-many -t build lint typecheck -p @pipefx/backend
-pnpm nx run-many -t build lint typecheck -p @pipefx/desktop
-```
-
-Expected: **zero new errors**. The SQLite services and routes are untouched, so only the new auth files will be type-checked.
-
----
-
-## Step 7: Manual End-to-End Test
-
-1. **Start backend** — `pnpm nx serve backend`
-2. **Start desktop** — `pnpm nx serve desktop`
-
-Test sequence:
-
-| Action | Expected |
-|---|---|
-| Open app (not signed in) | Login screen appears |
-| Submit form without credentials | "Please enter both email and password" toast |
-| Register with email/password | "Check your email to confirm" toast (or auto-login) |
-| Sign in with valid credentials | Main PipeFX app loads |
-| Use chat, switch projects, use skills | Everything works as before |
-| Close and reopen app | Still signed in (session persists) |
-| Click Sign Out in Settings | Back to login screen |
-| Send request without auth (curl test) | 401 response from backend |
-
-### Curl test for backend auth gate:
-
-```powershell
-# Should return 401:
-curl http://localhost:3001/api/projects
-
-# Should return project list:
-$token = "your-supabase-jwt-here"
-curl -H "Authorization: Bearer $token" http://localhost:3001/api/projects
-```
-
----
-
-## What Was NOT Changed
-
-The following are **completely untouched** — verify by diff after merge:
-
-- `apps/backend/src/router.ts`
-- `apps/backend/src/routes/*.ts` (all 7 route files)
-- `apps/backend/src/services/memory/*.ts` (all 11 SQLite service files)
-- `apps/backend/src/utils/settings.ts`
-- `apps/desktop/src/hooks/useChatHistory.ts`
-- `apps/desktop/src/hooks/useTaskStream.ts`
-- `apps/desktop/src/hooks/usePretext.ts`
-- All feature components (`ChatPanel`, `ProjectBrain`, `SkillsPage`, etc.)
-
----
-
-## Future: Tauri Deep Link for Google OAuth (Post-Merge)
-
-For production Tauri builds, the Google OAuth redirect needs to use a deep link (`pipefx://auth/callback`) instead of `window.location.origin`. This requires:
-
-1. **Add `tauri-plugin-deep-link`** to `apps/desktop/src-tauri/Cargo.toml`:
-   ```toml
-   tauri-plugin-deep-link = { git = "https://github.com/tauri-apps/plugins-workspace" }
-   ```
-
-2. **Register protocol** in `apps/desktop/src-tauri/tauri.conf.json`:
-   ```json
-   "plugins": {
-     "deep-link": {
-       "desktop": {
-         "schemes": ["pipefx"]
-       }
-     }
-   }
-   ```
-
-3. **Update `signInWithGoogle`** in `auth-context.tsx`:
-   ```typescript
-   redirectTo: 'pipefx://auth/callback'
-   ```
-
-4. **Listen for deep link** in `auth-context.tsx` using `@tauri-apps/plugin-deep-link`:
-   ```typescript
-   import { onOpenUrl } from '@tauri-apps/plugin-deep-link';
-   
-   onOpenUrl(async (urls) => {
-     const url = urls[0];
-     if (url.startsWith('pipefx://auth/callback')) {
-       // Extract tokens from hash fragment and set session
-       const hash = new URL(url.replace('pipefx://', 'http://localhost/')).hash;
-       const params = new URLSearchParams(hash.slice(1));
-       await supabase.auth.setSession({
-         access_token: params.get('access_token')!,
-         refresh_token: params.get('refresh_token')!,
-       });
-     }
-   });
-   ```
-
-This is intentionally deferred — email/password auth works without any of this.
+For production Tauri builds, Google OAuth needs a `pipefx://auth/callback` deep link instead of `window.location.origin`. This requires `tauri-plugin-deep-link`. See implementation notes in `HANDOFF.md`.
 
 ---
 
@@ -308,8 +297,11 @@ This is intentionally deferred — email/password auth works without any of this
 
 | Problem | Solution |
 |---|---|
-| `Missing VITE_SUPABASE_URL` console error | Create `apps/desktop/.env` with the env vars |
-| Backend returns 401 for all requests after merge | Check `apps/backend/.env` has `SUPABASE_SERVICE_ROLE_KEY` |
-| `createClient is not a function` | Run `pnpm install` — `@supabase/supabase-js` should already be in both package.json files |
-| Google OAuth opens browser but doesn't return | Ensure redirect URL is configured in Supabase Dashboard |
-| Login screen doesn't appear (goes straight to app) | `AuthProvider` not wrapping `App` in `main.tsx` — recheck Step 2 |
+| `Missing VITE_SUPABASE_URL` | Create `apps/desktop/.env` with the Vite env vars |
+| Backend 401 on all requests | Check `apps/backend/.env` has `SUPABASE_SERVICE_ROLE_KEY` |
+| `createClient is not a function` | Run `pnpm install` |
+| Google OAuth doesn't return | Configure redirect URL in Supabase Dashboard |
+| Login screen skipped | Ensure `<AuthProvider>` wraps `<App />` in `main.tsx` |
+| Toasts don't appear on login | Ensure `<Toaster />` is in `main.tsx` (not inside App) |
+| "Email rate limit exceeded" | Disable email confirmation in Supabase Dashboard, or wait 1 hour |
+| Password too short error | Supabase requires minimum 6 characters |
