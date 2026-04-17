@@ -1,3 +1,4 @@
+/// <reference types="vite/client" />
 /**
  * PipeFX Desktop — Supabase Client.
  *
