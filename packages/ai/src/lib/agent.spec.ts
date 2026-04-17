@@ -1,6 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import type {
-  Provider,
   ProviderResponse,
   StreamEvent,
   ChatParams,
@@ -71,11 +70,13 @@ vi.mock('@pipefx/providers', async () => {
   const actual = await vi.importActual<typeof import('@pipefx/providers')>(
     '@pipefx/providers'
   );
+  // Use the class directly as the "constructor" so `new GeminiProvider(...)`
+  // works. FakeProvider ignores the apiKey arg.
   return {
     ...actual,
-    GeminiProvider: vi.fn(() => new state.FakeProvider()),
-    OpenAIProvider: vi.fn(() => new state.FakeProvider()),
-    AnthropicProvider: vi.fn(() => new state.FakeProvider()),
+    GeminiProvider: state.FakeProvider,
+    OpenAIProvider: state.FakeProvider,
+    AnthropicProvider: state.FakeProvider,
   };
 });
 
