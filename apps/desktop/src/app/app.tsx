@@ -59,6 +59,10 @@ import { useTaskStream } from '../hooks/useTaskStream.js';
 import { useChat } from '../hooks/useChat.js';
 import { useChatHistory } from '../hooks/useChatHistory.js';
 
+// Auth
+import { useAuth } from '../lib/auth-context.js';
+import { LoginPage } from '../features/auth/LoginPage.js';
+
 // ── Static Data ──
 
 const DEFAULT_SKILLS: Skill[] = [
@@ -88,6 +92,9 @@ const MACROS = [
 // ═══════════════════════════════════════════════════════════════
 
 export function App() {
+  // ── Auth ──
+  const { user, isLoading: isAuthLoading } = useAuth();
+
   // ── Core UI State ──
   const [activeView, setActiveView] = useState('chat');
   const [isRightPanelOpen, setIsRightPanelOpen] = useState(true);
@@ -368,6 +375,11 @@ export function App() {
       chat.clearChat();
     },
   };
+
+  // ── Auth Gate ──
+  // All hooks above run on every render — gate rendering only, not hook order.
+  if (isAuthLoading) return null;
+  if (!user) return <LoginPage />;
 
   return (
     <TooltipProvider delay={300}>

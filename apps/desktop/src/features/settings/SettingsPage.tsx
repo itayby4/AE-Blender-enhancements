@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import {
   X,
   Key,
@@ -9,6 +9,11 @@ import {
   Save,
   Square,
   Squircle,
+  User,
+  LogOut,
+  Mail,
+  Lock,
+  Check,
 } from 'lucide-react';
 import { PipeFxLogo } from '../../components/brand/PipeFxLogo.js';
 import { Button } from '../../components/ui/button.js';
@@ -21,6 +26,9 @@ import { applyPalette } from '../../lib/palette-runtime.js';
 import type { CustomPalette } from '../../lib/palette-runtime.js';
 import type { CornerMode } from '../../lib/corners-runtime.js';
 import { fetchSettings, updateSettings } from '../../lib/api.js';
+import { useAuth } from '../../lib/auth-context.js';
+import { supabase } from '../../lib/supabase.js';
+import { toast } from 'sonner';
 
 interface SettingsPageProps {
   onClose: () => void;
@@ -30,7 +38,7 @@ interface SettingsPageProps {
   onCornerModeChange: (mode: CornerMode) => void;
 }
 
-type Tab = 'appearance' | 'api-keys' | 'about';
+type Tab = 'account' | 'appearance' | 'api-keys' | 'about';
 
 /**
  * SettingsPage — Full-screen settings view.
@@ -43,7 +51,7 @@ export function SettingsPage({
   cornerMode,
   onCornerModeChange,
 }: SettingsPageProps) {
-  const [activeTab, setActiveTab] = useState<Tab>('appearance');
+  const [activeTab, setActiveTab] = useState<Tab>('account');
   const [geminiApiKey, setGeminiApiKey] = useState('');
   const [openaiApiKey, setOpenaiApiKey] = useState('');
   const [anthropicApiKey, setAnthropicApiKey] = useState('');
@@ -136,6 +144,7 @@ export function SettingsPage({
   };
 
   const tabs: { id: Tab; label: string; icon: typeof Palette }[] = [
+    { id: 'account', label: 'Account', icon: User },
     { id: 'appearance', label: 'Appearance', icon: Palette },
     { id: 'api-keys', label: 'API Keys', icon: Key },
     { id: 'about', label: 'About', icon: Info },
@@ -176,6 +185,11 @@ export function SettingsPage({
 
         {/* Content */}
         <div className="flex-1 min-h-0 overflow-y-auto p-6">
+          {/* ── Account ── */}
+          {activeTab === 'account' && (
+            <AccountTab />
+          )}
+
           {/* ── Appearance ── */}
           {activeTab === 'appearance' && (
             <div className="max-w-2xl space-y-8">
@@ -409,5 +423,210 @@ function CornerOption({
         <div className="absolute right-2.5 top-2.5 h-2 w-2 rounded-full bg-primary" />
       )}
     </button>
+  );
+}
+
+// ──────────────────────────────────────────────
+
+function AccountTab() {
+  const { user, signOut } = useAuth();
+  const [displayName, setDisplayName] = useState('');
+  const [isUpdatingName, setIsUpdatingName] = useState(false);
+  const [nameStatus, setNameStatus] = useState<'idle' | 'saved'>('idle');
+
+  // Password change
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
+
+  // Load display name from Supabase user metadata
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => {
+      const meta = data.user?.user_metadata;
+      setDisplayName(meta?.display_name || meta?.full_name || '');
+    });
+  }, []);
+
+  const handleUpdateName = useCallback(async () => {
+    if (!displayName.trim()) return;
+    setIsUpdatingName(true);
+    try {
+      const { error } = await supabase.auth.updateUser({
+        data: { display_name: displayName.trim() },
+      });
+      if (error) {
+        toast.error(error.message);
+      } else {
+        setNameStatus('saved');
+        toast.success('Display name updated.');
+        setTimeout(() => setNameStatus('idle'), 2000);
+      }
+    } catch {
+      toast.error('Failed to update display name.');
+    } finally {
+      setIsUpdatingName(false);
+    }
+  }, [displayName]);
+
+  const handleChangePassword = useCallback(async () => {
+    if (newPassword.length < 6) {
+      toast.error('Password must be at least 6 characters.');
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      toast.error('Passwords do not match.');
+      return;
+    }
+
+    setIsChangingPassword(true);
+    try {
+      const { error } = await supabase.auth.updateUser({
+        password: newPassword,
+      });
+      if (error) {
+        toast.error(error.message);
+      } else {
+        toast.success('Password updated successfully.');
+        setNewPassword('');
+        setConfirmPassword('');
+      }
+    } catch {
+      toast.error('Failed to change password.');
+    } finally {
+      setIsChangingPassword(false);
+    }
+  }, [newPassword, confirmPassword]);
+
+  const handleSignOut = useCallback(async () => {
+    await signOut();
+  }, [signOut]);
+
+  return (
+    <div className="max-w-lg space-y-8">
+      {/* ── Profile ── */}
+      <div className="space-y-4">
+        <div>
+          <h3 className="text-sm font-semibold mb-1">Profile</h3>
+          <p className="text-xs text-muted-foreground">
+            Manage your account details.
+          </p>
+        </div>
+
+        {/* Avatar + Email */}
+        <div className="flex items-center gap-4 rounded-lg border border-border bg-muted/20 p-4">
+          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary text-lg font-bold uppercase">
+            {user?.email?.[0] || '?'}
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              <Mail className="w-3 h-3" />
+              Email
+            </div>
+            <div className="text-sm font-medium text-foreground truncate">
+              {user?.email || 'Unknown'}
+            </div>
+          </div>
+        </div>
+
+        {/* Display Name */}
+        <div className="space-y-1.5">
+          <Label htmlFor="display-name" className="text-sm font-medium">
+            Display Name
+          </Label>
+          <div className="flex gap-2">
+            <Input
+              id="display-name"
+              value={displayName}
+              onChange={(e) => setDisplayName(e.target.value)}
+              placeholder="Enter your name"
+              className="bg-muted/40 border-border/50"
+            />
+            <Button
+              onClick={handleUpdateName}
+              disabled={isUpdatingName || !displayName.trim()}
+              size="sm"
+              className="gap-1.5 shrink-0"
+            >
+              {nameStatus === 'saved' ? (
+                <><Check className="w-3.5 h-3.5" /> Saved</>
+              ) : (
+                <><Save className="w-3.5 h-3.5" /> Save</>
+              )}
+            </Button>
+          </div>
+        </div>
+      </div>
+
+      {/* ── Change Password ── */}
+      <div className="space-y-4">
+        <div>
+          <h3 className="text-sm font-semibold mb-1 flex items-center gap-2">
+            <Lock className="w-4 h-4" />
+            Change Password
+          </h3>
+          <p className="text-xs text-muted-foreground">
+            Update your password. Must be at least 6 characters.
+          </p>
+        </div>
+
+        <div className="space-y-3">
+          <div className="space-y-1.5">
+            <Label htmlFor="new-password" className="text-sm font-medium">
+              New Password
+            </Label>
+            <Input
+              id="new-password"
+              type="password"
+              value={newPassword}
+              onChange={(e) => setNewPassword(e.target.value)}
+              placeholder="••••••••"
+              autoComplete="new-password"
+              className="bg-muted/40 border-border/50"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="confirm-new-password" className="text-sm font-medium">
+              Confirm New Password
+            </Label>
+            <Input
+              id="confirm-new-password"
+              type="password"
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              placeholder="••••••••"
+              autoComplete="new-password"
+              className="bg-muted/40 border-border/50"
+            />
+          </div>
+          <Button
+            onClick={handleChangePassword}
+            disabled={isChangingPassword || !newPassword || !confirmPassword}
+            variant="secondary"
+            className="gap-2"
+          >
+            <Lock className="w-4 h-4" />
+            {isChangingPassword ? 'Updating...' : 'Update Password'}
+          </Button>
+        </div>
+      </div>
+
+      {/* ── Sign Out ── */}
+      <div className="pt-4 border-t border-border">
+        <button
+          onClick={handleSignOut}
+          className={cn(
+            'flex items-center gap-2 w-full h-10 rounded-lg px-4',
+            'border border-destructive/30 text-destructive text-sm font-medium',
+            'hover:bg-destructive/10 transition-colors',
+          )}
+        >
+          <LogOut className="w-4 h-4" />
+          Sign Out
+        </button>
+        <p className="text-xs text-muted-foreground mt-2">
+          You will be returned to the login screen.
+        </p>
+      </div>
+    </div>
   );
 }

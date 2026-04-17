@@ -33,6 +33,7 @@ import { registerMemoryRoutes } from './routes/memory.js';
 import { registerSkillRoutes } from './routes/skills.js';
 import { registerSessionRoutes } from './routes/sessions.js';
 import { registerMiscRoutes } from './routes/misc.js';
+import { verifyAuth } from './middleware/auth.js';
 
 async function main() {
   console.log('Starting PipeFX AI Engine...');
@@ -121,11 +122,19 @@ async function main() {
   const server = createServer(async (req, res) => {
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'OPTIONS, POST, GET, DELETE');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
 
     if (req.method === 'OPTIONS') {
       res.writeHead(200);
       res.end();
+      return;
+    }
+
+    // ── Auth gate: verify Supabase JWT on every request ──
+    const authUser = await verifyAuth(req);
+    if (!authUser) {
+      res.writeHead(401, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Unauthorized' }));
       return;
     }
 

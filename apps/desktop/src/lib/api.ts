@@ -1,15 +1,23 @@
 /**
  * Centralized API client for the PipeFX backend.
  * Replaces all hardcoded `http://localhost:3001` fetch calls.
+ *
+ * Auth: every request automatically includes the Supabase JWT
+ * via the Authorization: Bearer header.
  */
+
+import { getAccessToken } from './auth-context.js';
 
 const API_BASE = 'http://localhost:3001';
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
+  const token = await getAccessToken();
+
   const res = await fetch(`${API_BASE}${path}`, {
     ...options,
     headers: {
       'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
       ...options?.headers,
     },
   });
@@ -60,9 +68,13 @@ export async function sendChat(
   payload: ChatPayload,
   signal?: AbortSignal
 ): Promise<ChatResponse> {
+  const token = await getAccessToken();
   const res = await fetch(`${API_BASE}/chat`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
     body: JSON.stringify(payload),
     signal,
   });

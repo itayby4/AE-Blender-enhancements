@@ -2,6 +2,7 @@ import { useState, useRef, useCallback } from 'react';
 import type { Skill } from '../lib/load-skills.js';
 import { parseMessageContent } from '../features/skills/ChatCard.js';
 import { dispatchPipelineActions } from '../lib/pipeline-actions.js';
+import { getAccessToken } from '../lib/auth-context.js';
 
 export interface ChatMessage {
   id: number;
@@ -80,9 +81,15 @@ export function useChat(deps: {
       let streamedText = '';
 
       try {
+        // Get the current auth token for the SSE request
+        const token = await getAccessToken();
+
         const response = await fetch(`${API_BASE}/chat/stream`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
           body: JSON.stringify({
             message: text,
             skill: activeSkillContext,
