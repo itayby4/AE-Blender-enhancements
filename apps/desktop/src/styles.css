@@ -450,6 +450,15 @@
     animation: thinking-pulse 1.4s ease-in-out infinite;
   }
 
+  /* ── Terminal cursor blink ── */
+  @keyframes terminal-blink {
+    0%, 49%   { opacity: 1; }
+    50%, 100% { opacity: 0; }
+  }
+  .animate-terminal-blink {
+    animation: terminal-blink 1.1s steps(2, start) infinite;
+  }
+
   /* ── Subtle Status Pulse (for connector connecting state) ── */
   @keyframes status-pulse {
     0%, 100% { opacity: 1; }
@@ -648,4 +657,32 @@
 @keyframes hero-actions-in {
   from { opacity: 0; transform: translateY(16px); }
   to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   CORNER SHAPE MODE — [data-corners="sharp"] disables all rounded
+   corners throughout the app. Set on <html> via corners-runtime.ts.
+
+   Strategy:
+   1. Zero out the --radius-* design tokens so shadcn components
+      inherit the new base.
+   2. Nuke every hardcoded Tailwind `rounded-*` class and inline
+      border-radius via a universal override. This is intentionally
+      aggressive: the whole point of sharp mode is "no rounding,
+      anywhere".
+   ═══════════════════════════════════════════════════════════════ */
+
+[data-corners='sharp'] {
+  --radius: 0rem;
+  --radius-sm: 0rem;
+  --radius-md: 0rem;
+  --radius-lg: 0rem;
+  --radius-xl: 0rem;
+  --radius-2xl: 0rem;
+}
+
+[data-corners='sharp'] *,
+[data-corners='sharp'] *::before,
+[data-corners='sharp'] *::after {
+  border-radius: 0 !important;
 }

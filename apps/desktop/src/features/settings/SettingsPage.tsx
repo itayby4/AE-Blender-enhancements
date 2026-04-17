@@ -7,8 +7,10 @@ import {
   Eye,
   EyeOff,
   Save,
-  MonitorPlay,
+  Square,
+  Squircle,
 } from 'lucide-react';
+import { PipeFxLogo } from '../../components/brand/PipeFxLogo.js';
 import { Button } from '../../components/ui/button.js';
 import { Input } from '../../components/ui/input.js';
 import { Label } from '../../components/ui/label.js';
@@ -17,12 +19,15 @@ import { PalettePicker } from './PalettePicker.js';
 import { PaletteEditor } from './PaletteEditor.js';
 import { applyPalette } from '../../lib/palette-runtime.js';
 import type { CustomPalette } from '../../lib/palette-runtime.js';
+import type { CornerMode } from '../../lib/corners-runtime.js';
 import { fetchSettings, updateSettings } from '../../lib/api.js';
 
 interface SettingsPageProps {
   onClose: () => void;
   activePalette: string;
   onPaletteChange: (id: string) => void;
+  cornerMode: CornerMode;
+  onCornerModeChange: (mode: CornerMode) => void;
 }
 
 type Tab = 'appearance' | 'api-keys' | 'about';
@@ -31,7 +36,13 @@ type Tab = 'appearance' | 'api-keys' | 'about';
  * SettingsPage — Full-screen settings view.
  * Tabs: Appearance (palette picker + editor), API Keys, About.
  */
-export function SettingsPage({ onClose, activePalette, onPaletteChange }: SettingsPageProps) {
+export function SettingsPage({
+  onClose,
+  activePalette,
+  onPaletteChange,
+  cornerMode,
+  onCornerModeChange,
+}: SettingsPageProps) {
   const [activeTab, setActiveTab] = useState<Tab>('appearance');
   const [geminiApiKey, setGeminiApiKey] = useState('');
   const [openaiApiKey, setOpenaiApiKey] = useState('');
@@ -167,7 +178,7 @@ export function SettingsPage({ onClose, activePalette, onPaletteChange }: Settin
         <div className="flex-1 min-h-0 overflow-y-auto p-6">
           {/* ── Appearance ── */}
           {activeTab === 'appearance' && (
-            <div className="max-w-2xl space-y-6">
+            <div className="max-w-2xl space-y-8">
               <div>
                 <h3 className="text-sm font-semibold mb-1">Color Palette</h3>
                 <p className="text-xs text-muted-foreground mb-4">
@@ -194,6 +205,31 @@ export function SettingsPage({ onClose, activePalette, onPaletteChange }: Settin
                     onCreateNew={() => setEditorState({ open: true, editing: null })}
                   />
                 )}
+              </div>
+
+              {/* ── Corner Shape ── */}
+              <div>
+                <h3 className="text-sm font-semibold mb-1">Corner Shape</h3>
+                <p className="text-xs text-muted-foreground mb-4">
+                  Choose between rounded or sharp corners throughout the app.
+                </p>
+
+                <div className="grid grid-cols-2 gap-3 max-w-md">
+                  <CornerOption
+                    active={cornerMode === 'rounded'}
+                    onClick={() => onCornerModeChange('rounded')}
+                    icon={Squircle}
+                    label="Rounded"
+                    description="Soft, modern edges"
+                  />
+                  <CornerOption
+                    active={cornerMode === 'sharp'}
+                    onClick={() => onCornerModeChange('sharp')}
+                    icon={Square}
+                    label="Sharp"
+                    description="Crisp, angular edges"
+                  />
+                </div>
               </div>
             </div>
           )}
@@ -268,11 +304,9 @@ export function SettingsPage({ onClose, activePalette, onPaletteChange }: Settin
           {activeTab === 'about' && (
             <div className="max-w-lg space-y-6">
               <div className="flex items-center gap-4">
-                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-lg">
-                  <MonitorPlay className="h-6 w-6" />
-                </div>
+                <PipeFxLogo className="h-20 w-20 text-foreground" title="PipeFX logo" />
                 <div>
-                  <div className="text-lg font-bold tracking-tight">PipeFX</div>
+                  <div className="text-xl font-bold tracking-tight">PipeFX</div>
                   <div className="text-sm text-muted-foreground">Creative Director's Command Center</div>
                 </div>
               </div>
@@ -328,5 +362,52 @@ function ApiKeyField({
       />
       <p className="text-xs text-muted-foreground">{hint}</p>
     </div>
+  );
+}
+
+// ──────────────────────────────────────────────
+
+function CornerOption({
+  active,
+  onClick,
+  icon: Icon,
+  label,
+  description,
+}: {
+  active: boolean;
+  onClick: () => void;
+  icon: typeof Square;
+  label: string;
+  description: string;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        'group relative flex flex-col items-start gap-2 rounded-lg border p-4 text-left transition-all',
+        active
+          ? 'border-primary bg-primary/5 ring-2 ring-primary/30'
+          : 'border-border bg-card hover:border-primary/40 hover:bg-muted/40'
+      )}
+    >
+      <div
+        className={cn(
+          'flex h-9 w-9 items-center justify-center rounded-md transition-colors',
+          active
+            ? 'bg-primary text-primary-foreground'
+            : 'bg-muted text-muted-foreground group-hover:bg-primary/10 group-hover:text-primary'
+        )}
+      >
+        <Icon className="h-5 w-5" strokeWidth={1.75} />
+      </div>
+      <div>
+        <div className="text-sm font-semibold">{label}</div>
+        <div className="text-xs text-muted-foreground">{description}</div>
+      </div>
+      {active && (
+        <div className="absolute right-2.5 top-2.5 h-2 w-2 rounded-full bg-primary" />
+      )}
+    </button>
   );
 }

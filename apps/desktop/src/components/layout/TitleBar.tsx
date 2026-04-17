@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Minus, Maximize2, Minimize2, X } from 'lucide-react';
 import { cn } from '../../lib/utils.js';
+import { PipeFxLogo } from '../brand/PipeFxLogo.js';
 
 // ────────────────────────────────────────────────────────
 // Tauri 2 Window API — lazy-loaded, null in browser fallback
@@ -134,13 +135,13 @@ export function TitleBar({ children, className, onNavigate, onClearChat, onToggl
 
   return (
     <div className={cn('flex items-center shrink-0 bg-card border-b select-none h-10 surface-hero', className)}>
-      {/* Drag surface (PipeFX label) */}
+      {/* Drag surface (PipeFX brand) — compact logo-only */}
       <div
-        className="h-full flex items-center pl-3 pr-2 shrink-0"
+        className="h-full flex items-center pl-2 pr-2 shrink-0"
         onMouseDown={startDrag}
         onDoubleClick={toggleMaximize}
       >
-        <span className="text-[11px] font-semibold text-muted-foreground tracking-wide">PipeFX</span>
+        <PipeFxLogo className="h-6 w-6 text-foreground" />
       </div>
 
       {/* Menu bar */}

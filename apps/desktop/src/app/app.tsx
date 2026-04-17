@@ -1,7 +1,8 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef, type MouseEvent as ReactMouseEvent } from 'react';
 import {
   PanelRightClose,
-  Loader2,
+  PanelLeftClose,
+  PanelLeftOpen,
   Scissors,
   PaintBucket,
   Volume2,
@@ -11,6 +12,7 @@ import {
   AlignLeft,
   Settings,
   Brain,
+  MessageSquare,
 } from 'lucide-react';
 import { Button } from '../components/ui/button.js';
 import { Card, CardContent } from '../components/ui/card.js';
@@ -32,6 +34,7 @@ import { fetchProjects, createProject, switchApp, getActiveAppState } from '../l
 import { NavRail } from '../components/layout/NavRail.js';
 import { ConnectorStatus } from '../components/layout/ConnectorStatus.js';
 import { TitleBar } from '../components/layout/TitleBar.js';
+import { TerminalSpinner } from '../components/ui/TerminalSpinner.js';
 
 // Features
 import { ChatPanel } from '../features/chat/ChatPanel.js';
@@ -47,6 +50,7 @@ import { SKILL_UI_REGISTRY } from '../features/skills/skill-registry.js';
 import { TaskManagerWidget } from '../features/skills/TaskManagerWidget.js';
 import { SettingsPage } from '../features/settings/SettingsPage.js';
 import { applyPalette } from '../lib/palette-runtime.js';
+import { applyCornerMode, loadCornerMode, type CornerMode } from '../lib/corners-runtime.js';
 import { Toaster } from '../components/ui/sonner.js';
 import { TooltipProvider } from '../components/ui/tooltip.js';
 
@@ -89,6 +93,106 @@ export function App() {
   const [isRightPanelOpen, setIsRightPanelOpen] = useState(true);
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
 
+  // ── Left NavRail Expanded ── narrow icon rail (default) vs wide labeled rail
+  const [isNavRailExpanded, setIsNavRailExpanded] = useState<boolean>(() => {
+    return localStorage.getItem('pipefx-nav-expanded') === 'true';
+  });
+
+  useEffect(() => {
+    localStorage.setItem('pipefx-nav-expanded', String(isNavRailExpanded));
+  }, [isNavRailExpanded]);
+
+  // ── Right Panel Mode ── 'project' (Project Brain) | 'chat' (sidebar chat)
+  //    persisted in localStorage so it survives reloads.
+  const [rightPanelMode, setRightPanelMode] = useState<'project' | 'chat'>(() => {
+    const stored = localStorage.getItem('pipefx-right-panel-mode');
+    return stored === 'chat' ? 'chat' : 'project';
+  });
+
+  useEffect(() => {
+    localStorage.setItem('pipefx-right-panel-mode', rightPanelMode);
+  }, [rightPanelMode]);
+
+  // ── Right Panel Width ── user-controllable via drag handle.
+  //    Stored per-mode so Project and Chat remember their own widths.
+  const RIGHT_PANEL_MIN = 240;
+  const RIGHT_PANEL_MAX = 640;
+  const RIGHT_PANEL_DEFAULTS = { project: 300, chat: 400 } as const;
+
+  const [rightPanelWidths, setRightPanelWidths] = useState<{ project: number; chat: number }>(() => {
+    const stored = localStorage.getItem('pipefx-right-panel-widths');
+    if (stored) {
+      try {
+        const parsed = JSON.parse(stored);
+        return {
+          project: typeof parsed.project === 'number' ? parsed.project : RIGHT_PANEL_DEFAULTS.project,
+          chat: typeof parsed.chat === 'number' ? parsed.chat : RIGHT_PANEL_DEFAULTS.chat,
+        };
+      } catch {
+        // Fall through to defaults
+      }
+    }
+    return { ...RIGHT_PANEL_DEFAULTS };
+  });
+
+  useEffect(() => {
+    localStorage.setItem('pipefx-right-panel-widths', JSON.stringify(rightPanelWidths));
+  }, [rightPanelWidths]);
+
+  const rightPanelWidth = rightPanelWidths[rightPanelMode];
+
+  // Drag-to-resize state — uses refs to avoid re-renders during drag.
+  const [isResizing, setIsResizing] = useState(false);
+  const resizeStateRef = useRef<{ startX: number; startWidth: number; mode: 'project' | 'chat' } | null>(null);
+
+  const handleResizeStart = useCallback((e: ReactMouseEvent) => {
+    e.preventDefault();
+    resizeStateRef.current = {
+      startX: e.clientX,
+      startWidth: rightPanelWidth,
+      mode: rightPanelMode,
+    };
+    setIsResizing(true);
+  }, [rightPanelWidth, rightPanelMode]);
+
+  useEffect(() => {
+    if (!isResizing) return;
+
+    const onMove = (e: MouseEvent) => {
+      const state = resizeStateRef.current;
+      if (!state) return;
+      // Dragging leftward increases width (handle is on the LEFT edge of right panel)
+      const delta = state.startX - e.clientX;
+      const next = Math.max(RIGHT_PANEL_MIN, Math.min(RIGHT_PANEL_MAX, state.startWidth + delta));
+      setRightPanelWidths((prev) => ({ ...prev, [state.mode]: next }));
+    };
+
+    const onUp = () => {
+      resizeStateRef.current = null;
+      setIsResizing(false);
+    };
+
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+    // Block text selection & show resize cursor globally during drag
+    const prevUserSelect = document.body.style.userSelect;
+    const prevCursor = document.body.style.cursor;
+    document.body.style.userSelect = 'none';
+    document.body.style.cursor = 'col-resize';
+
+    return () => {
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+      document.body.style.userSelect = prevUserSelect;
+      document.body.style.cursor = prevCursor;
+    };
+  }, [isResizing]);
+
+  const handleResizeDoubleClick = useCallback(() => {
+    // Reset current mode's width to its default
+    setRightPanelWidths((prev) => ({ ...prev, [rightPanelMode]: RIGHT_PANEL_DEFAULTS[rightPanelMode] }));
+  }, [rightPanelMode]);
+
   // ── Palette State ── persisted in localStorage
   const [activePalette, setActivePalette] = useState<string>(() => {
     return localStorage.getItem('pipefx-palette') || 'cool-teal';
@@ -99,6 +203,14 @@ export function App() {
     applyPalette(activePalette, []);
     localStorage.setItem('pipefx-palette', activePalette);
   }, [activePalette]);
+
+  // ── Corner Shape State ── persisted in localStorage
+  const [cornerMode, setCornerMode] = useState<CornerMode>(() => loadCornerMode());
+
+  // Apply corner mode to <html> and persist
+  useEffect(() => {
+    applyCornerMode(cornerMode);
+  }, [cornerMode]);
   const [chatInput, setChatInput] = useState('');
 
   // ── App & Project State ──
@@ -212,6 +324,50 @@ export function App() {
 
   // Does the activeView match a macro category?
   const isMacroView = MACRO_CATEGORIES.some((c) => c.id === activeView);
+
+  // Shared ChatPanel props — used by BOTH the main chat view and the
+  // optional right-sidebar chat. Both mounts read the same `chat` and
+  // `chatHistory` hooks, so messages + sessions are automatically in sync.
+  const chatPanelProps = {
+    messages: chat.chatMessages,
+    isTyping: chat.isAiTyping,
+    currentTaskId: chat.currentChatTaskId,
+    taskMap,
+    activeTasks,
+    selectedLlmModel,
+    selectedSkillId,
+    skills: filteredSkills,
+    activeApp,
+    chatInput,
+    onChatInputChange: setChatInput,
+    onSendMessage: (text: string, skill?: Skill) => {
+      if (!chatHistory.activeSessionId) {
+        chatHistory.newSession();
+      }
+      chat.sendMessageToAi(text, skill);
+    },
+    onStopGeneration: chat.stopGeneration,
+    onClearChat: chat.clearChat,
+    onSelectSkill: setSelectedSkillId,
+    onSelectModel: setSelectedLlmModel,
+    onNavigate: setActiveView,
+    onSkillsReloaded: setSkills,
+    onPlanNavigate: (content: string) => {
+      setActivePlanContent(content);
+      setActiveView('skill-planner');
+    },
+    chatSessions: chatHistory.sessions,
+    activeSessionId: chatHistory.activeSessionId,
+    onLoadSession: (id: string) => {
+      const msgs = chatHistory.loadSession(id);
+      chat.setChatMessages(msgs);
+    },
+    onDeleteSession: chatHistory.deleteSession,
+    onNewSession: () => {
+      chatHistory.newSession();
+      chat.clearChat();
+    },
+  };
 
   return (
     <TooltipProvider delay={300}>
@@ -335,12 +491,31 @@ export function App() {
               size="sm"
               onClick={() => setIsTaskWidgetMinimized(false)}
               onMouseDown={(e) => e.stopPropagation()}
-              className="h-7 gap-1.5 text-xs border-primary/50 text-primary bg-primary/10 hover:bg-primary/20 shrink-0"
+              className="h-7 gap-1.5 text-xs border-primary/50 text-primary bg-primary/10 hover:bg-primary/20 shrink-0 font-mono"
             >
-              <Loader2 className="w-3 h-3 animate-spin" />
+              <TerminalSpinner bare className="text-[12px] text-primary" />
               {activeTasks.filter((t) => !t.id.startsWith('chat-')).length}
             </Button>
           )}
+
+          {/* Left NavRail expand/collapse */}
+          <Button
+            variant="ghost"
+            size="icon"
+            className={cn(
+              'h-7 w-7 shrink-0',
+              isNavRailExpanded ? 'text-primary bg-primary/10' : 'text-muted-foreground hover:text-foreground'
+            )}
+            onClick={() => setIsNavRailExpanded((v) => !v)}
+            onMouseDown={(e) => e.stopPropagation()}
+            title={isNavRailExpanded ? 'Collapse left sidebar' : 'Expand left sidebar'}
+          >
+            {isNavRailExpanded ? (
+              <PanelLeftClose className="h-3.5 w-3.5" />
+            ) : (
+              <PanelLeftOpen className="h-3.5 w-3.5" />
+            )}
+          </Button>
 
           {/* Right panel toggle */}
           <Button
@@ -352,7 +527,7 @@ export function App() {
             )}
             onClick={() => setIsRightPanelOpen(!isRightPanelOpen)}
             onMouseDown={(e) => e.stopPropagation()}
-            title="Toggle Sidebar"
+            title="Toggle right panel"
           >
             <PanelRightClose className="h-3.5 w-3.5" />
           </Button>
@@ -365,6 +540,7 @@ export function App() {
             activeView={activeView}
             onNavigate={setActiveView}
             skills={filteredSkills}
+            isExpanded={isNavRailExpanded}
           />
 
           {/* Center content area */}
@@ -372,49 +548,7 @@ export function App() {
             {/* ── Primary Panel ── */}
             <div className="flex-1 min-h-0 flex flex-col">
               {/* Chat View — Hero Panel */}
-              {activeView === 'chat' && (
-                <ChatPanel
-                  messages={chat.chatMessages}
-                  isTyping={chat.isAiTyping}
-                  currentTaskId={chat.currentChatTaskId}
-                  taskMap={taskMap}
-                  activeTasks={activeTasks}
-                  selectedLlmModel={selectedLlmModel}
-                  selectedSkillId={selectedSkillId}
-                  skills={filteredSkills}
-                  activeApp={activeApp}
-                  chatInput={chatInput}
-                  onChatInputChange={setChatInput}
-                  onSendMessage={(text, skill) => {
-                    // Start a new session on first message if none active
-                    if (!chatHistory.activeSessionId) {
-                      chatHistory.newSession();
-                    }
-                    chat.sendMessageToAi(text, skill);
-                  }}
-                  onStopGeneration={chat.stopGeneration}
-                  onClearChat={chat.clearChat}
-                  onSelectSkill={setSelectedSkillId}
-                  onSelectModel={setSelectedLlmModel}
-                  onNavigate={setActiveView}
-                  onSkillsReloaded={setSkills}
-                  onPlanNavigate={(content) => {
-                    setActivePlanContent(content);
-                    setActiveView('skill-planner');
-                  }}
-                  chatSessions={chatHistory.sessions}
-                  activeSessionId={chatHistory.activeSessionId}
-                  onLoadSession={(id) => {
-                    const msgs = chatHistory.loadSession(id);
-                    chat.setChatMessages(msgs);
-                  }}
-                  onDeleteSession={chatHistory.deleteSession}
-                  onNewSession={() => {
-                    chatHistory.newSession();
-                    chat.clearChat();
-                  }}
-                />
-              )}
+              {activeView === 'chat' && <ChatPanel {...chatPanelProps} />}
 
               {/* Settings Page */}
               {activeView === 'settings' && (
@@ -423,6 +557,8 @@ export function App() {
                     onClose={() => setActiveView('chat')}
                     activePalette={activePalette}
                     onPaletteChange={setActivePalette}
+                    cornerMode={cornerMode}
+                    onCornerModeChange={setCornerMode}
                   />
                 </div>
               )}
@@ -572,62 +708,117 @@ export function App() {
               )}
             </div>
 
-            {/* ── Right Panel: Project Brain + Connector Status ── */}
+            {/* ── Right Panel: Project Brain OR Sidebar Chat ── */}
             {isRightPanelOpen && (
-              <div className="w-[clamp(240px,22vw,320px)] flex flex-col gap-3 shrink-0 animate-panel-enter">
-                {/* Project Brain */}
-                {activeProjectId ? (
-                  <div className="flex-1 min-h-0 bg-card rounded-xl border overflow-hidden">
-                    <ProjectBrain
-                      projectId={activeProjectId}
-                      onAnalyzeRequest={() => {
-                        setChatInput('Analyze the current project in depth');
-                        setActiveView('chat');
-                      }}
-                    />
+              <div
+                style={{ width: rightPanelWidth }}
+                className="relative flex flex-col gap-3 shrink-0 animate-panel-enter"
+              >
+                {/* Drag handle — invisible hit-zone on the card's left edge.
+                    No visual indicator, just a col-resize cursor. */}
+                <div
+                  role="separator"
+                  aria-orientation="vertical"
+                  aria-label="Resize right panel"
+                  onMouseDown={handleResizeStart}
+                  onDoubleClick={handleResizeDoubleClick}
+                  className="absolute top-0 bottom-0 -left-1 w-2 cursor-col-resize select-none z-10"
+                  title="Drag to resize · Double-click to reset"
+                />
+                {/* Mode toggle — segmented control */}
+                <div className="flex items-center gap-1 bg-muted/40 rounded-lg p-1 border shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => setRightPanelMode('project')}
+                    className={cn(
+                      'flex-1 flex items-center justify-center gap-1.5 h-7 rounded-md text-xs font-medium transition-colors',
+                      rightPanelMode === 'project'
+                        ? 'bg-card text-foreground shadow-sm'
+                        : 'text-muted-foreground hover:text-foreground'
+                    )}
+                    title="Project Brain"
+                  >
+                    <Brain className="w-3.5 h-3.5" />
+                    Project
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setRightPanelMode('chat')}
+                    className={cn(
+                      'flex-1 flex items-center justify-center gap-1.5 h-7 rounded-md text-xs font-medium transition-colors',
+                      rightPanelMode === 'chat'
+                        ? 'bg-card text-foreground shadow-sm'
+                        : 'text-muted-foreground hover:text-foreground'
+                    )}
+                    title="Sidebar Chat"
+                  >
+                    <MessageSquare className="w-3.5 h-3.5" />
+                    Chat
+                  </button>
+                </div>
+
+                {rightPanelMode === 'chat' ? (
+                  /* ── Sidebar Chat ── shares state with main chat */
+                  <div className="flex-1 min-h-0 bg-card rounded-xl border overflow-hidden flex flex-col">
+                    <ChatPanel {...chatPanelProps} />
                   </div>
                 ) : (
-                  <div className="flex-1 min-h-0 bg-card rounded-xl border overflow-hidden flex items-center justify-center p-6">
-                    <div className="text-center animate-panel-enter">
-                      <div className="w-10 h-10 rounded-xl bg-muted/50 flex items-center justify-center mx-auto mb-3">
-                        <Brain className="h-5 w-5 text-muted-foreground" />
+                  <>
+                    {/* Project Brain */}
+                    {activeProjectId ? (
+                      <div className="flex-1 min-h-0 bg-card rounded-xl border overflow-hidden">
+                        <ProjectBrain
+                          projectId={activeProjectId}
+                          onAnalyzeRequest={() => {
+                            setChatInput('Analyze the current project in depth');
+                            setActiveView('chat');
+                          }}
+                        />
                       </div>
-                      <div className="text-sm font-medium text-foreground mb-1">No Project Selected</div>
-                      <div className="text-xs text-muted-foreground mb-3">Select a project from the toolbar to see its knowledge base</div>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="text-xs"
-                        onClick={handleCreateProject}
-                      >
-                        + Create Project
-                      </Button>
-                    </div>
-                  </div>
-                )}
+                    ) : (
+                      <div className="flex-1 min-h-0 bg-card rounded-xl border overflow-hidden flex items-center justify-center p-6">
+                        <div className="text-center animate-panel-enter">
+                          <div className="w-10 h-10 rounded-xl bg-muted/50 flex items-center justify-center mx-auto mb-3">
+                            <Brain className="h-5 w-5 text-muted-foreground" />
+                          </div>
+                          <div className="text-sm font-medium text-foreground mb-1">No Project Selected</div>
+                          <div className="text-xs text-muted-foreground mb-3">Select a project from the toolbar to see its knowledge base</div>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="text-xs"
+                            onClick={handleCreateProject}
+                          >
+                            + Create Project
+                          </Button>
+                        </div>
+                      </div>
+                    )}
 
-                {/* Connector Status */}
-                <ConnectorStatus
-                  activeApp={activeApp}
-                  isConnected={isConnected}
-                  onChangeApp={setActiveApp}
-                />
+                    {/* Connector Status */}
+                    <ConnectorStatus
+                      activeApp={activeApp}
+                      isConnected={isConnected}
+                      onChangeApp={setActiveApp}
+                    />
+                  </>
+                )}
               </div>
             )}
           </div>
         </main>
 
-        {/* ── Contextual Status Bar ── only visible when there's active info */}
+        {/* ── Contextual Status Bar ── terminal-style status line */}
         {activeTasks.filter((t) => !t.id.startsWith('chat-')).length > 0 ? (
-          <footer className="h-7 bg-card border-t flex items-center px-4 text-[11px] text-muted-foreground justify-between shrink-0 animate-panel-enter">
+          <footer className="h-7 bg-card border-t flex items-center px-4 text-[11px] text-muted-foreground justify-between shrink-0 font-mono">
             <div className="flex items-center gap-2">
-              <Loader2 className="h-3 w-3 animate-spin text-primary" />
+              <TerminalSpinner className="text-[12px] text-primary" />
               <span>
                 {activeTasks.filter((t) => !t.id.startsWith('chat-')).length} task{activeTasks.filter((t) => !t.id.startsWith('chat-')).length !== 1 ? 's' : ''} running
               </span>
             </div>
-            <div className="flex items-center gap-3 font-mono">
-              <span>Profile: Default</span>
+            <div className="flex items-center gap-3">
+              <span>profile: default</span>
             </div>
           </footer>
         ) : null}

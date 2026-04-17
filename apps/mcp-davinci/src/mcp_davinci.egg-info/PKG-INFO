@@ -5,3 +5,4 @@ Summary: MCP server for DaVinci Resolve
 Requires-Python: >=3.10
 Requires-Dist: mcp[cli]
 Requires-Dist: opentimelineio
+Requires-Dist: webrtcvad

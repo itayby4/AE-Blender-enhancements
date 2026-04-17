@@ -3,7 +3,6 @@ import {
   Send,
   User,
   Bot,
-  Loader2,
   Square,
   CheckCircle2,
   XCircle,
@@ -38,6 +37,7 @@ import type { TaskDTO } from '@pipefx/tasks';
 import type { Skill } from '../../lib/load-skills.js';
 import { loadSkills } from '../../lib/load-skills.js';
 import { ChatHeroState } from './ChatHeroState.js';
+import { TerminalSpinner } from '../../components/ui/TerminalSpinner.js';
 
 interface ChatPanelProps {
   messages: ChatMessage[];
@@ -171,13 +171,14 @@ export function ChatPanel({
   const showHero = messages.length === 0 && !isTyping;
 
   return (
-    <div className="flex flex-col h-full bg-card rounded-xl border overflow-hidden animate-panel-enter">
+    <div className="@container flex flex-col h-full bg-card rounded-xl border overflow-hidden">
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b bg-card shrink-0">
-        <h2 className="text-sm font-semibold text-foreground tracking-tight">AI Chat</h2>
-        <div className="flex items-center gap-2">
+      <div className="flex items-center justify-between gap-2 px-3 @[360px]:px-4 py-3 border-b bg-card shrink-0 min-w-0">
+        <h2 className="text-sm font-semibold text-foreground tracking-tight truncate">AI Chat</h2>
+        <div className="flex items-center gap-2 shrink-0">
+          {/* Model select — hidden when chat panel is narrow */}
           <select
-            className="bg-muted text-xs border border-border/50 rounded-lg px-2.5 py-1.5 focus:ring-1 focus:ring-primary/50 outline-none text-muted-foreground font-medium"
+            className="hidden @[380px]:block bg-muted text-xs border border-border/50 rounded-lg px-2.5 py-1.5 focus:ring-1 focus:ring-primary/50 outline-none text-muted-foreground font-medium max-w-[160px] truncate"
             value={selectedLlmModel}
             onChange={(e) => onSelectModel(e.target.value)}
           >
@@ -287,20 +288,6 @@ export function ChatPanel({
       {/* Messages — regular chat interface */}
       {!showHero && (
       <ScrollArea className="flex-1 min-h-0 relative">
-        {/* Background signal lines — reuses hero CSS animations, GPU-only */}
-        <div className="absolute inset-0 overflow-hidden pointer-events-none" aria-hidden>
-          {/* Horizontal signal flows */}
-          <div className="absolute top-1/4 left-0 right-0 h-px opacity-[0.06] hero-line-h" />
-          <div className="absolute top-3/4 left-0 right-0 h-px opacity-[0.05] hero-line-h-reverse" />
-          {/* Vertical signal flows */}
-          <div className="absolute left-1/3 top-0 bottom-0 w-px opacity-[0.05] hero-line-v" />
-          <div className="absolute right-1/4 top-0 bottom-0 w-px opacity-[0.04] hero-line-v-reverse" />
-          {/* Corner node intersections */}
-          <div className="absolute top-1/4 left-1/3 w-1 h-1 rounded-full bg-primary opacity-[0.15] hero-node-pulse" />
-          <div className="absolute top-3/4 right-1/4 w-1.5 h-1.5 rounded-full bg-primary opacity-[0.15] hero-node-pulse" style={{ animationDelay: '1.2s' }} />
-          <div className="absolute top-1/4 right-1/4 w-1 h-1 rounded-full bg-primary opacity-[0.10] hero-node-pulse" style={{ animationDelay: '0.6s' }} />
-          <div className="absolute top-3/4 left-1/3 w-1 h-1 rounded-full bg-primary opacity-[0.10] hero-node-pulse" style={{ animationDelay: '1.8s' }} />
-        </div>
         <div className="flex flex-col gap-1 p-5 pb-4 chat-content-width mx-auto">
           {messages.map((msg, msgIdx) => {
             // Group consecutive user messages; show separator between user/ai
@@ -313,35 +300,34 @@ export function ChatPanel({
               {showSenderSwitch && <div className="h-3" />}
 
               {msg.sender === 'user' ? (
-                /* ── User Message ── Clean, right-aligned, minimal */
-                <div className="flex justify-end mt-1 first:mt-0 group animate-msg-in">
+                /* ── User Message ── Clean right-aligned chat bubble */
+                <div className="flex justify-end mt-1 first:mt-0 group">
                   <div
                     className={cn(
-                      'max-w-[85%] rounded-2xl rounded-br-md px-4 py-3',
+                      'max-w-[85%] rounded-2xl rounded-br-md px-4 py-2.5',
                       'bg-primary/10 text-foreground',
-                      'text-[14px] leading-relaxed font-medium',
-                      'select-text cursor-text whitespace-pre-wrap',
+                      'text-[14px] leading-relaxed',
+                      'select-text cursor-text whitespace-pre-wrap break-words'
                     )}
                   >
                     {msg.text}
                   </div>
                 </div>
               ) : (
-                /* ── AI Response ── Full-width card with avatar */
-                <div className="flex gap-3 group mt-1 animate-msg-in">
-                  {/* Avatar — sticky at top */}
-                  <div className="h-7 w-7 rounded-lg flex items-center justify-center shrink-0 mt-1.5 bg-primary/10 border border-primary/25 text-primary">
-                    <span className="font-mono text-[11px] font-bold leading-none select-none">◈</span>
+                /* ── AI Response ── Avatar + clean content */
+                <div className="flex gap-3 group mt-1">
+                  {/* Avatar */}
+                  <div className="h-7 w-7 rounded-lg flex items-center justify-center shrink-0 mt-0.5 bg-primary/10 border border-primary/25 text-primary">
+                    <span className="text-[11px] font-bold leading-none select-none">◈</span>
                   </div>
                   {/* Content */}
                   <div className="flex-1 min-w-0 pt-0.5 pb-1">
                     <div className="text-[14px] text-foreground/90 leading-relaxed select-text cursor-text">
-                    {/* Show pulsing dots INSIDE the bubble while waiting for first chunk */}
+                    {/* Loading spinner while waiting for first chunk */}
                     {!msg.text.trim() && isTyping ? (
-                      <div className="flex items-center gap-1.5 py-1">
-                        <span className="w-1.5 h-1.5 rounded-full bg-primary/60 animate-thinking-pulse" style={{ animationDelay: '0ms' }} />
-                        <span className="w-1.5 h-1.5 rounded-full bg-primary/60 animate-thinking-pulse" style={{ animationDelay: '200ms' }} />
-                        <span className="w-1.5 h-1.5 rounded-full bg-primary/60 animate-thinking-pulse" style={{ animationDelay: '400ms' }} />
+                      <div className="flex items-center gap-2 py-0.5 text-primary/80">
+                        <TerminalSpinner bare className="text-[14px]" />
+                        <span className="text-[12px] text-muted-foreground">thinking...</span>
                       </div>
                     ) : (
                     <div className="space-y-2.5">
@@ -461,9 +447,9 @@ export function ChatPanel({
           );
           })}
 
-          {/* Live Chain of Thought while typing — dots are now inside the AI message bubble */}
+          {/* Live Chain of Thought while typing */}
           {isTyping && currentTaskId && taskMap.get(currentTaskId) && (
-            <div className="ml-10 mt-1 animate-msg-in">
+            <div className="ml-6 mt-1">
               <ChainOfThoughtBlock task={taskMap.get(currentTaskId)!} isLive />
             </div>
           )}
@@ -474,7 +460,7 @@ export function ChatPanel({
       )}
 
       {/* Input Area — elevated glass effect */}
-      <div className="p-4 border-t border-border/50 shrink-0" style={{ background: 'linear-gradient(to top, var(--card), transparent)' }}>
+      <div className="px-3 py-3 @[360px]:p-4 border-t border-border/50 shrink-0" style={{ background: 'linear-gradient(to top, var(--card), transparent)' }}>
         <div className="relative chat-content-width mx-auto">
           {isAutocompleteOpen && (
             <SkillAutocomplete
@@ -504,11 +490,10 @@ export function ChatPanel({
               onKeyDown={handleKeyDown}
               placeholder="Ask AI or type / to search skills..."
               className={cn(
-                'pr-12 min-h-[48px] max-h-[150px] resize-none overflow-y-auto py-3 px-4 flex-1 rounded-xl text-[15px] transition-all',
+                'pr-14 min-h-[46px] max-h-[150px] resize-none overflow-y-auto py-3 pl-4 flex-1 rounded-xl text-[14px] transition-colors',
                 selectedSkillId !== 'default'
                   ? 'border-primary/50 bg-primary/5 focus-visible:ring-primary/30'
-                  : 'bg-muted/30 border-border/40 focus-visible:ring-primary/50',
-                'focus-visible:shadow-[0_0_0_3px_oklch(from_var(--primary)_l_c_h_/_0.1)]'
+                  : 'bg-muted/25 border-border/50 focus-visible:ring-primary/50'
               )}
               disabled={isTyping}
             />
@@ -535,12 +520,12 @@ export function ChatPanel({
               </Button>
             )}
           </div>
-          <div className="text-center mt-2 text-[11px] text-muted-foreground">
-            Type{' '}
+          <div className="hidden @[320px]:block text-center mt-2 text-[11px] text-muted-foreground font-mono">
+            <span className="text-muted-foreground/60">#</span>{' '}
             <kbd className="px-1.5 py-0.5 rounded-md bg-muted border text-[10px] font-mono font-semibold">
               /
             </kbd>{' '}
-            to search skills · Enter to send
+            search skills · <kbd className="px-1.5 py-0.5 rounded-md bg-muted border text-[10px] font-mono font-semibold">Enter</kbd> send
           </div>
         </div>
       </div>
@@ -577,7 +562,7 @@ function ChainOfThoughtBlock({ task, isLive }: { task: TaskDTO; isLive?: boolean
                 {step.status === 'done' ? (
                   <CheckCircle2 className="w-4 h-4 text-success" />
                 ) : step.status === 'in-progress' ? (
-                  <Loader2 className="w-4 h-4 text-primary animate-spin" />
+                  <TerminalSpinner bare className="w-4 h-4 text-primary text-[13px] justify-center" />
                 ) : step.status === 'error' || step.status === 'cancelled' ? (
                   <XCircle className="w-4 h-4 text-destructive" />
                 ) : (
