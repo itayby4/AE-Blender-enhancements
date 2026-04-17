@@ -1,8 +1,6 @@
 import type { Agent, AgentConfig, ChatOptions } from './types.js';
-import type { Provider, ProviderMessage, ProviderToolResult, ProviderResponse } from './providers/types.js';
-import { GeminiProvider } from './providers/gemini.js';
-import { OpenAIProvider } from './providers/openai.js';
-import { AnthropicProvider } from './providers/anthropic.js';
+import type { Provider, ProviderMessage, ProviderToolResult, ProviderResponse } from '@pipefx/providers';
+import { GeminiProvider, OpenAIProvider, AnthropicProvider } from '@pipefx/providers';
 import { shouldCompact, compactHistory, DEFAULT_COMPACTION_CONFIG } from './compaction.js';
 
 /**

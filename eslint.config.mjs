@@ -51,6 +51,7 @@ export default [
                 'scope:shared',
                 'scope:mcp',
                 'scope:ai',
+                'scope:providers',
               ],
             },
             {
@@ -59,7 +60,11 @@ export default [
             },
             {
               sourceTag: 'scope:providers',
-              onlyDependOnLibsWithTags: ['scope:shared', 'scope:providers'],
+              onlyDependOnLibsWithTags: [
+                'scope:shared',
+                'scope:mcp',
+                'scope:providers',
+              ],
             },
             {
               sourceTag: 'scope:backend',

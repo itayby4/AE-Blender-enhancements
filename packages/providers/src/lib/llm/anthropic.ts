@@ -1,5 +1,5 @@
 import Anthropic from '@anthropic-ai/sdk';
-import { mapToolsToAnthropic } from '../tool-mapper.js';
+import { mapToolsToAnthropic } from './tool-mapper.js';
 import type {
   Provider,
   ProviderResponse,
@@ -9,7 +9,7 @@ import type {
 } from './types.js';
 
 /**
- * Anthropic (Claude) provider ΓÇö wraps the Anthropic SDK with streaming support.
+ * Anthropic (Claude) provider — wraps the Anthropic SDK with streaming support.
  */
 export class AnthropicProvider implements Provider {
   readonly name = 'anthropic';
@@ -102,7 +102,7 @@ export class AnthropicProvider implements Provider {
         // After a content block completes, check if it was a tool_use
         // We'll grab it from the final message
       } else if (event.type === 'message_stop') {
-        // Final message ΓÇö extract tool calls
+        // Final message — extract tool calls
         const finalMessage = await stream.finalMessage();
         for (const block of finalMessage.content) {
           contentBlocks.push(block);

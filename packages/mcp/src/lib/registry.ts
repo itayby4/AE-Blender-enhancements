@@ -108,23 +108,26 @@ export class ConnectorRegistry {
 
   /**
    * Aggregate tools from all connected connectors.
-   * Rebuilds the internal tool->connector routing index.
+   * Atomically rebuilds the internal tool->connector routing index: the new
+   * index is built in a local variable and swapped in at the end, so a
+   * concurrent `callTool()` never observes a cleared or partially populated
+   * index while `listTools()` is awaiting on a connector.
    */
   async getAllTools(): Promise<Tool[]> {
-    this.toolIndex.clear();
+    const newIndex = new Map<string, string>();
     const allTools: Tool[] = [];
 
     for (const [id, connector] of this.connectors) {
       if (!connector.isConnected()) continue;
       const tools = await connector.listTools();
       for (const tool of tools) {
-        this.toolIndex.set(tool.name, id);
+        newIndex.set(tool.name, id);
         allTools.push(tool);
       }
     }
 
     for (const [name, def] of this.localTools) {
-      this.toolIndex.set(name, 'local');
+      newIndex.set(name, 'local');
       allTools.push({
         name,
         description: def.description,
@@ -133,6 +136,9 @@ export class ConnectorRegistry {
       });
     }
 
+    // Atomic swap — callers of callTool() see either the previous complete
+    // index or the new complete index, never a transient empty/partial one.
+    this.toolIndex = newIndex;
     return allTools;
   }
 

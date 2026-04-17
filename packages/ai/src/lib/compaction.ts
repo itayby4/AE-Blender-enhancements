@@ -8,7 +8,7 @@
  * verbatim. Tool-use/tool-result pair boundaries are never split.
  */
 
-import type { ProviderMessage } from './providers/types.js';
+import type { ProviderMessage } from '@pipefx/providers';
 
 // ΓöÇΓöÇ Constants (from claw-code compact.rs) ΓöÇΓöÇ
 

@@ -1,5 +1,5 @@
 import OpenAI from 'openai';
-import { mapToolsToOpenAI } from '../tool-mapper.js';
+import { mapToolsToOpenAI } from './tool-mapper.js';
 import type {
   Provider,
   ProviderResponse,
@@ -9,7 +9,7 @@ import type {
 } from './types.js';
 
 /**
- * OpenAI provider ΓÇö wraps the OpenAI SDK with streaming support.
+ * OpenAI provider — wraps the OpenAI SDK with streaming support.
  */
 export class OpenAIProvider implements Provider {
   readonly name = 'openai';

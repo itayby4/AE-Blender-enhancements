@@ -1,5 +1,5 @@
 import { GoogleGenAI } from '@google/genai';
-import { mapToolsToGemini } from '../tool-mapper.js';
+import { mapToolsToGemini } from './tool-mapper.js';
 import type {
   Provider,
   ProviderMessage,
@@ -30,7 +30,7 @@ function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise
 }
 
 /**
- * Gemini provider ΓÇö wraps the Google GenAI SDK.
+ * Gemini provider — wraps the Google GenAI SDK.
  * Supports both regular and streaming responses.
  */
 export class GeminiProvider implements Provider {
@@ -239,7 +239,7 @@ export class GeminiProvider implements Provider {
     if (params.previousResponse && (params.previousResponse as any).functionCalls) {
       const prevCalls = (params.previousResponse as any).functionCalls;
       const functionCallParts = prevCalls.map((call: any) => {
-        // Deep clone the object to avoid circular references or 
+        // Deep clone the object to avoid circular references or
         // passing SDK instances back into the history array
         const pojoCall = JSON.parse(JSON.stringify(call));
         return { functionCall: pojoCall };

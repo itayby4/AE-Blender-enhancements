@@ -19,7 +19,7 @@ export function mapToolsToGemini(tools: Tool[]) {
 }
 
 /**
- * Deeply converts 'type' fields to lowercase to support standard JSON Schema
+ * Deeply converts 'type' fields to lowercase to support standard JSON Schema.
  * Since PipeFX MCP tools use uppercase types (like 'OBJECT', 'NUMBER') for Gemini,
  * we must convert them to lowercase for strict validation in OpenAI/Anthropic.
  */

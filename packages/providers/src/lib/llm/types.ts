@@ -1,7 +1,7 @@
 import type { Tool } from '@pipefx/mcp';
 
 /**
- * Unified message format used across all providers.
+ * Unified message format used across all LLM providers.
  * Inspired by Claw-Code's provider abstraction (crates/api/src/types.rs).
  */
 export interface ProviderMessage {
@@ -70,7 +70,7 @@ export interface ContinueParams extends ChatParams {
 }
 
 /**
- * Provider interface ΓÇö each LLM provider (Gemini, OpenAI, Anthropic)
+ * Provider interface — each LLM provider (Gemini, OpenAI, Anthropic)
  * implements this interface. The agent loop is provider-agnostic.
  *
  * Inspired by Claw-Code's separation of provider clients (crates/api/)

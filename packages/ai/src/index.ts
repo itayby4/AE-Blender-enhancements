@@ -1,5 +1,4 @@
 export { createAgent } from './lib/agent.js';
-export { mapToolsToGemini } from './lib/tool-mapper.js';
 export {
   shouldCompact,
   compactHistory,
@@ -8,6 +7,8 @@ export {
 } from './lib/compaction.js';
 export type { CompactionConfig, CompactionResult } from './lib/compaction.js';
 export type { Agent, AgentConfig, ChatOptions } from './lib/types.js';
+
+// Re-export provider abstraction from @pipefx/providers for backward compatibility
 export type {
   Provider,
   ProviderMessage,
@@ -15,7 +16,10 @@ export type {
   StreamEvent,
   ChatParams,
   ContinueParams,
-} from './lib/providers/types.js';
-export { GeminiProvider } from './lib/providers/gemini.js';
-export { OpenAIProvider } from './lib/providers/openai.js';
-export { AnthropicProvider } from './lib/providers/anthropic.js';
+} from '@pipefx/providers';
+export {
+  GeminiProvider,
+  OpenAIProvider,
+  AnthropicProvider,
+  mapToolsToGemini,
+} from '@pipefx/providers';
