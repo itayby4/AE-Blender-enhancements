@@ -83,11 +83,17 @@ export let config = {
       name: 'Adobe After Effects',
       transport: {
         type: 'stdio' as const,
-        command: resolveVenvPython(
-          path.join(workspaceRoot, 'apps', 'mcp-aftereffects', 'venv')
-        ),
-        args: ['-m', 'mcp_aftereffects.server'],
-        cwd: path.join(workspaceRoot, 'apps', 'mcp-aftereffects', 'src'),
+        command: process.execPath,
+        args: [
+          path.join(
+            workspaceRoot,
+            'apps',
+            'mcp-aftereffects',
+            'build',
+            'index.js'
+          ),
+        ],
+        cwd: path.join(workspaceRoot, 'apps', 'mcp-aftereffects'),
       },
     },
     blender: {

@@ -115,14 +115,17 @@ export class GeminiProvider implements Provider {
     let fullText = '';
     const allToolCalls: any[] = [];
     const allRawCalls: any[] = [];
+    const allRawParts: any[] = [];
 
     for await (const chunk of response) {
-      // Text chunks
+      const chunkParts = chunk?.candidates?.[0]?.content?.parts ?? [];
+      for (const part of chunkParts) {
+        allRawParts.push(JSON.parse(JSON.stringify(part)));
+      }
       if (chunk.text) {
         fullText += chunk.text;
         yield { type: 'text', text: chunk.text };
       }
-      // Function calls (usually arrive at the end)
       if (chunk.functionCalls) {
         for (const call of chunk.functionCalls) {
           allRawCalls.push(call);
@@ -142,9 +145,10 @@ export class GeminiProvider implements Provider {
       response: {
         text: fullText || null,
         toolCalls: allToolCalls,
-        // Store the raw function calls so continueWithToolResults can
-        // rebuild the history with the functionCall turn.
-        raw: allRawCalls.length > 0 ? { functionCalls: allRawCalls } : undefined,
+        raw:
+          allRawParts.length > 0
+            ? { parts: allRawParts, functionCalls: allRawCalls }
+            : undefined,
       },
     };
   }
@@ -178,8 +182,13 @@ export class GeminiProvider implements Provider {
     let fullText = '';
     const allToolCalls: any[] = [];
     const allRawCalls: any[] = [];
+    const allRawParts: any[] = [];
 
     for await (const chunk of response) {
+      const chunkParts = chunk?.candidates?.[0]?.content?.parts ?? [];
+      for (const part of chunkParts) {
+        allRawParts.push(JSON.parse(JSON.stringify(part)));
+      }
       if (chunk.text) {
         fullText += chunk.text;
         yield { type: 'text', text: chunk.text };
@@ -203,7 +212,10 @@ export class GeminiProvider implements Provider {
       response: {
         text: fullText || null,
         toolCalls: allToolCalls,
-        raw: allRawCalls.length > 0 ? { functionCalls: allRawCalls } : undefined,
+        raw:
+          allRawParts.length > 0
+            ? { parts: allRawParts, functionCalls: allRawCalls }
+            : undefined,
       },
     };
   }
@@ -218,11 +230,19 @@ export class GeminiProvider implements Provider {
       })
     );
 
+    // Gemini 3 requires thoughtSignature on each part to be preserved
+    // verbatim in the next turn's history. Capture the whole parts array
+    // (not just functionCalls) so we can replay it faithfully.
+    const rawParts = response?.candidates?.[0]?.content?.parts ?? [];
+    const pojoParts = rawParts.map((p: any) => JSON.parse(JSON.stringify(p)));
+
     return {
       text: response.text ?? null,
       toolCalls,
-      // Store raw function calls for history reconstruction
-      raw: rawCalls.length > 0 ? { functionCalls: rawCalls } : undefined,
+      raw:
+        pojoParts.length > 0
+          ? { parts: pojoParts, functionCalls: rawCalls }
+          : undefined,
     };
   }
 
@@ -231,23 +251,25 @@ export class GeminiProvider implements Provider {
    * Gemini requires that a functionCall turn appears in the history
    * BEFORE a functionResponse can be sent. Without this, the API
    * returns "function response turn comes immediately after a function call turn".
+   *
+   * Gemini 3 additionally requires the original `thoughtSignature` on each
+   * part to be preserved verbatim, so we replay `candidates[0].content.parts`
+   * rather than reconstructing from `functionCalls` alone.
    */
   private buildContinueHistory(params: ContinueParams): any[] {
     const baseHistory = this.toGeminiHistory(params.messages, true);
 
-    // Append the model's functionCall turn so Gemini accepts the functionResponse
-    if (params.previousResponse && (params.previousResponse as any).functionCalls) {
-      const prevCalls = (params.previousResponse as any).functionCalls;
-      const functionCallParts = prevCalls.map((call: any) => {
-        // Deep clone the object to avoid circular references or
-        // passing SDK instances back into the history array
-        const pojoCall = JSON.parse(JSON.stringify(call));
-        return { functionCall: pojoCall };
-      });
-      baseHistory.push({
-        role: 'model',
-        parts: functionCallParts,
-      });
+    const prev = params.previousResponse as any;
+    const rawParts: any[] | undefined = prev?.parts ?? prev?.raw?.parts;
+
+    if (rawParts && rawParts.length > 0) {
+      baseHistory.push({ role: 'model', parts: rawParts });
+    } else if (prev?.functionCalls?.length) {
+      // Fallback for older response shapes (no thoughtSignature available).
+      const functionCallParts = prev.functionCalls.map((call: any) => ({
+        functionCall: JSON.parse(JSON.stringify(call)),
+      }));
+      baseHistory.push({ role: 'model', parts: functionCallParts });
     }
 
     return baseHistory;
