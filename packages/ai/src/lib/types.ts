@@ -14,6 +14,8 @@ export interface ChatOptions {
   modelOverride?: string;
   systemPromptOverride?: string;
   allowedTools?: string[];
+  /** Tools to hide from the model for this call (applied after allowedTools). */
+  excludedTools?: string[];
   history?: any[];
   signal?: AbortSignal;
   onToolCallStart?: (toolName: string, args: any) => void;

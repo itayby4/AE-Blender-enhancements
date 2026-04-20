@@ -35,8 +35,33 @@ export type {
   SubAgentRuntime,
   SubAgentRuntimeConfig,
   RunSubAgentOptions,
+  ResumeSubAgentOptions,
+  ForkSubAgentOptions,
 } from './lib/runtime/runAgent.js';
 export { createSubAgentRuntime } from './lib/runtime/runAgent.js';
+
+// ── Task transcripts (resume + fork substrate) ────────────────────────────
+export type {
+  TranscriptEntry,
+  ChatHistoryEntry,
+  TaskTranscriptStore,
+} from './lib/runtime/taskTranscripts.js';
+export { createTaskTranscriptStore } from './lib/runtime/taskTranscripts.js';
+
+// ── Agent memory ──────────────────────────────────────────────────────────
+export type { AgentMemoryStore } from './lib/runtime/agentMemory.js';
+export {
+  createAgentMemoryStore,
+  taskMemoryNamespace,
+} from './lib/runtime/agentMemory.js';
+
+// ── Built-in + user-loaded agent profiles ─────────────────────────────────
+export type { AgentProfile } from './lib/runtime/builtInAgents.js';
+export {
+  BUILT_IN_AGENTS,
+  findBuiltInAgent,
+} from './lib/runtime/builtInAgents.js';
+export { loadAgentsDir, composeProfiles } from './lib/runtime/loadAgentsDir.js';
 
 // ── Coordinator mode ──────────────────────────────────────────────────────
 export type { CoordinatorOptions } from './lib/coordinator/createCoordinatorAgent.js';
@@ -76,6 +101,14 @@ export {
   TASK_STOP_PROMPT,
   TASK_OUTPUT_PROMPT,
 } from './lib/prompts/index.js';
+export {
+  buildAgentToolDescription,
+  buildAgentToolInputSchema,
+} from './lib/prompts/agentTool.js';
+export {
+  buildTaskCreateDescription,
+  buildTaskCreateInputSchema,
+} from './lib/prompts/taskTools.js';
 
 // ── Constants ─────────────────────────────────────────────────────────────
 export {

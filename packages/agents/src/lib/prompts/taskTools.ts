@@ -1,4 +1,6 @@
 import { TOOL_NAME_TOKENS } from '../constants.js';
+import type { TaskTypeMetadata } from '../tasks.js';
+import type { AgentProfile } from '../runtime/builtInAgents.js';
 
 /**
  * Prompt + schema bundles for the Task* lifecycle tools.
@@ -6,6 +8,68 @@ import { TOOL_NAME_TOKENS } from '../constants.js';
  * Kept together — they form one consistent toolset. Structure mirrors
  * OpenClaude's Task*Tool prompt files; prose rewritten. See ../../PROMPT_SOURCES.md.
  */
+
+/** Build a TaskCreate input schema with a dynamic taskType enum + optional agentName. */
+export function buildTaskCreateInputSchema(
+  taskTypes: TaskTypeMetadata[],
+  profiles: AgentProfile[]
+): Record<string, unknown> {
+  const typeEnum = taskTypes.map((t) => t.type);
+  const agentNameEnum = profiles.map((p) => p.name);
+  return {
+    type: 'object',
+    properties: {
+      taskType: {
+        type: 'string',
+        enum: typeEnum.length > 0 ? typeEnum : ['local_agent'],
+      },
+      ...(agentNameEnum.length > 0 && {
+        agentName: {
+          type: 'string',
+          enum: agentNameEnum,
+          description:
+            'Optional named profile that preconfigures the worker\'s system prompt and tool allowlist.',
+        },
+      }),
+      description: {
+        type: 'string',
+        description: 'One-line label for the task, shown in UI.',
+      },
+      prompt: {
+        type: 'string',
+        description: 'Self-contained brief for the worker.',
+      },
+      allowedTools: {
+        type: 'array',
+        items: { type: 'string' },
+        description:
+          'Optional tool-name allowlist for the worker. Omit to inherit parent tool set.',
+      },
+    },
+    required: ['taskType', 'description', 'prompt'],
+  };
+}
+
+/** Build a TaskCreate description that includes the registered catalog. */
+export function buildTaskCreateDescription(
+  taskTypes: TaskTypeMetadata[],
+  profiles: AgentProfile[]
+): string {
+  const lines: string[] = [
+    'Spawn a new task. Returns a taskId you can use with TaskGet/TaskUpdate/TaskStop/TaskOutput.',
+  ];
+  if (profiles.length) {
+    lines.push('', 'Named agents:');
+    for (const p of profiles) lines.push(`- ${p.name} (${p.type}): ${p.whenToUse}`);
+  }
+  if (taskTypes.length) {
+    lines.push('', 'Task types:');
+    for (const t of taskTypes) lines.push(`- ${t.type}: ${t.whenToUse}`);
+  }
+  const s = lines.join('\n');
+  const MAX = 1000;
+  return s.length <= MAX ? s : s.slice(0, MAX - 3) + '...';
+}
 
 // ── TaskCreate ──────────────────────────────────────────────────────────────
 

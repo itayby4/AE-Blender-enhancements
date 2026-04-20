@@ -1,9 +1,20 @@
 import { createConnector } from './connector.js';
+import {
+  DEFAULT_IDEMPOTENCY_TTL_MS,
+  IdempotencyCache,
+  executeWithPolicy,
+  hashArgs,
+} from './executor.js';
 import type { Connector, ConnectorConfig, Tool, ToolResult } from './types.js';
 
 export class ConnectorRegistry {
   private connectors = new Map<string, Connector>();
+  private configs = new Map<string, ConnectorConfig>();
   private toolIndex = new Map<string, string>();
+  private activeId: string | null = null;
+
+  /** One idempotency cache per connector — short TTL suppresses same-turn duplicate calls. */
+  private idempotencyCaches = new Map<string, IdempotencyCache>();
 
   private localTools = new Map<
     string,
@@ -19,6 +30,18 @@ export class ConnectorRegistry {
       throw new Error(`Connector "${config.id}" is already registered`);
     }
     this.connectors.set(config.id, createConnector(config));
+    this.configs.set(config.id, config);
+    if (config.asyncPolicy) {
+      this.idempotencyCaches.set(config.id, new IdempotencyCache());
+    }
+  }
+
+  /**
+   * Clear per-connector idempotency caches. Call at the start of each chat
+   * turn so cached results from an earlier turn never leak into a new one.
+   */
+  clearIdempotencyCaches(): void {
+    for (const cache of this.idempotencyCaches.values()) cache.clear();
   }
 
   registerLocalTool(
@@ -64,38 +87,35 @@ export class ConnectorRegistry {
     await Promise.all(entries.map((c) => c.disconnect()));
   }
 
+  /**
+   * Set which connector is "active" (its tools will be the ones exposed
+   * via getAllTools to the AI). Ensures the target is connected, but does
+   * NOT disconnect others — keeping inactive connectors warm eliminates
+   * the cold-start penalty on future switches.
+   */
   async switchActiveConnector(activeId: string): Promise<void> {
-    const entries = Array.from(this.connectors.entries());
-    await Promise.all(
-      entries.map(async ([id, connector]) => {
-        if (id === activeId) {
-          if (!connector.isConnected()) {
-            try {
-              await connector.connect();
-              console.log(
-                `Connected to active connector "${id}" (${connector.config.name})`
-              );
-            } catch (err) {
-              console.error(
-                `Failed to connect to active connector "${id}":`,
-                err
-              );
-            }
-          }
-        } else {
-          if (connector.isConnected()) {
-            try {
-              await connector.disconnect();
-              console.log(
-                `Disconnected inactive connector "${id}" (${connector.config.name})`
-              );
-            } catch (err) {
-              console.error(`Failed to disconnect from "${id}":`, err);
-            }
-          }
-        }
-      })
-    );
+    this.activeId = activeId;
+    const connector = this.connectors.get(activeId);
+    if (!connector) {
+      throw new Error(`Connector "${activeId}" is not registered`);
+    }
+    if (!connector.isConnected()) {
+      try {
+        await connector.connect();
+        console.log(
+          `Connected to active connector "${activeId}" (${connector.config.name})`
+        );
+      } catch (err) {
+        console.error(
+          `Failed to connect to active connector "${activeId}":`,
+          err
+        );
+      }
+    }
+  }
+
+  getActiveConnectorId(): string | null {
+    return this.activeId;
   }
 
   getConnector(id: string): Connector {
@@ -119,6 +139,10 @@ export class ConnectorRegistry {
 
     for (const [id, connector] of this.connectors) {
       if (!connector.isConnected()) continue;
+      // Scope tools to the active connector once one is set. Other
+      // connectors stay connected (warm) but their tools aren't exposed
+      // to the AI, which would just confuse the model.
+      if (this.activeId !== null && id !== this.activeId) continue;
       const tools = await connector.listTools();
       for (const tool of tools) {
         newIndex.set(tool.name, id);
@@ -180,6 +204,39 @@ export class ConnectorRegistry {
         `Connector "${connectorId}" for tool "${name}" not found`
       );
     }
-    return connector.callTool(name, args);
+
+    const config = this.configs.get(connectorId);
+    const policy = config?.asyncPolicy;
+
+    // Fast path — no policy, behave exactly like before.
+    if (!policy) {
+      return connector.callTool(name, args);
+    }
+
+    // Tools in skipTools (poll tool itself, helps, lists) bypass the wrapper
+    // and the idempotency cache. They're either side-effect-free or
+    // required to refresh on every call.
+    if (policy.skipTools?.includes(name)) {
+      return connector.callTool(name, args);
+    }
+
+    const cache = this.idempotencyCaches.get(connectorId);
+    const cacheKey = `${name}::${hashArgs(args)}`;
+    const cached = cache?.get(cacheKey);
+    if (cached) {
+      // Same (tool, args) called within the TTL — the architectural
+      // guarantee that duplicate side effects are impossible.
+      return cached;
+    }
+
+    const result = await executeWithPolicy(connector, name, args, policy);
+    if (cache && !result.isError) {
+      cache.set(
+        cacheKey,
+        result,
+        policy.idempotencyTtlMs ?? DEFAULT_IDEMPOTENCY_TTL_MS
+      );
+    }
+    return result;
   }
 }

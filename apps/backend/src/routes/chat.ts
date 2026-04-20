@@ -232,6 +232,11 @@ export function registerChatRoutes(router: Router, deps: ChatRouteDeps) {
         deps.sseBroker.set(resolvedSessionId, (ev) => sseWrite(res, ev));
       }
 
+      // Fresh turn ΓÇö drop any cached idempotency entries from the
+      // previous turn so a genuine re-run of the same (tool, args) is
+      // allowed to actually re-fire.
+      deps.registry.clearIdempotencyCaches();
+
       // Global timeout ΓÇö prevents zombie connections from hanging forever
       const streamTimeout = setTimeout(() => {
         abortController.abort();
@@ -240,11 +245,80 @@ export function registerChatRoutes(router: Router, deps: ChatRouteDeps) {
         if (!res.writableEnded) res.end();
       }, STREAM_TIMEOUT);
 
+      // ── AE bridge preflight ─────────────────────────────────────────
+      // If the user targets After Effects, probe the bridge once before
+      // spending tokens. A dead bridge means every AE tool call will
+      // silently queue forever — fail fast and tell the user to bring
+      // AE to the front.
+      let bridgePreflightNote = '';
+      const excludedTools: string[] = [];
+      if (activeApp === 'aftereffects') {
+        try {
+          const probe = await deps.registry.callTool('bridge-health', {});
+          const probeText = (() => {
+            const c = probe.content as unknown;
+            if (typeof c === 'string') return c;
+            if (Array.isArray(c)) {
+              return c
+                .map((p: unknown) =>
+                  typeof p === 'string'
+                    ? p
+                    : (p as { text?: string })?.text ?? ''
+                )
+                .join('');
+            }
+            return '';
+          })();
+          let verdict = 'unknown';
+          try {
+            const parsed = JSON.parse(probeText);
+            verdict = parsed.verdict ?? 'unknown';
+          } catch {
+            // keep verdict = unknown
+          }
+          agentsLog.info('bridge-health preflight', {
+            sessionId: resolvedSessionId,
+            verdict,
+          });
+          if (verdict !== 'alive') {
+            clearTimeout(streamTimeout);
+            memoryTaskManager.finishTask(resolvedTaskId, 'error');
+            const msg =
+              `The After Effects bridge isn't responding (verdict: ${verdict}). ` +
+              `Bring After Effects to the front, dismiss any open dialogs, then retry.`;
+            appendChatMessage(resolvedSessionId!, 'assistant', msg);
+            sseWrite(res, { type: 'done', text: msg, sessionId: resolvedSessionId });
+            res.end();
+            return;
+          }
+          bridgePreflightNote =
+            `\n\n## AE Bridge (preflight: alive)\n` +
+            `Do NOT call bridge-health. Prefer direct tools when they exist: ` +
+            `\`create-composition\`, \`setLayerKeyframe\`, \`setLayerExpression\`, ` +
+            `\`apply-effect\`, \`apply-effect-template\`, \`get-results\`. ` +
+            `For anything else, use \`run-script\` with a \`script\` value from this ` +
+            `whitelist (do NOT invent names):\n` +
+            `listCompositions, getProjectInfo, getLayerInfo, createComposition, ` +
+            `createTextLayer, createShapeLayer, createSolidLayer, setLayerProperties, ` +
+            `setLayerKeyframe, setLayerExpression, applyEffect, applyEffectTemplate, ` +
+            `createCamera, batchSetLayerProperties, setCompositionProperties, ` +
+            `duplicateLayer, deleteLayer, setLayerMask.\n\n` +
+            `After queueing a run-script or create-* command, call \`get-results\` once to confirm.\n`;
+          excludedTools.push('bridge-health');
+        } catch (err) {
+          agentsLog.error('bridge-health preflight failed', {
+            sessionId: resolvedSessionId,
+            error: err instanceof Error ? err.message : String(err),
+          });
+        }
+      }
+
       const runChat = async () => deps.getAgent().chat(message, {
         providerOverride: llmModel,
         modelOverride: skill?.model,
-        systemPromptOverride,
+        systemPromptOverride: systemPromptOverride + bridgePreflightNote,
         allowedTools: skill?.allowedTools,
+        excludedTools,
         history,
         signal: abortController.signal,
         onStreamChunk: (chunk) => {

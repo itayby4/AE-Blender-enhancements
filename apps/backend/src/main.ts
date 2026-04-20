@@ -8,8 +8,13 @@ import {
   createInMemoryPlanApprovalBroker,
   registerAgentTools,
   agentsLog,
+  loadAgentsDir,
+  composeProfiles,
+  BUILT_IN_AGENTS,
+  getAllTaskTypes,
   type SubAgentEvent,
   type TodoItem,
+  type AgentProfile,
 } from '@pipefx/agents';
 import { AsyncLocalStorage } from 'node:async_hooks';
 import * as os from 'node:os';
@@ -138,17 +143,30 @@ async function main() {
     registry,
   };
 
+  // Compose built-in agent profiles with any user-provided ones from
+  // `<cwd>/.pipefx/agents/*.json` (opt-in; missing dir is fine).
+  const userAgentsDir = path.join(process.cwd(), '.pipefx', 'agents');
+  const userProfiles: AgentProfile[] = await loadAgentsDir(userAgentsDir);
+  const profiles = composeProfiles(BUILT_IN_AGENTS, userProfiles);
+  const taskTypes = getAllTaskTypes();
+
   const subAgents = createSubAgentRuntime({
     agentConfigBase: baseAgentConfig,
     sessions: agentSessions,
     taskOutput,
+    agentProfiles: profiles,
   });
 
   agentsLog.info('wiring agent tools', {
     tempDir: path.join(os.tmpdir(), 'pipefx-agents'),
+    builtInAgents: BUILT_IN_AGENTS.length,
+    userAgents: userProfiles.length,
+    taskTypes: taskTypes.length,
   });
 
   registerAgentTools(registry, {
+    taskTypes,
+    profiles,
     sessions: agentSessions,
     subAgents,
     taskOutput,

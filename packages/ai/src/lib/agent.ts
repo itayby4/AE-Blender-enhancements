@@ -108,6 +108,10 @@ export function createAgent(config: AgentConfig): Agent {
         const allowed = new Set(options.allowedTools);
         tools = tools.filter((t) => allowed.has(t.name));
       }
+      if (options?.excludedTools && options.excludedTools.length > 0) {
+        const excluded = new Set(options.excludedTools);
+        tools = tools.filter((t) => !excluded.has(t.name));
+      }
 
       // Normalize history from frontend format to ProviderMessage[]
       const rawHistory: any[] = options?.history || [];

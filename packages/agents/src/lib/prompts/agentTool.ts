@@ -1,4 +1,6 @@
 import { TOOL_NAME_TOKENS } from '../constants.js';
+import type { TaskTypeMetadata } from '../tasks.js';
+import type { AgentProfile } from '../runtime/builtInAgents.js';
 
 /**
  * AgentTool — system-prompt teaching block.
@@ -38,9 +40,96 @@ Forbidden:
 
 Read the output (via ${TOOL_NAME_TOKENS.TASK_OUTPUT} if not inlined). Decide the next step. Do not treat the sub-agent's conclusion as final — verify against the parent goal.`;
 
-export const AGENT_TOOL_DESCRIPTION =
+const BASE_AGENT_TOOL_DESCRIPTION =
   'Delegate a scoped subtask to a fresh sub-agent. Brief must be self-contained — the sub-agent has no memory of this conversation.';
 
+/**
+ * Compose a description that includes the runtime-registered agent catalog.
+ * The model uses these to pick the right `agentName` (or `taskType` fallback).
+ *
+ * Kept deliberately compact — Gemini caps tool descriptions at 1024 chars,
+ * so we truncate the catalog bullets if they'd overflow.
+ */
+export function buildAgentToolDescription(
+  taskTypes: TaskTypeMetadata[],
+  profiles: AgentProfile[]
+): string {
+  const profileLines = profiles.map(
+    (p) => `- ${p.name} (${p.type}): ${p.whenToUse}`
+  );
+  const typeLines = taskTypes.map((t) => `- ${t.type}: ${t.whenToUse}`);
+  const catalog = [
+    profileLines.length ? 'Named agents:' : '',
+    ...profileLines,
+    typeLines.length ? 'Task types:' : '',
+    ...typeLines,
+  ]
+    .filter(Boolean)
+    .join('\n');
+
+  // Gemini tool description limit is ~1024 chars. Trim oldest bullets if
+  // needed. Base description + one trailing newline stays under the cap.
+  const head = `${BASE_AGENT_TOOL_DESCRIPTION}\n\n${catalog}`;
+  const MAX = 1000;
+  if (head.length <= MAX) return head;
+  return head.slice(0, MAX - 3) + '...';
+}
+
+export const AGENT_TOOL_DESCRIPTION = BASE_AGENT_TOOL_DESCRIPTION;
+
+/**
+ * Build the runtime input schema for AgentTool. The `taskType` enum is
+ * generated from the registered task types; `agentName` (optional) enum
+ * lists named profiles.
+ */
+export function buildAgentToolInputSchema(
+  taskTypes: TaskTypeMetadata[],
+  profiles: AgentProfile[]
+): Record<string, unknown> {
+  const typeEnum = taskTypes.map((t) => t.type);
+  const agentNameEnum = profiles.map((p) => p.name);
+  return {
+    type: 'object',
+    properties: {
+      taskType: {
+        type: 'string',
+        enum: typeEnum.length > 0 ? typeEnum : ['local_agent'],
+        description:
+          'Which kind of worker to spawn. Use local_agent for scoped research/reasoning subtasks.',
+      },
+      ...(agentNameEnum.length > 0 && {
+        agentName: {
+          type: 'string',
+          enum: agentNameEnum,
+          description:
+            'Optional named profile that sets the worker\'s system prompt and tool allowlist.',
+        },
+      }),
+      description: {
+        type: 'string',
+        description:
+          'One-line label for this subtask, shown in UI (e.g. "Scout composition layer tree").',
+      },
+      prompt: {
+        type: 'string',
+        description:
+          'Self-contained brief. Must include goal, concrete references, expected output format, constraints.',
+      },
+      allowedTools: {
+        type: 'array',
+        items: { type: 'string' },
+        description:
+          'Optional allowlist of tool names the sub-agent may call. Omit to inherit the parent tool set (or profile default).',
+      },
+    },
+    required: ['taskType', 'description', 'prompt'],
+  };
+}
+
+/**
+ * Back-compat static schema used when no task types / profiles are passed.
+ * New code should prefer `buildAgentToolInputSchema()`.
+ */
 export const AGENT_TOOL_INPUT_SCHEMA = {
   type: 'object',
   properties: {

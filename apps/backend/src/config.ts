@@ -2,7 +2,27 @@ import * as dotenv from 'dotenv';
 import * as path from 'path';
 import * as fs from 'fs';
 import { resolveVenvPython } from '@pipefx/mcp';
+import type { ToolResult } from '@pipefx/mcp';
 import { loadSystemPrompt } from './prompts/index.js';
+
+/**
+ * Extract text from an MCP tool-result content. MCP returns content as an
+ * array of blocks (text | image | ...) — we flatten the text so the AE
+ * async policy predicates can regex-match on the combined message.
+ */
+function extractText(content: unknown): string {
+  if (typeof content === 'string') return content;
+  if (Array.isArray(content)) {
+    return content
+      .filter(
+        (c): c is { type: string; text: string } =>
+          !!c && typeof c === 'object' && (c as { type?: string }).type === 'text'
+      )
+      .map((c) => c.text)
+      .join('\n');
+  }
+  return '';
+}
 
 // Resolve workspace root first so we can find the correct .env
 let currentDir = __dirname;
@@ -94,6 +114,38 @@ export let config = {
           ),
         ],
         cwd: path.join(workspaceRoot, 'apps', 'mcp-aftereffects'),
+      },
+      // The AE MCP server is fire-and-forget: most tools return
+      // "command queued, use get-results after a few seconds". The
+      // registry transparently polls get-results so the agent sees a
+      // synchronous call with the real result. This is what eliminates
+      // the 4-duplicate-composition bug by construction.
+      asyncPolicy: {
+        pollToolName: 'get-results',
+        skipTools: ['get-results', 'get-help', 'get-running-scripts'],
+        isQueued: (result: ToolResult) => {
+          const text = extractText(result.content);
+          if (!text) return false;
+          return /queued|please ensure|use the "get-results"/i.test(text);
+        },
+        // get-results returns JSON strings. These patterns all mean
+        // "nothing fresh to see yet" — keep polling. Everything else
+        // (a real ExtendScript result payload) counts as ready.
+        isReady: (result: ToolResult) => {
+          const text = extractText(result.content);
+          if (!text) return true;
+          return !/no results file found|no results available|result file appears to be stale|pending|processing|please run a script/i.test(
+            text
+          );
+        },
+        // Snapshot the result buffer before dispatching so we can tell a
+        // fresh response apart from the leftover JSON of a previous
+        // command — this is what stops the "stale-data looks like
+        // success" failure mode that created duplicate comps.
+        captureBaseline: true,
+        pollIntervalMs: 400,
+        pollDeadlineMs: 45_000,
+        idempotencyTtlMs: 15_000,
       },
     },
     blender: {

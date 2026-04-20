@@ -7,6 +7,10 @@ import type { AgentSessionStore, TodoItem } from '../sessionState.js';
 import type { SubAgentEvent, SubAgentRuntime } from '../runtime/runAgent.js';
 import type { TaskOutputStore } from '../output/store.js';
 import type { PlanApprovalBroker } from '../planApproval.js';
+import type { TaskTypeMetadata } from '../tasks.js';
+import { getAllTaskTypes } from '../tasks.js';
+import type { AgentProfile } from '../runtime/builtInAgents.js';
+import { BUILT_IN_AGENTS } from '../runtime/builtInAgents.js';
 import { registerTodoWrite } from './todoWrite.js';
 import { registerPlanModeTools } from './enterPlanMode.js';
 import { registerAgentTool } from './agent.js';
@@ -19,6 +23,17 @@ export interface RegisterAgentToolsDeps {
   broker: PlanApprovalBroker;
   /** Per-call session id resolver (usually reads from an AsyncLocalStorage or request). */
   getSessionId: () => string | undefined;
+  /**
+   * Task-type catalog to expose on AgentTool / TaskCreate.
+   * Defaults to `getAllTaskTypes()`.
+   */
+  taskTypes?: TaskTypeMetadata[];
+  /**
+   * Named agent profiles to expose on AgentTool / TaskCreate.
+   * Defaults to `BUILT_IN_AGENTS`. Pass a composed list to include user
+   * profiles loaded via `loadAgentsDir`.
+   */
+  profiles?: AgentProfile[];
   /** Optional — fire when todos update (for SSE broadcast). */
   onTodosUpdated?: (sessionId: string, todos: TodoItem[]) => void;
   /** Optional — fire when a plan is proposed (for SSE `plan_proposed`). */
@@ -43,6 +58,9 @@ export function registerAgentTools(
   registry: ConnectorRegistry,
   deps: RegisterAgentToolsDeps
 ): void {
+  const taskTypes = deps.taskTypes ?? getAllTaskTypes();
+  const profiles = deps.profiles ?? BUILT_IN_AGENTS;
+
   registerTodoWrite(registry, {
     sessions: deps.sessions,
     getSessionId: deps.getSessionId,
@@ -61,6 +79,8 @@ export function registerAgentTools(
     subAgents: deps.subAgents,
     getSessionId: deps.getSessionId,
     onSubAgentEvent: deps.onSubAgentEvent,
+    taskTypes,
+    profiles,
   });
 
   registerTaskTools(registry, {
@@ -69,5 +89,7 @@ export function registerAgentTools(
     taskOutput: deps.taskOutput,
     getSessionId: deps.getSessionId,
     onSubAgentEvent: deps.onSubAgentEvent,
+    taskTypes,
+    profiles,
   });
 }

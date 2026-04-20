@@ -9,4 +9,6 @@ export type {
   TransportConfig,
   Tool,
   ToolResult,
+  AsyncToolPolicy,
+  StructuredError,
 } from './lib/types.js';
