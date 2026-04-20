@@ -1,6 +1,19 @@
 import { ConnectorRegistry } from '@pipefx/mcp';
 import { createAgent } from '@pipefx/ai';
 import type { Agent } from '@pipefx/ai';
+import {
+  AgentSessionStore,
+  createTaskOutputStore,
+  createSubAgentRuntime,
+  createInMemoryPlanApprovalBroker,
+  registerAgentTools,
+  agentsLog,
+  type SubAgentEvent,
+  type TodoItem,
+} from '@pipefx/agents';
+import { AsyncLocalStorage } from 'node:async_hooks';
+import * as os from 'node:os';
+import * as path from 'node:path';
 import { createServer } from 'http';
 import { config, updateConfig } from './config.js';
 import { loadSettings } from './utils/settings.js';
@@ -27,6 +40,7 @@ import type { KnowledgeCategory } from './services/memory/index.js';
 // ΓöÇΓöÇ Router & Routes ΓöÇΓöÇ
 import { Router } from './router.js';
 import { registerChatRoutes } from './routes/chat.js';
+import { registerAgentRoutes } from './routes/agents.js';
 import { registerTaskRoutes } from './routes/tasks.js';
 import { registerProjectRoutes } from './routes/projects.js';
 import { registerMemoryRoutes } from './routes/memory.js';
@@ -67,9 +81,108 @@ async function main() {
     console.log(`[Memory] Startup cleanup: purged ${purged} old completed tasks`);
   }
 
-  // ΓöÇΓöÇ Register local AI tools (task management + memory) ΓöÇΓöÇ
-  registerTaskTools(registry);
+  // ── Agent session state + task output + sub-agent runtime ──
+  const sessionALS = new AsyncLocalStorage<string>();
+  const agentSessions = new AgentSessionStore();
+  const taskOutput = createTaskOutputStore({
+    rootDir: path.join(os.tmpdir(), 'pipefx-agents'),
+  });
+
+  // SSE broadcaster: chat route registers a per-session emitter here so
+  // tool handlers can push todo_updated / plan_proposed / subagent_* events
+  // into the live SSE stream.
+  type SessionSseEmit = (ev: Record<string, unknown>) => void;
+  const sseEmitters = new Map<string, SessionSseEmit>();
+  const sseBroker = {
+    set(sessionId: string, emit: SessionSseEmit) {
+      sseEmitters.set(sessionId, emit);
+      agentsLog.debug('sse-broker attach', { sessionId });
+    },
+    clear(sessionId: string) {
+      sseEmitters.delete(sessionId);
+      agentsLog.debug('sse-broker detach', { sessionId });
+    },
+    emit(sessionId: string, ev: Record<string, unknown>) {
+      const emitter = sseEmitters.get(sessionId);
+      if (emitter) {
+        agentsLog.debug('sse-broker emit', {
+          sessionId,
+          type: ev.type as string | undefined,
+        });
+        emitter(ev);
+      } else {
+        agentsLog.warn('sse-broker drop (no listener)', {
+          sessionId,
+          type: ev.type as string | undefined,
+        });
+      }
+    },
+  };
+
+  const planBroker = createInMemoryPlanApprovalBroker();
+
+  // ── Register local AI tools (OpenClaude-style agents + memory) ──
+  // `registerTaskTools` (old create_task_plan / update_task_step / finish_task)
+  // is replaced by the @pipefx/agents TodoWrite + Task* suite.
   registerMemoryTools(registry);
+
+  // Sub-agent runtime needs an AgentConfig base. Constructed after the
+  // top-level `agent` below, but we need the base here — recreate the same
+  // shape. Keeping a single source of truth via a local helper.
+  const baseAgentConfig = {
+    model: config.geminiModel,
+    apiKey: config.geminiApiKey,
+    openaiApiKey: config.openaiApiKey,
+    anthropicApiKey: config.anthropicApiKey,
+    systemPrompt: config.systemPrompt,
+    registry,
+  };
+
+  const subAgents = createSubAgentRuntime({
+    agentConfigBase: baseAgentConfig,
+    sessions: agentSessions,
+    taskOutput,
+  });
+
+  agentsLog.info('wiring agent tools', {
+    tempDir: path.join(os.tmpdir(), 'pipefx-agents'),
+  });
+
+  registerAgentTools(registry, {
+    sessions: agentSessions,
+    subAgents,
+    taskOutput,
+    broker: planBroker,
+    getSessionId: () => sessionALS.getStore(),
+    onTodosUpdated: (sessionId: string, todos: TodoItem[]) => {
+      sseBroker.emit(sessionId, { type: 'todo_updated', todos });
+    },
+    onPlanProposed: (sessionId: string, taskId: string, plan: string) => {
+      sseBroker.emit(sessionId, { type: 'plan_proposed', taskId, plan });
+    },
+    onPlanResolved: (
+      sessionId: string,
+      taskId: string,
+      approved: boolean,
+      feedback?: string
+    ) => {
+      sseBroker.emit(sessionId, {
+        type: 'plan_resolved',
+        taskId,
+        approved,
+        feedback,
+      });
+    },
+    onSubAgentEvent: (sessionId: string, ev: SubAgentEvent) => {
+      // Separate the inner event `type` from our outer SSE envelope `type`
+      // (e.g. `subagent_start`), and forward the remaining payload fields.
+      const { type: innerType, ...rest } = ev;
+      sseBroker.emit(sessionId, {
+        type: `subagent_${innerType}`,
+        ...rest,
+      });
+    },
+  });
 
   // Connect to the default app connector.
   // If Resolve isn't running, the MCP server exits and we log a clean message.
@@ -91,19 +204,24 @@ async function main() {
     workflowContext
   );
 
-  let agent: Agent = createAgent({
-    model: config.geminiModel,
-    apiKey: config.geminiApiKey,
-    openaiApiKey: config.openaiApiKey,
-    anthropicApiKey: config.anthropicApiKey,
-    systemPrompt: config.systemPrompt,
-    registry,
-  });
+  let agent: Agent = createAgent(baseAgentConfig);
 
   // ΓöÇΓöÇ Build Router ΓöÇΓöÇ
   const router = new Router();
 
-  registerChatRoutes(router, { getAgent: () => agent, registry });
+  registerChatRoutes(router, {
+    getAgent: () => agent,
+    registry,
+    sessionALS,
+    sseBroker,
+    agentSessions,
+    planBroker,
+  });
+  registerAgentRoutes(router, {
+    planBroker,
+    agentSessions,
+    taskOutput,
+  });
   registerTaskRoutes(router);
   registerProjectRoutes(router, { registry });
   registerMemoryRoutes(router);
@@ -153,73 +271,11 @@ async function main() {
   });
 }
 
-// ΓöÇΓöÇ Local Tool Registration (keeps tool definitions out of main flow) ΓöÇΓöÇ
-
-function registerTaskTools(registry: ConnectorRegistry) {
-  registry.registerLocalTool(
-    'create_task_plan',
-    'Create a checklist for a long-running complex task',
-    {
-      type: 'object',
-      properties: {
-        taskId: { type: 'string', description: 'A unique ID for the task' },
-        name: { type: 'string', description: 'Brief name of the task' },
-        steps: {
-          type: 'array',
-          items: { type: 'string' },
-          description: 'Array of step descriptions',
-        },
-      },
-      required: ['taskId', 'name', 'steps'],
-    },
-    async (args: any) => {
-      memoryTaskManager.createTask(args.taskId, args.name, args.steps);
-      return `Task ${args.taskId} created successfully.`;
-    }
-  );
-
-  registry.registerLocalTool(
-    'update_task_step',
-    'Update the status of a specific step in an active task',
-    {
-      type: 'object',
-      properties: {
-        taskId: { type: 'string' },
-        stepIndex: { type: 'number', description: '0-based index of the step' },
-        status: { type: 'string', enum: ['in-progress', 'done', 'error'] },
-      },
-      required: ['taskId', 'stepIndex', 'status'],
-    },
-    async (args: any) => {
-      const task = memoryTaskManager.updateTaskStep(
-        args.taskId,
-        args.stepIndex,
-        args.status as any
-      );
-      return task ? `Step updated` : `Task not found`;
-    }
-  );
-
-  registry.registerLocalTool(
-    'finish_task',
-    'Mark the entire task as done or error',
-    {
-      type: 'object',
-      properties: {
-        taskId: { type: 'string' },
-        status: { type: 'string', enum: ['done', 'error'] },
-      },
-      required: ['taskId', 'status'],
-    },
-    async (args: any) => {
-      const task = memoryTaskManager.finishTask(
-        args.taskId,
-        args.status as any
-      );
-      return task ? `Task finished` : `Task not found`;
-    }
-  );
-}
+// ── Local Tool Registration ──
+// NOTE: `registerTaskTools` (create_task_plan / update_task_step / finish_task)
+// was replaced by the OpenClaude-style TodoWrite + Task* suite provided by
+// `@pipefx/agents` and wired above via `registerAgentTools`.
+// `memoryTaskManager` is retained for UI progress-bar integration only.
 
 function registerMemoryTools(registry: ConnectorRegistry) {
   registry.registerLocalTool(

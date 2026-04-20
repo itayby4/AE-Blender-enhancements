@@ -32,12 +32,14 @@ import { cn } from '../../lib/utils.js';
 import { parseMessageContent, ChatCard } from '../skills/ChatCard.js';
 import { SkillBuilderCard } from '../skills/SkillBuilderCard.js';
 import { SkillAutocomplete } from '../skills/SkillAutocomplete.js';
-import type { ChatMessage } from '../../hooks/useChat.js';
+import type { ChatMessage, TodoItem, SubAgentInfo } from '../../hooks/useChat.js';
 import type { TaskDTO } from '@pipefx/tasks';
 import type { Skill } from '../../lib/load-skills.js';
 import { loadSkills } from '../../lib/load-skills.js';
 import { ChatHeroState } from './ChatHeroState.js';
 import { TerminalSpinner } from '../../components/ui/TerminalSpinner.js';
+import { TodoListPanel } from '../../components/TodoListPanel.js';
+import { SubAgentActivity } from '../../components/SubAgentActivity.js';
 
 interface ChatPanelProps {
   messages: ChatMessage[];
@@ -65,6 +67,9 @@ interface ChatPanelProps {
   onDeleteSession: (sessionId: string) => void;
   onNewSession: () => void;
   activeSessionId: string | null;
+  // Agent-system surface (from useChat)
+  todos?: TodoItem[];
+  subAgents?: SubAgentInfo[];
 }
 
 /**
@@ -97,6 +102,8 @@ export function ChatPanel({
   onDeleteSession,
   onNewSession,
   activeSessionId,
+  todos,
+  subAgents,
 }: ChatPanelProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
@@ -451,6 +458,18 @@ export function ChatPanel({
           {isTyping && currentTaskId && taskMap.get(currentTaskId) && (
             <div className="ml-6 mt-1">
               <ChainOfThoughtBlock task={taskMap.get(currentTaskId)!} isLive />
+            </div>
+          )}
+
+          {/* ── Agent-system panels (Todo list + live sub-agents) ── */}
+          {todos && todos.length > 0 && (
+            <div className="ml-6 mt-2">
+              <TodoListPanel todos={todos} />
+            </div>
+          )}
+          {subAgents && subAgents.length > 0 && (
+            <div className="ml-6 mt-2">
+              <SubAgentActivity subAgents={subAgents} />
             </div>
           )}
 

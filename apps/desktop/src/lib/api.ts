@@ -155,3 +155,37 @@ export function updateSettings(settings: any): Promise<void> {
     body: JSON.stringify(settings),
   });
 }
+
+// ── Agents (Todo / PlanMode / Sub-agents) ──
+
+export function submitPlanResponse(payload: {
+  sessionId: string;
+  taskId: string;
+  approved: boolean;
+  feedback?: string;
+}): Promise<{ ok: true }> {
+  return request('/agents/plan-response', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+}
+
+export function fetchTaskOutput(
+  sessionId: string,
+  taskId: string,
+  tailBytes?: number
+): Promise<{ taskId: string; sessionId: string; content: string }> {
+  const qs = new URLSearchParams({ sessionId });
+  if (tailBytes) qs.set('tail', String(tailBytes));
+  return request(
+    `/agents/tasks/${encodeURIComponent(taskId)}/output?${qs.toString()}`
+  );
+}
+
+export function fetchSessionTodos(sessionId: string): Promise<{
+  sessionId: string;
+  todos: Array<{ content: string; activeForm: string; status: string }>;
+  planMode: { active: boolean; plan?: string; approved?: boolean };
+}> {
+  return request(`/agents/sessions/${encodeURIComponent(sessionId)}/todos`);
+}

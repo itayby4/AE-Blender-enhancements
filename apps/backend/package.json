@@ -107,6 +107,7 @@
   },
   "dependencies": {
     "@google/genai": "^1.46.0",
+    "@pipefx/agents": "workspace:*",
     "@pipefx/ai": "workspace:*",
     "@pipefx/mcp": "workspace:*",
     "@pipefx/providers": "workspace:*",

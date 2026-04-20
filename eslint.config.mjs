@@ -67,6 +67,17 @@ export default [
               ],
             },
             {
+              sourceTag: 'scope:agents',
+              onlyDependOnLibsWithTags: [
+                'scope:shared',
+                'scope:async',
+                'scope:mcp',
+                'scope:ai',
+                'scope:providers',
+                'scope:agents',
+              ],
+            },
+            {
               sourceTag: 'scope:backend',
               onlyDependOnLibsWithTags: [
                 'scope:shared',
@@ -74,6 +85,7 @@ export default [
                 'scope:ai',
                 'scope:providers',
                 'scope:tasks',
+                'scope:agents',
               ],
             },
           ],

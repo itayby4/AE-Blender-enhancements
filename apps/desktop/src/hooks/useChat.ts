@@ -11,6 +11,37 @@ export interface ChatMessage {
   taskId?: string;
 }
 
+// ── Agent-system types (mirrors @pipefx/agents) ──
+
+export type TodoStatus = 'pending' | 'in_progress' | 'completed';
+
+export interface TodoItem {
+  content: string;
+  activeForm: string;
+  status: TodoStatus;
+}
+
+export type SubAgentStatus = 'running' | 'done' | 'error';
+
+export interface SubAgentInfo {
+  taskId: string;
+  description: string;
+  status: SubAgentStatus;
+  /** Last streamed chunk preview (trimmed). */
+  lastChunk?: string;
+  /** Last tool the worker called. */
+  lastTool?: string;
+  error?: string;
+  /** Aggregated chunk count for the live preview. */
+  chunkCount: number;
+}
+
+export interface PendingPlan {
+  sessionId: string;
+  taskId: string;
+  plan: string;
+}
+
 const INITIAL_CHAT: ChatMessage[] = [];
 const API_BASE = 'http://localhost:3001';
 
@@ -38,6 +69,24 @@ export function useChat(deps: {
   const [isAiTyping, setIsAiTyping] = useState(false);
   const [currentChatTaskId, setCurrentChatTaskId] = useState<string | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
+
+  // ── Agent-system state (populated from SSE events) ──
+  const [todos, setTodos] = useState<TodoItem[]>([]);
+  const [pendingPlan, setPendingPlan] = useState<PendingPlan | null>(null);
+  const [subAgents, setSubAgents] = useState<SubAgentInfo[]>([]);
+
+  const clearAgentState = useCallback(() => {
+    setTodos([]);
+    setPendingPlan(null);
+    setSubAgents([]);
+  }, []);
+
+  const resolvePendingPlan = useCallback(() => {
+    // Called by the UI after POST /agents/plan-response returns.
+    // The `plan_resolved` SSE event will also clear it, but optimistic close
+    // keeps the modal snappy.
+    setPendingPlan(null);
+  }, []);
 
   const sendMessageToAi = useCallback(
     async (text: string, overrideSkill?: Skill) => {
@@ -192,6 +241,100 @@ export function useChat(deps: {
                   // Context compaction occurred — log it
                   console.log(`[Compaction] Removed ${event.removedCount} older messages`);
                   break;
+
+                // ── Agent-system events (TodoWrite / Plan mode / Sub-agents) ──
+
+                case 'todo_updated':
+                  if (Array.isArray(event.todos)) {
+                    setTodos(event.todos as TodoItem[]);
+                    console.log('[Agents] todo_updated', event.todos);
+                  }
+                  break;
+
+                case 'plan_proposed':
+                  if (event.taskId && event.plan && deps.sessionId) {
+                    setPendingPlan({
+                      sessionId: deps.sessionId,
+                      taskId: event.taskId,
+                      plan: event.plan,
+                    });
+                    console.log('[Agents] plan_proposed', event.taskId);
+                  }
+                  break;
+
+                case 'plan_resolved':
+                  console.log('[Agents] plan_resolved', {
+                    taskId: event.taskId,
+                    approved: event.approved,
+                  });
+                  setPendingPlan((prev) =>
+                    prev && prev.taskId === event.taskId ? null : prev
+                  );
+                  break;
+
+                case 'subagent_start':
+                  console.log('[Agents] subagent_start', event.taskId, event.description);
+                  setSubAgents((prev) => {
+                    if (prev.some((w) => w.taskId === event.taskId)) return prev;
+                    return [
+                      ...prev,
+                      {
+                        taskId: event.taskId,
+                        description: event.description || '(no description)',
+                        status: 'running',
+                        chunkCount: 0,
+                      },
+                    ];
+                  });
+                  break;
+
+                case 'subagent_chunk':
+                  setSubAgents((prev) =>
+                    prev.map((w) =>
+                      w.taskId === event.taskId
+                        ? {
+                            ...w,
+                            lastChunk: (event.text || '').slice(-120),
+                            chunkCount: w.chunkCount + 1,
+                          }
+                        : w
+                    )
+                  );
+                  break;
+
+                case 'subagent_tool_start':
+                  setSubAgents((prev) =>
+                    prev.map((w) =>
+                      w.taskId === event.taskId
+                        ? { ...w, lastTool: event.name }
+                        : w
+                    )
+                  );
+                  break;
+
+                case 'subagent_tool_done':
+                  // no-op — tool_start already surfaced the name
+                  break;
+
+                case 'subagent_done':
+                  console.log('[Agents] subagent_done', event.taskId);
+                  setSubAgents((prev) =>
+                    prev.map((w) =>
+                      w.taskId === event.taskId ? { ...w, status: 'done' } : w
+                    )
+                  );
+                  break;
+
+                case 'subagent_error':
+                  console.warn('[Agents] subagent_error', event.taskId, event.message);
+                  setSubAgents((prev) =>
+                    prev.map((w) =>
+                      w.taskId === event.taskId
+                        ? { ...w, status: 'error', error: event.message }
+                        : w
+                    )
+                  );
+                  break;
               }
             } catch (_e) {
               // Ignore malformed SSE lines
@@ -246,7 +389,8 @@ export function useChat(deps: {
   const clearChat = useCallback(() => {
     setChatMessages(INITIAL_CHAT);
     setCurrentChatTaskId(null);
-  }, []);
+    clearAgentState();
+  }, [clearAgentState]);
 
   return {
     chatMessages,
@@ -256,5 +400,10 @@ export function useChat(deps: {
     sendMessageToAi,
     stopGeneration,
     clearChat,
+    // Agent-system surface
+    todos,
+    pendingPlan,
+    subAgents,
+    resolvePendingPlan,
   };
 }

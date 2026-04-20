@@ -101,6 +101,9 @@ importers:
       '@google/genai':
         specifier: ^1.46.0
         version: 1.46.0(@modelcontextprotocol/sdk@1.29.0(zod@3.25.76))
+      '@pipefx/agents':
+        specifier: workspace:*
+        version: link:../../packages/agents
       '@pipefx/ai':
         specifier: workspace:*
         version: link:../../packages/ai
@@ -275,6 +278,18 @@ importers:
       typescript:
         specifier: ^5.2.2
         version: 5.9.3
+
+  packages/agents:
+    dependencies:
+      '@pipefx/ai':
+        specifier: workspace:*
+        version: link:../ai
+      '@pipefx/mcp':
+        specifier: workspace:*
+        version: link:../mcp
+      tslib:
+        specifier: ^2.3.0
+        version: 2.8.1
 
   packages/ai:
     dependencies:

@@ -48,6 +48,7 @@ import { SkillPlannerPage } from '../features/skills/SkillPlannerPage.js';
 import { SkillIframeRenderer } from '../features/skills/SkillIframeRenderer.js';
 import { SKILL_UI_REGISTRY } from '../features/skills/skill-registry.js';
 import { TaskManagerWidget } from '../features/skills/TaskManagerWidget.js';
+import { PlanApprovalModal } from '../components/PlanApprovalModal.js';
 import { SettingsPage } from '../features/settings/SettingsPage.js';
 import { applyPalette } from '../lib/palette-runtime.js';
 import { applyCornerMode, loadCornerMode, type CornerMode } from '../lib/corners-runtime.js';
@@ -374,6 +375,9 @@ export function App() {
       chatHistory.newSession();
       chat.clearChat();
     },
+    // Agent-system surface
+    todos: chat.todos,
+    subAgents: chat.subAgents,
   };
 
   // ── Auth Gate ──
@@ -397,6 +401,12 @@ export function App() {
           tasks={activeTasks.filter((t) => !t.id.startsWith('chat-'))}
           isMinimized={isTaskWidgetMinimized}
           onMinimize={() => setIsTaskWidgetMinimized(true)}
+        />
+
+        {/* ── Plan Approval Modal (blocking; on plan_proposed SSE) ── */}
+        <PlanApprovalModal
+          pendingPlan={chat.pendingPlan}
+          onResolved={chat.resolvePendingPlan}
         />
 
         {/* ── Command Palette ── */}
