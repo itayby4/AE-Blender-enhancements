@@ -1,0 +1,628 @@
+import { useState, useMemo, useRef, useEffect, useCallback, type ChangeEvent, type KeyboardEvent } from 'react';
+import {
+  Send,
+  User,
+  Bot,
+  Square,
+  CheckCircle2,
+  XCircle,
+  Circle,
+  ChevronDown,
+  ChevronRight,
+  History,
+  PlusCircle,
+  Trash2,
+  Brain,
+  Copy,
+  ThumbsUp,
+  ThumbsDown,
+  Clock,
+} from 'lucide-react';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '../../components/ui/popover.js';
+import { Separator } from '../../components/ui/separator.js';
+import type { ChatSession } from '../../hooks/useChatHistory.js';
+import { Button } from '../../components/ui/button.js';
+import { ScrollArea } from '../../components/ui/scroll-area.js';
+import { Textarea } from '../../components/ui/textarea.js';
+import { cn } from '../../lib/utils.js';
+import { parseMessageContent, ChatCard } from '../skills/ChatCard.js';
+import { SkillBuilderCard } from '../skills/SkillBuilderCard.js';
+import { SkillAutocomplete } from '../skills/SkillAutocomplete.js';
+import type { ChatMessage, TodoItem, SubAgentInfo } from '../../hooks/useChat.js';
+import type { TaskDTO } from '@pipefx/tasks';
+import type { Skill } from '../../lib/load-skills.js';
+import { loadSkills } from '../../lib/load-skills.js';
+import { ChatHeroState } from './ChatHeroState.js';
+import { TerminalSpinner } from '../../components/ui/TerminalSpinner.js';
+import { TodoListPanel } from '../../components/TodoListPanel.js';
+import { SubAgentActivity } from '../../components/SubAgentActivity.js';
+
+interface ChatPanelProps {
+  messages: ChatMessage[];
+  isTyping: boolean;
+  currentTaskId: string | null;
+  taskMap: Map<string, TaskDTO>;
+  activeTasks: TaskDTO[];
+  selectedLlmModel: string;
+  selectedSkillId: string;
+  skills: Skill[];
+  activeApp: string;
+  chatInput: string;
+  onChatInputChange: (value: string) => void;
+  onSendMessage: (text: string, overrideSkill?: Skill) => void;
+  onStopGeneration: () => void;
+  onClearChat: () => void;
+  onSelectSkill: (skillId: string) => void;
+  onSelectModel: (model: string) => void;
+  onNavigate: (view: string) => void;
+  onSkillsReloaded: (skills: Skill[]) => void;
+  onPlanNavigate: (content: string) => void;
+  // History
+  chatSessions: ChatSession[];
+  onLoadSession: (sessionId: string) => void;
+  onDeleteSession: (sessionId: string) => void;
+  onNewSession: () => void;
+  activeSessionId: string | null;
+  // Agent-system surface (from useChat)
+  todos?: TodoItem[];
+  subAgents?: SubAgentInfo[];
+}
+
+/**
+ * ChatPanel — The hero panel of the Command Center.
+ * Contains the message list, Chain of Thought blocks, and input area.
+ * Designed as the primary workspace following the Bento layout.
+ */
+export function ChatPanel({
+  messages,
+  isTyping,
+  currentTaskId,
+  taskMap,
+  activeTasks,
+  selectedLlmModel,
+  selectedSkillId,
+  skills,
+  activeApp,
+  chatInput,
+  onChatInputChange,
+  onSendMessage,
+  onStopGeneration,
+  onClearChat,
+  onSelectSkill,
+  onSelectModel,
+  onNavigate,
+  onSkillsReloaded,
+  onPlanNavigate,
+  chatSessions,
+  onLoadSession,
+  onDeleteSession,
+  onNewSession,
+  activeSessionId,
+  todos,
+  subAgents,
+}: ChatPanelProps) {
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const [isHistoryOpen, setIsHistoryOpen] = useState(false);
+  const [isAutocompleteOpen, setIsAutocompleteOpen] = useState(false);
+  const [autocompleteQuery, setAutocompleteQuery] = useState('');
+  const [expandedThoughts, setExpandedThoughts] = useState<Set<string>>(new Set());
+
+  // Auto-scroll on new messages
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages, isTyping]);
+
+  const filteredSkills = useMemo(
+    () => skills.filter((s) => !s.compatibleApps || s.compatibleApps.length === 0 || s.compatibleApps.includes(activeApp)),
+    [skills, activeApp]
+  );
+
+  const toggleThought = (taskId: string) => {
+    setExpandedThoughts((prev) => {
+      const next = new Set(prev);
+      if (next.has(taskId)) next.delete(taskId);
+      else next.add(taskId);
+      return next;
+    });
+  };
+
+  const handleInputChange = (e: ChangeEvent<HTMLTextAreaElement>) => {
+    const val = e.target.value;
+    onChatInputChange(val);
+
+    if (val.startsWith('/') && val.indexOf(' ') === -1) {
+      setIsAutocompleteOpen(true);
+      setAutocompleteQuery(val.substring(1));
+    } else {
+      setIsAutocompleteOpen(false);
+    }
+
+    if (selectedSkillId !== 'default' && !val.startsWith('/')) {
+      onSelectSkill('default');
+    }
+  };
+
+  const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
+    if (isAutocompleteOpen) {
+      if (['ArrowUp', 'ArrowDown', 'Enter', 'Escape'].includes(e.key)) {
+        e.preventDefault();
+        return;
+      }
+    }
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSend();
+    }
+  };
+
+  const handleSend = () => {
+    if (!chatInput.trim() || isTyping) return;
+    let text = chatInput;
+    const match = text.match(/^\/([^\s]+)\s*/);
+    if (match) text = text.substring(match[0].length).trim();
+    if (!text) return;
+    onChatInputChange('');
+    onSendMessage(text);
+  };
+
+  // Copy message text to clipboard
+  const handleCopy = useCallback((text: string) => {
+    navigator.clipboard.writeText(text);
+  }, []);
+
+  // Whether to show the cinematic hero state
+  const showHero = messages.length === 0 && !isTyping;
+
+  return (
+    <div className="@container flex flex-col h-full bg-card rounded-xl border overflow-hidden">
+      {/* Header */}
+      <div className="flex items-center justify-between gap-2 px-3 @[360px]:px-4 py-3 border-b bg-card shrink-0 min-w-0">
+        <h2 className="text-sm font-semibold text-foreground tracking-tight truncate">AI Chat</h2>
+        <div className="flex items-center gap-2 shrink-0">
+          {/* Model select — hidden when chat panel is narrow */}
+          <select
+            className="hidden @[380px]:block bg-muted text-xs border border-border/50 rounded-lg px-2.5 py-1.5 focus:ring-1 focus:ring-primary/50 outline-none text-muted-foreground font-medium max-w-[160px] truncate"
+            value={selectedLlmModel}
+            onChange={(e) => onSelectModel(e.target.value)}
+          >
+            <option value="gemini-3.1-pro-preview">Gemini 3.1 Pro</option>
+            <option value="gemini-2.5-flash">Gemini 2.5 Flash</option>
+            <option value="gpt-5.4">GPT-5.4</option>
+            <option value="claude-sonnet-4.6">Claude Sonnet 4.6</option>
+          </select>
+          {/* History popover — replaces the trash bin */}
+          <Popover open={isHistoryOpen} onOpenChange={setIsHistoryOpen}>
+            <PopoverTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 text-muted-foreground hover:text-foreground relative"
+                title="Chat History"
+              >
+                <History className="h-3.5 w-3.5" />
+                {chatSessions.length > 0 && (
+                  <span className="absolute top-1.5 right-1.5 h-1.5 w-1.5 rounded-full bg-primary" />
+                )}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent align="end" className="w-72 p-0 overflow-hidden" sideOffset={6}>
+              {/* Popover header */}
+              <div className="flex items-center justify-between px-3 py-2.5 border-b">
+                <span className="text-xs font-semibold text-foreground tracking-tight">Chat History</span>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 px-2 text-xs gap-1.5 text-primary hover:text-primary hover:bg-primary/10"
+                  onClick={() => {
+                    onNewSession();
+                    onClearChat();
+                    setIsHistoryOpen(false);
+                  }}
+                >
+                  <PlusCircle className="h-3 w-3" />
+                  New Chat
+                </Button>
+              </div>
+
+              {/* Session list */}
+              <ScrollArea className="max-h-72">
+                {chatSessions.length === 0 ? (
+                  <div className="flex flex-col items-center gap-2 py-8 px-4 text-center">
+                    <Clock className="h-7 w-7 text-muted-foreground/40" />
+                    <p className="text-xs text-muted-foreground">No previous chats yet.</p>
+                    <p className="text-[11px] text-muted-foreground/60">Conversations are saved automatically.</p>
+                  </div>
+                ) : (
+                  <div className="py-1">
+                    {chatSessions.map((session) => (
+                      <div
+                        key={session.id}
+                        className={cn(
+                          'flex items-center gap-2 px-3 py-2.5 group cursor-pointer hover:bg-muted/50 transition-colors',
+                          session.id === activeSessionId && 'bg-primary/8 border-l-2 border-primary pl-2.5'
+                        )}
+                        onClick={() => {
+                          onLoadSession(session.id);
+                          setIsHistoryOpen(false);
+                        }}
+                      >
+                        <div className="flex-1 min-w-0">
+                          <p className="text-[13px] font-medium text-foreground truncate leading-snug">
+                            {session.title}
+                          </p>
+                          <p className="text-[11px] text-muted-foreground mt-0.5">
+                            {new Date(session.updatedAt).toLocaleDateString(undefined, {
+                              month: 'short', day: 'numeric',
+                              hour: '2-digit', minute: '2-digit',
+                            })}
+                            {' · '}{session.messages.length} msgs
+                          </p>
+                        </div>
+                        <button
+                          className="shrink-0 p-1 rounded-md text-muted-foreground/30 hover:text-destructive hover:bg-destructive/10 opacity-0 group-hover:opacity-100 transition-all"
+                          title="Delete session"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onDeleteSession(session.id);
+                          }}
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </ScrollArea>
+            </PopoverContent>
+          </Popover>
+        </div>
+      </div>
+
+      {/* Hero state — cinematic first impression */}
+      {showHero && (
+        <ChatHeroState
+          onAction={(prompt) => {
+            onChatInputChange(prompt);
+            onSendMessage(prompt);
+          }}
+        />
+      )}
+
+      {/* Messages — regular chat interface */}
+      {!showHero && (
+      <ScrollArea className="flex-1 min-h-0 relative">
+        <div className="flex flex-col gap-1 p-5 pb-4 chat-content-width mx-auto">
+          {messages.map((msg, msgIdx) => {
+            // Group consecutive user messages; show separator between user/ai
+            const prevMsg = msgIdx > 0 ? messages[msgIdx - 1] : null;
+            const showSenderSwitch = prevMsg && prevMsg.sender !== msg.sender;
+
+            return (
+            <div key={msg.id} className="flex flex-col">
+              {/* Visual separator when switching between user/ai */}
+              {showSenderSwitch && <div className="h-3" />}
+
+              {msg.sender === 'user' ? (
+                /* ── User Message ── Clean right-aligned chat bubble */
+                <div className="flex justify-end mt-1 first:mt-0 group">
+                  <div
+                    className={cn(
+                      'max-w-[85%] rounded-2xl rounded-br-md px-4 py-2.5',
+                      'bg-primary/10 text-foreground',
+                      'text-[14px] leading-relaxed',
+                      'select-text cursor-text whitespace-pre-wrap break-words'
+                    )}
+                  >
+                    {msg.text}
+                  </div>
+                </div>
+              ) : (
+                /* ── AI Response ── Avatar + clean content */
+                <div className="flex gap-3 group mt-1">
+                  {/* Avatar */}
+                  <div className="h-7 w-7 rounded-lg flex items-center justify-center shrink-0 mt-0.5 bg-primary/10 border border-primary/25 text-primary">
+                    <span className="text-[11px] font-bold leading-none select-none">◈</span>
+                  </div>
+                  {/* Content */}
+                  <div className="flex-1 min-w-0 pt-0.5 pb-1">
+                    <div className="text-[14px] text-foreground/90 leading-relaxed select-text cursor-text">
+                    {/* Loading spinner while waiting for first chunk */}
+                    {!msg.text.trim() && isTyping ? (
+                      <div className="flex items-center gap-2 py-0.5 text-primary/80">
+                        <TerminalSpinner bare className="text-[14px]" />
+                        <span className="text-[12px] text-muted-foreground">thinking...</span>
+                      </div>
+                    ) : (
+                    <div className="space-y-2.5">
+                      {parseMessageContent(msg.text).map((part, i) => {
+                        if (typeof part === 'string') {
+                          if (!part.trim()) return null;
+                          return (
+                            <div key={i} style={{ whiteSpace: 'pre-wrap' }}>
+                              {part}
+                            </div>
+                          );
+                        }
+                        if (part.type === 'card') {
+                          return (
+                            <ChatCard
+                              key={i}
+                              card={part}
+                              onAction={(actionName, params) => {
+                                onChatInputChange(
+                                  `[Action executed: ${actionName} with params ${JSON.stringify(params)}]\n\nPlease process this action and return the result.`
+                                );
+                              }}
+                            />
+                          );
+                        }
+                        if (part.type === 'skill') {
+                          return (
+                            <SkillBuilderCard
+                              key={i}
+                              content={part.content}
+                              onSkillSaved={() => {
+                                loadSkills().then(onSkillsReloaded);
+                              }}
+                            />
+                          );
+                        }
+                        if (part.type === 'plan') {
+                          return (
+                            <div key={i} className="mt-2">
+                              <Button
+                                variant="secondary"
+                                size="sm"
+                                onClick={() => onPlanNavigate((part as any).content)}
+                                className="w-full justify-start gap-2 bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20"
+                              >
+                                View Implementation Plan
+                              </Button>
+                            </div>
+                          );
+                        }
+                        return null;
+                      })}
+                    </div>
+                    )}
+                    </div>
+
+                    {/* Inline feedback actions — only show after message is complete */}
+                    {msg.text.trim() && !isTyping && (
+                    <div className="msg-actions flex items-center gap-0.5 mt-1.5 -ml-1">
+                      <button
+                        onClick={() => handleCopy(msg.text)}
+                        className="p-1.5 rounded-md text-muted-foreground/50 hover:text-foreground hover:bg-muted/60 transition-colors"
+                        title="Copy message"
+                      >
+                        <Copy className="w-3 h-3" />
+                      </button>
+                      <button
+                        className="p-1.5 rounded-md text-muted-foreground/50 hover:text-success hover:bg-success/10 transition-colors"
+                        title="Good response"
+                      >
+                        <ThumbsUp className="w-3 h-3" />
+                      </button>
+                      <button
+                        className="p-1.5 rounded-md text-muted-foreground/50 hover:text-destructive hover:bg-destructive/10 transition-colors"
+                        title="Bad response"
+                      >
+                        <ThumbsDown className="w-3 h-3" />
+                      </button>
+                    </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Chain of Thought block — Warp-style */}
+              {msg.sender === 'ai' && msg.taskId && taskMap.get(msg.taskId) && (() => {
+                const task = taskMap.get(msg.taskId!)!;
+                if (task.steps.length === 0) return null;
+                const isExpanded = expandedThoughts.has(msg.taskId!);
+                return (
+                  <div className="ml-10 mt-1">
+                    <button
+                      onClick={() => toggleThought(msg.taskId!)}
+                      className="flex items-center gap-2 text-xs text-muted-foreground hover:text-foreground transition-colors mb-1"
+                    >
+                      {isExpanded ? (
+                        <ChevronDown className="w-3.5 h-3.5" />
+                      ) : (
+                        <ChevronRight className="w-3.5 h-3.5" />
+                      )}
+                      <span className="font-medium">
+                        {task.steps.length} step{task.steps.length !== 1 ? 's' : ''}
+                      </span>
+                      {!isExpanded && (
+                        <span className="text-muted-foreground/70">
+                          — {task.steps[task.steps.length - 1]?.description}
+                        </span>
+                      )}
+                    </button>
+                    {isExpanded && (
+                      <ChainOfThoughtBlock task={task} />
+                    )}
+                  </div>
+                );
+              })()}
+            </div>
+          );
+          })}
+
+          {/* Live Chain of Thought while typing */}
+          {isTyping && currentTaskId && taskMap.get(currentTaskId) && (
+            <div className="ml-6 mt-1">
+              <ChainOfThoughtBlock task={taskMap.get(currentTaskId)!} isLive />
+            </div>
+          )}
+
+          {/* ── Agent-system panels (Todo list + live sub-agents) ── */}
+          {todos && todos.length > 0 && (
+            <div className="ml-6 mt-2">
+              <TodoListPanel todos={todos} />
+            </div>
+          )}
+          {subAgents && subAgents.length > 0 && (
+            <div className="ml-6 mt-2">
+              <SubAgentActivity subAgents={subAgents} />
+            </div>
+          )}
+
+          <div ref={messagesEndRef} />
+        </div>
+      </ScrollArea>
+      )}
+
+      {/* Input Area — elevated glass effect */}
+      <div className="px-3 py-3 @[360px]:p-4 border-t border-border/50 shrink-0" style={{ background: 'linear-gradient(to top, var(--card), transparent)' }}>
+        <div className="relative chat-content-width mx-auto">
+          {isAutocompleteOpen && (
+            <SkillAutocomplete
+              skills={filteredSkills}
+              query={autocompleteQuery}
+              onSelect={(skill) => {
+                setIsAutocompleteOpen(false);
+                onSelectSkill(skill.id);
+                if (skill.hasUI) {
+                  onChatInputChange('');
+                  onNavigate(skill.id);
+                } else {
+                  onChatInputChange(`/${skill.triggerCommand || skill.id} `);
+                }
+              }}
+              onDismiss={() => {
+                setIsAutocompleteOpen(false);
+                onChatInputChange('');
+              }}
+            />
+          )}
+          <div className="relative flex items-end">
+            <Textarea
+              id="chat-input"
+              value={chatInput}
+              onChange={handleInputChange}
+              onKeyDown={handleKeyDown}
+              placeholder="Ask AI or type / to search skills..."
+              className={cn(
+                'pr-14 min-h-[46px] max-h-[150px] resize-none overflow-y-auto py-3 pl-4 flex-1 rounded-xl text-[14px] transition-colors',
+                selectedSkillId !== 'default'
+                  ? 'border-primary/50 bg-primary/5 focus-visible:ring-primary/30'
+                  : 'bg-muted/25 border-border/50 focus-visible:ring-primary/50'
+              )}
+              disabled={isTyping}
+            />
+            {isTyping ? (
+              <Button
+                onClick={onStopGeneration}
+                size="icon"
+                variant="destructive"
+                className="absolute right-2 bottom-2 h-8 w-8 rounded-lg"
+                title="Stop Generation"
+              >
+                <Square className="h-3.5 w-3.5 fill-current" />
+              </Button>
+            ) : (
+              <Button
+                onClick={handleSend}
+                size="icon"
+                variant="ghost"
+                className="absolute right-2 bottom-2 h-8 w-8 text-primary hover:bg-primary/10 rounded-lg"
+                title="Send message (Enter)"
+                disabled={isTyping}
+              >
+                <Send className="h-4 w-4" />
+              </Button>
+            )}
+          </div>
+          <div className="hidden @[320px]:block text-center mt-2 text-[11px] text-muted-foreground font-mono">
+            <span className="text-muted-foreground/60">#</span>{' '}
+            <kbd className="px-1.5 py-0.5 rounded-md bg-muted border text-[10px] font-mono font-semibold">
+              /
+            </kbd>{' '}
+            search skills · <kbd className="px-1.5 py-0.5 rounded-md bg-muted border text-[10px] font-mono font-semibold">Enter</kbd> send
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════
+// Chain of Thought Block — Warp Terminal Style
+// ═══════════════════════════════════════════
+
+function ChainOfThoughtBlock({ task, isLive }: { task: TaskDTO; isLive?: boolean }) {
+  return (
+    <div
+      className={cn(
+        'rounded-xl border overflow-hidden',
+        isLive ? 'border-primary/30 glow-accent-sm' : 'border-border/40'
+      )}
+    >
+      {/* Steps */}
+      <div className="divide-y divide-border/20">
+        {task.steps.map((step, idx) => {
+          const isActive = step.status === 'in-progress';
+          return (
+            <div
+              key={idx}
+              className={cn(
+                'flex items-start gap-3 px-4 py-2.5 text-xs transition-colors',
+                isActive ? 'bg-primary/5' : 'bg-muted/20'
+              )}
+            >
+              {/* Status icon */}
+              <div className="w-4 h-4 flex items-center justify-center shrink-0 mt-0.5">
+                {step.status === 'done' ? (
+                  <CheckCircle2 className="w-4 h-4 text-success" />
+                ) : step.status === 'in-progress' ? (
+                  <TerminalSpinner bare className="w-4 h-4 text-primary text-[13px] justify-center" />
+                ) : step.status === 'error' || step.status === 'cancelled' ? (
+                  <XCircle className="w-4 h-4 text-destructive" />
+                ) : (
+                  <Circle className="w-4 h-4 text-muted-foreground/40" />
+                )}
+              </div>
+              {/* Description */}
+              <span
+                className={cn(
+                  'leading-relaxed font-medium',
+                  isActive ? 'text-foreground' : 'text-muted-foreground'
+                )}
+              >
+                {step.description}
+              </span>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Thoughts (reasoning) */}
+      {task.thoughts.length > 0 && (
+        <div className="border-t border-border/20 px-4 py-3 bg-muted/10">
+          <div className="flex items-center gap-1.5 mb-2">
+            <Brain className="w-3 h-3 text-primary" />
+            <span className="text-[10px] font-semibold uppercase tracking-wider text-primary">
+              Reasoning
+            </span>
+          </div>
+          <div className="space-y-1">
+            {task.thoughts.map((thought, idx) => (
+              <p
+                key={idx}
+                className="text-[12px] text-muted-foreground leading-relaxed pl-3 border-l-2 border-primary/20 font-mono"
+              >
+                {thought}
+              </p>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}

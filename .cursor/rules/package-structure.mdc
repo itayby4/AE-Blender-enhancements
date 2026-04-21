@@ -1,0 +1,59 @@
+---
+description: Enforce TypeScript package structure and conventions for all packages
+globs:
+  - packages/**/*.{ts,json}
+---
+
+# TypeScript Package Rules
+
+## Directory Structure
+
+Every package in `packages/` MUST follow this exact layout:
+
+```
+packages/<name>/
+  src/
+    index.ts              <- barrel file, re-exports all public API
+    lib/
+      types.ts            <- interfaces and type aliases
+      <feature>.ts        <- implementation
+  package.json            <- must have scope tag, @pipefx/source export condition
+  tsconfig.json           <- references tsconfig.lib.json + tsconfig.spec.json
+  tsconfig.lib.json       <- build config
+  tsconfig.spec.json      <- test config
+  vite.config.ts          <- vitest runner
+```
+
+## Import Rules
+
+- ALWAYS use `.js` extensions in relative imports: `import { foo } from './lib/bar.js'`
+- NEVER use extensionless imports: `import { foo } from './lib/bar'` -- this will fail at runtime with ESM.
+- Import workspace packages by name: `import { ConnectorRegistry } from '@pipefx/mcp'`
+- NEVER use relative paths to reach into other packages (e.g., `../../packages/mcp/src/...`).
+- Use `import type { ... }` for type-only imports to avoid runtime overhead.
+
+## Exports
+
+- The `src/index.ts` barrel file is the ONLY public API surface. Everything else is internal.
+- Re-export types with `export type { ... }` in the barrel.
+- Re-export implementations with `export { ... }` in the barrel.
+
+## Dependencies
+
+- External deps go in the package's own `package.json`, not the root.
+- Workspace deps use `"workspace:*"` protocol: `"@pipefx/mcp": "workspace:*"`.
+- Every package must include `"tslib": "^2.3.0"` in dependencies (required by `importHelpers`).
+- Root `package.json` should only contain devDependencies (build tools, Nx, TypeScript, etc.).
+
+## Nx Tags and Module Boundaries
+
+- Every package MUST have a `scope:<name>` tag in its `package.json` under `nx.tags`.
+- Dependency rules are in `eslint.config.mjs`. When creating a new package, add a corresponding `depConstraints` entry.
+- Dependencies flow downward only. Circular dependencies are forbidden.
+
+## Verification
+
+After any change to a package, run:
+```
+pnpm nx run-many -t build lint typecheck -p @pipefx/<name>
+```

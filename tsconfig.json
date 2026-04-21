@@ -1,0 +1,46 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compileOnSave": false,
+  "files": [],
+  "references": [
+    {
+      "path": "./packages/strings"
+    },
+    {
+      "path": "./packages/colors"
+    },
+    {
+      "path": "./packages/async"
+    },
+    {
+      "path": "./packages/utils"
+    },
+    {
+      "path": "./apps/desktop"
+    },
+    {
+      "path": "./apps/backend"
+    },
+    {
+      "path": "./packages/mcp"
+    },
+    {
+      "path": "./packages/ai"
+    },
+    {
+      "path": "./packages/providers"
+    },
+    {
+      "path": "./packages/tasks"
+    },
+    {
+      "path": "./packages/agents"
+    },
+    {
+      "path": "./packages/usage"
+    },
+    {
+      "path": "./apps/cloud-api"
+    }
+  ]
+}

@@ -1,0 +1,2 @@
+[console_scripts]
+mcp-premiere = mcp_premiere.server:main

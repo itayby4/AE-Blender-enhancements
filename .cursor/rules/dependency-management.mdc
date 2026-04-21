@@ -1,0 +1,57 @@
+---
+description: Enforce correct dependency placement and module boundary rules
+globs:
+  - "**/package.json"
+  - eslint.config.mjs
+---
+
+# Dependency Management Rules
+
+## Where Dependencies Belong
+
+| Dependency type                         | Where it goes                                      |
+|-----------------------------------------|----------------------------------------------------|
+| Build tools (Nx, TypeScript, Vite, etc.)| Root `package.json` `devDependencies`               |
+| Package-specific runtime deps           | That package's own `package.json` `dependencies`    |
+| Workspace package references            | Consumer's `package.json` as `"workspace:*"`        |
+
+### Concrete examples
+
+- `@modelcontextprotocol/sdk` belongs in `packages/mcp/package.json` -- not root.
+- `@google/genai` belongs in `packages/ai/package.json` -- not root.
+- `dotenv` belongs in `apps/backend/package.json` -- not root.
+- `@pipefx/mcp` in `packages/ai/package.json` as `"workspace:*"`.
+- `@pipefx/mcp` and `@pipefx/ai` in `apps/backend/package.json` as `"workspace:*"`.
+
+The root `package.json` `dependencies` should be empty (`{}`). All runtime deps live in the projects that use them.
+
+## Module Boundary Enforcement
+
+`eslint.config.mjs` defines which scopes can depend on which via `@nx/enforce-module-boundaries`.
+
+Current rules:
+
+| Source tag       | Can depend on                          |
+|------------------|----------------------------------------|
+| `scope:shared`   | `scope:shared`                         |
+| `scope:async`    | `scope:shared`, `scope:async`          |
+| `scope:colors`   | `scope:shared`, `scope:colors`         |
+| `scope:strings`  | `scope:shared`, `scope:strings`        |
+| `scope:mcp`      | `scope:shared`, `scope:async`, `scope:mcp` |
+| `scope:ai`       | `scope:shared`, `scope:mcp`, `scope:ai`    |
+| `scope:backend`  | `scope:shared`, `scope:mcp`, `scope:ai`    |
+
+When adding a new package or app:
+1. Add a `scope:<name>` Nx tag to its `package.json`.
+2. Add a corresponding `depConstraints` entry in `eslint.config.mjs`.
+3. Only allow dependencies on packages that are architecturally below it.
+
+## After Changing Dependencies
+
+Always run:
+```bash
+pnpm install --no-frozen-lockfile
+pnpm nx run-many -t build lint typecheck -p @pipefx/<affected-projects>
+```
+
+If you add a new workspace package reference, also ensure the consumer's `tsconfig.app.json` (or `tsconfig.lib.json`) has a `references` entry pointing to the dependency's tsconfig.

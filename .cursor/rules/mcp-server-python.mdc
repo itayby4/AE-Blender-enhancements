@@ -1,0 +1,99 @@
+---
+description: Enforce Python MCP server structure and patterns for DaVinci Resolve integration
+globs:
+  - apps/mcp-davinci/**/*.py
+  - apps/mcp-*/pyproject.toml
+---
+
+# Python MCP Server Rules
+
+## Directory Structure
+
+Every Python MCP server app MUST follow this layout:
+
+```
+apps/mcp-<name>/
+  pyproject.toml                  <- project metadata and dependencies
+  src/
+    mcp_<name>/
+      __init__.py
+      server.py                   <- FastMCP instance + tool registration (THIN)
+      <name>_connector.py         <- connector class with caching
+      constants.py                <- shared constants, platform-specific paths
+      tools/
+        __init__.py               <- register_tools(mcp, connector)
+        <tool_name>.py            <- one file per tool or logical group
+```
+
+## server.py Must Be Thin
+
+`server.py` contains only:
+1. FastMCP instance creation.
+2. Connector instantiation.
+3. Tool registration via `register_tools(mcp, connector)`.
+4. A `main()` entry point that calls `mcp.run()`.
+
+No business logic. No tool implementations. No connection code.
+
+Example:
+```python
+from mcp.server.fastmcp import FastMCP
+from .resolve_connector import ResolveConnector
+from .tools import register_tools
+
+mcp = FastMCP("davinci_resolve")
+connector = ResolveConnector()
+register_tools(mcp, connector)
+
+def main():
+    mcp.run()
+
+if __name__ == "__main__":
+    main()
+```
+
+## Connector Pattern
+
+The connector class manages the connection to the external application with tiered caching:
+
+- **Native module / SDK**: cached permanently (never changes at runtime).
+- **Application instance**: cached with TTL (user might restart the app).
+- **Project / document / timeline**: NEVER cached (user switches these constantly).
+
+The connector provides convenience methods (`get_project()`, `get_timeline()`) that handle null checks and raise domain-specific exceptions (`NoProjectError`, `NoTimelineError`).
+
+## Tool Module Pattern
+
+Each tool file exports a `register(mcp, connector)` function:
+
+```python
+def register(mcp, connector):
+    @mcp.tool()
+    def my_tool(param: str) -> str:
+        """Docstring becomes the tool description for the AI."""
+        project = connector.get_project()
+        # ... tool logic ...
+        return "result string"
+```
+
+Rules:
+- Tools receive the connector via the `register()` closure. NEVER call `get_resolve()` or similar functions directly.
+- Tools MUST return a string (FastMCP convention).
+- Tools MUST handle connector exceptions (`NoProjectError`, `NoTimelineError`, `ResolveNotRunningError`).
+- Shared constants (e.g., valid marker colors) live in `constants.py`, not in tool files.
+- Tool docstrings are critical -- they are sent to the AI model as tool descriptions. Write them clearly.
+
+## tools/__init__.py
+
+Aggregates all tool registrations:
+
+```python
+from .project import register as register_project
+from .markers import register as register_markers
+
+def register_tools(mcp, connector):
+    register_project(mcp, connector)
+    register_markers(mcp, connector)
+```
+
+When adding a new tool, add its import and `register_*()` call here.

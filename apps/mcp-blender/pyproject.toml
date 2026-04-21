@@ -1,0 +1,12 @@
+[project]
+name = "mcp-blender"
+version = "0.1.0"
+description = "MCP server for Blender"
+requires-python = ">=3.10"
+dependencies = [
+    "mcp[cli]",
+    "setuptools"
+]
+
+[project.scripts]
+mcp-blender = "mcp_blender.server:main"

@@ -1,0 +1,11 @@
+pyproject.toml
+src/mcp_ableton/__init__.py
+src/mcp_ableton/ableton_connector.py
+src/mcp_ableton/server.py
+src/mcp_ableton.egg-info/PKG-INFO
+src/mcp_ableton.egg-info/SOURCES.txt
+src/mcp_ableton.egg-info/dependency_links.txt
+src/mcp_ableton.egg-info/entry_points.txt
+src/mcp_ableton.egg-info/requires.txt
+src/mcp_ableton.egg-info/top_level.txt
+src/mcp_ableton/tools/__init__.py

@@ -1,0 +1,29 @@
+{
+  "name": "desktop",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "projectType": "application",
+  "sourceRoot": "apps/desktop/src",
+  "tags": ["type:app", "scope:desktop"],
+  "targets": {
+    "serve": {
+      "command": "pnpm tauri dev",
+      "options": {
+        "cwd": "apps/desktop"
+      }
+    },
+    "build:tauri": {
+      "command": "pnpm tauri build",
+      "dependsOn": ["build"],
+      "options": {
+        "cwd": "apps/desktop"
+      },
+      "cache": true,
+      "inputs": [
+        "production",
+        "{projectRoot}/src-tauri/**/*",
+        "!{projectRoot}/src-tauri/target/**/*"
+      ],
+      "outputs": ["{projectRoot}/src-tauri/target/release/bundle"]
+    }
+  }
+}
