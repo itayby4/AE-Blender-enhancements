@@ -5,6 +5,7 @@ function createShapeLayer(args) {
     try {
         // Extract parameters from args
         var compName = args.compName || "";
+        var compIndex = args.compIndex; // 1-based index among CompItems (not project items)
         var shapeType = args.shapeType || "rectangle"; // rectangle, ellipse, polygon
         var position = args.position || [960, 540]; // Default to center
         var size = args.size || [200, 200]; // Width, Height
@@ -16,22 +17,40 @@ function createShapeLayer(args) {
         var name = args.name || "Shape Layer";
         var points = args.points || 5; // For polygon, number of points
         
-        // Find the composition by name
+        // Find the composition. Precedence: compName > compIndex > activeItem.
+        // compIndex is 1-based among CompItems (matches the contract exposed
+        // by getProjectInfo / listCompositions), NOT among raw project items —
+        // if the project has footage/folders mixed in, a raw project-index
+        // lookup would pick the wrong thing.
         var comp = null;
-        for (var i = 1; i <= app.project.numItems; i++) {
-            var item = app.project.item(i);
-            if (item instanceof CompItem && item.name === compName) {
-                comp = item;
-                break;
+        if (compName) {
+            for (var i = 1; i <= app.project.numItems; i++) {
+                var it = app.project.item(i);
+                if (it instanceof CompItem && it.name === compName) {
+                    comp = it;
+                    break;
+                }
             }
         }
-        
-        // If no composition was found by name, use the active composition
+        if (!comp && typeof compIndex === "number" && compIndex >= 1) {
+            var compN = 0;
+            for (var j = 1; j <= app.project.numItems; j++) {
+                var it2 = app.project.item(j);
+                if (it2 instanceof CompItem) {
+                    compN++;
+                    if (compN === compIndex) { comp = it2; break; }
+                }
+            }
+        }
         if (!comp) {
             if (app.project.activeItem instanceof CompItem) {
                 comp = app.project.activeItem;
             } else {
-                throw new Error("No composition found with name '" + compName + "' and no active composition");
+                throw new Error(
+                    "No composition found (compName='" + compName +
+                    "', compIndex=" + String(compIndex) +
+                    ") and no active composition"
+                );
             }
         }
         

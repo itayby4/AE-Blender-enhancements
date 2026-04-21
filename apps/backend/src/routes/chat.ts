@@ -5,7 +5,11 @@ import type {
   AgentSessionStore,
   PlanApprovalBroker,
 } from '@pipefx/agents';
-import { agentsLog } from '@pipefx/agents';
+import {
+  agentsLog,
+  freshSelfCheckState,
+  buildPostRoundReminder,
+} from '@pipefx/agents';
 import type { AsyncLocalStorage } from 'node:async_hooks';
 import { readBody, jsonResponse, jsonError } from '../router.js';
 import { memoryTaskManager, assembleProjectContext } from '../services/memory/index.js';
@@ -15,6 +19,7 @@ import {
   chatSessionExists,
 } from '../services/memory/chat-sessions.js';
 import { config } from '../config.js';
+import { composeSystemPrompt } from '../prompts/index.js';
 
 export interface ChatRouteDeps {
   getAgent: () => Agent;
@@ -40,34 +45,38 @@ function sseWrite(res: any, event: Record<string, unknown>) {
 const STREAM_TIMEOUT = 120_000;
 
 /**
- * Build the system prompt for a chat request.
+ * Build the system prompt for a chat request via the section composer.
+ *
+ * The composer assembles identity / doing-tasks / tone / executing-actions /
+ * planning-discipline / (AE bridge contract when applicable) / legacy-md
+ * sections, with per-section caching keyed by activeApp. The planning
+ * section is the important addition: without it Gemini skipped
+ * EnterPlanMode + TodoWrite entirely on multi-step AE tasks.
+ *
+ * Stays `async` so compute functions can do real work in the future
+ * (memory fetches, MCP instructions, etc.) without touching callers.
  */
-function buildSystemPrompt(
+async function buildSystemPrompt(
   skill: any,
   activeApp: string | undefined,
   projectId: string | undefined
-): string {
-  let systemPrompt = skill?.systemInstruction;
-  if (!systemPrompt && activeApp) {
-    const appNames: Record<string, string> = {
-      resolve: 'DaVinci Resolve',
-      premiere: 'Adobe Premiere Pro',
-      aftereffects: 'Adobe After Effects',
-      blender: 'Blender',
-      ableton: 'Ableton Live',
-    };
-    const appName = appNames[activeApp] || 'the Video Editing Software';
-    systemPrompt = config.systemPrompt.replace(/DaVinci Resolve/g, appName);
+): Promise<string> {
+  // Skill with a full systemInstruction still takes over — matches prior
+  // behavior so in-flight skills don't break.
+  if (skill?.systemInstruction && !activeApp) {
+    return skill.systemInstruction;
   }
 
-  if (projectId) {
-    const brainContext = assembleProjectContext(projectId, '');
-    if (brainContext) {
-      systemPrompt = `${systemPrompt}${brainContext}`;
-    }
-  }
+  const projectContext = projectId
+    ? assembleProjectContext(projectId, '') || undefined
+    : undefined;
 
-  return systemPrompt || config.systemPrompt;
+  return composeSystemPrompt({
+    activeApp,
+    skillSystemInstruction: skill?.systemInstruction,
+    projectContext,
+    legacySections: config.systemPromptLegacy,
+  });
 }
 
 /**
@@ -94,7 +103,7 @@ export function registerChatRoutes(router: Router, deps: ChatRouteDeps) {
         return;
       }
 
-      const systemPromptOverride = buildSystemPrompt(skill, activeApp, projectId);
+      const systemPromptOverride = await buildSystemPrompt(skill, activeApp, projectId);
       const resolvedTaskId = taskId || `chat-${Date.now()}`;
 
       try {
@@ -220,7 +229,13 @@ export function registerChatRoutes(router: Router, deps: ChatRouteDeps) {
         'Access-Control-Allow-Origin': '*',
       });
 
-      const systemPromptOverride = buildSystemPrompt(skill, activeApp, projectId);
+      // Tell the desktop the resolved sessionId IMMEDIATELY. Without this
+      // the desktop only learns sessionId from the final `done` event, so
+      // mid-turn events that require a sessionId (plan_proposed → modal,
+      // todo_updated → list) silently no-op on the very first request.
+      sseWrite(res, { type: 'session', sessionId: resolvedSessionId });
+
+      const systemPromptOverride = await buildSystemPrompt(skill, activeApp, projectId);
       const resolvedTaskId = taskId || `chat-${Date.now()}`;
       const stepIndices = new Map<string, number>();
 
@@ -249,11 +264,39 @@ export function registerChatRoutes(router: Router, deps: ChatRouteDeps) {
       // If the user targets After Effects, probe the bridge once before
       // spending tokens. A dead bridge means every AE tool call will
       // silently queue forever — fail fast and tell the user to bring
-      // AE to the front.
-      let bridgePreflightNote = '';
+      // AE to the front. The *prompt-side* AE contract (tool choice,
+      // whitelist, async semantics) now lives in prompts/library.ts —
+      // see `aeBridgeContract`. This block only does the live probe.
       const excludedTools: string[] = [];
+
+      // ── Plan-mode anti-loop: drop EnterPlanMode if already approved ──
+      // Once a plan has been approved for this session, keep the tool out
+      // of the model's tool list entirely. Without this, GPT-5.4 in
+      // particular re-proposes the same plan after every intermediate
+      // tool call and never executes. The server-side handler also
+      // guards against this, but excluding from the tool list is the
+      // cleaner fix — the model physically can't call what it doesn't
+      // see. ExitPlanMode stays available.
+      if (deps.agentSessions && resolvedSessionId) {
+        const existing = deps.agentSessions.has(resolvedSessionId)
+          ? deps.agentSessions.get(resolvedSessionId)
+          : undefined;
+        if (existing?.planMode.approved === true) {
+          excludedTools.push('EnterPlanMode');
+          agentsLog.info('chat turn excluding EnterPlanMode', {
+            sessionId: resolvedSessionId,
+            reason: 'plan-already-approved',
+          });
+        }
+      }
       if (activeApp === 'aftereffects') {
         try {
+          // Ensure the tool index is populated before probing. On the very
+          // first request of a process, `callTool` throws `Unknown tool` if
+          // `getAllTools()` has not run yet — which silently skipped the
+          // preflight and left `bridge-health` in the model's tool list,
+          // causing it to re-probe after every step.
+          await deps.registry.getAllTools();
           const probe = await deps.registry.callTool('bridge-health', {});
           const probeText = (() => {
             const c = probe.content as unknown;
@@ -291,19 +334,6 @@ export function registerChatRoutes(router: Router, deps: ChatRouteDeps) {
             res.end();
             return;
           }
-          bridgePreflightNote =
-            `\n\n## AE Bridge (preflight: alive)\n` +
-            `Do NOT call bridge-health. Prefer direct tools when they exist: ` +
-            `\`create-composition\`, \`setLayerKeyframe\`, \`setLayerExpression\`, ` +
-            `\`apply-effect\`, \`apply-effect-template\`, \`get-results\`. ` +
-            `For anything else, use \`run-script\` with a \`script\` value from this ` +
-            `whitelist (do NOT invent names):\n` +
-            `listCompositions, getProjectInfo, getLayerInfo, createComposition, ` +
-            `createTextLayer, createShapeLayer, createSolidLayer, setLayerProperties, ` +
-            `setLayerKeyframe, setLayerExpression, applyEffect, applyEffectTemplate, ` +
-            `createCamera, batchSetLayerProperties, setCompositionProperties, ` +
-            `duplicateLayer, deleteLayer, setLayerMask.\n\n` +
-            `After queueing a run-script or create-* command, call \`get-results\` once to confirm.\n`;
           excludedTools.push('bridge-health');
         } catch (err) {
           agentsLog.error('bridge-health preflight failed', {
@@ -313,10 +343,13 @@ export function registerChatRoutes(router: Router, deps: ChatRouteDeps) {
         }
       }
 
+      // Self-check state: tracks rounds-since-last-TodoWrite for reminder nudges.
+      const selfCheck = freshSelfCheckState();
+
       const runChat = async () => deps.getAgent().chat(message, {
         providerOverride: llmModel,
         modelOverride: skill?.model,
-        systemPromptOverride: systemPromptOverride + bridgePreflightNote,
+        systemPromptOverride,
         allowedTools: skill?.allowedTools,
         excludedTools,
         history,
@@ -343,15 +376,28 @@ export function registerChatRoutes(router: Router, deps: ChatRouteDeps) {
         onCompaction: (removedCount, summary) => {
           sseWrite(res, { type: 'compaction', removedCount, summary });
         },
+        getPostRoundReminder: (ctx) => {
+          const session =
+            deps.agentSessions && resolvedSessionId && deps.agentSessions.has(resolvedSessionId)
+              ? deps.agentSessions.get(resolvedSessionId)
+              : null;
+          return buildPostRoundReminder(ctx, selfCheck, session);
+        },
       });
 
       try {
         // Wrap agent invocation in AsyncLocalStorage so @pipefx/agents tool
         // handlers (TodoWrite, EnterPlanMode, AgentTool, Task*) can resolve
         // the current sessionId via sessionALS.getStore().
+        console.log(
+          `[chat] calling runChat sessionId=${resolvedSessionId} activeApp=${activeApp} excludedToolsCount=${excludedTools.length}`
+        );
         const text = deps.sessionALS
           ? await deps.sessionALS.run(resolvedSessionId!, runChat)
           : await runChat();
+        console.log(
+          `[chat] runChat returned sessionId=${resolvedSessionId} outputChars=${text?.length ?? 0}`
+        );
 
         memoryTaskManager.finishTask(resolvedTaskId, 'done');
         agentsLog.info('chat turn done', {

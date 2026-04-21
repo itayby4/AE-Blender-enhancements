@@ -14,11 +14,18 @@ function createComposition(args) {
         
         // Create the composition
         var newComp = app.project.items.addComp(name, width, height, pixelAspect, duration, frameRate);
-        
+
         // Set background color if provided
         if (args.backgroundColor) {
             newComp.bgColor = bgColor;
         }
+
+        // Open the new comp in the viewer so app.project.activeItem points to
+        // it — subsequent createShapeLayer / setLayerProperties calls fall
+        // back to activeItem when no compName/compIndex matches, and without
+        // this a fresh comp wouldn't be active, causing those tools to error
+        // with "No composition found with name '' and no active composition".
+        try { newComp.openInViewer(); } catch (e) {}
         
         // Return success with composition details
         return JSON.stringify({

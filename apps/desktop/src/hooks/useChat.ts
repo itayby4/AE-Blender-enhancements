@@ -191,6 +191,16 @@ export function useChat(deps: {
                 case 'tool_done':
                   break;
 
+                case 'session':
+                  // Backend tells us the resolved sessionId at stream start
+                  // so mid-turn events (plan_proposed, todo_updated) can
+                  // include it in their state-update guards.
+                  if (event.sessionId) {
+                    deps.onSessionIdChange?.(event.sessionId);
+                    console.log('[Agents] session', event.sessionId);
+                  }
+                  break;
+
                 case 'thought':
                   // Could show thoughts in the UI in the future
                   break;
@@ -251,16 +261,28 @@ export function useChat(deps: {
                   }
                   break;
 
-                case 'plan_proposed':
-                  if (event.taskId && event.plan && deps.sessionId) {
+                case 'plan_proposed': {
+                  // Prefer the sessionId embedded in the event (never stale).
+                  // Fall back to deps.sessionId only if the backend forgot.
+                  const sid =
+                    (event.sessionId as string | undefined) ||
+                    deps.sessionId ||
+                    null;
+                  if (event.taskId && event.plan && sid) {
                     setPendingPlan({
-                      sessionId: deps.sessionId,
+                      sessionId: sid,
                       taskId: event.taskId,
                       plan: event.plan,
                     });
-                    console.log('[Agents] plan_proposed', event.taskId);
+                    console.log('[Agents] plan_proposed', event.taskId, 'sid=', sid);
+                  } else {
+                    console.warn(
+                      '[Agents] plan_proposed DROPPED',
+                      { taskId: event.taskId, hasPlan: !!event.plan, sid }
+                    );
                   }
                   break;
+                }
 
                 case 'plan_resolved':
                   console.log('[Agents] plan_resolved', {

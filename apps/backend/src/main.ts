@@ -173,10 +173,10 @@ async function main() {
     broker: planBroker,
     getSessionId: () => sessionALS.getStore(),
     onTodosUpdated: (sessionId: string, todos: TodoItem[]) => {
-      sseBroker.emit(sessionId, { type: 'todo_updated', todos });
+      sseBroker.emit(sessionId, { type: 'todo_updated', sessionId, todos });
     },
     onPlanProposed: (sessionId: string, taskId: string, plan: string) => {
-      sseBroker.emit(sessionId, { type: 'plan_proposed', taskId, plan });
+      sseBroker.emit(sessionId, { type: 'plan_proposed', sessionId, taskId, plan });
     },
     onPlanResolved: (
       sessionId: string,

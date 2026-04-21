@@ -3,7 +3,7 @@ import * as path from 'path';
 import * as fs from 'fs';
 import { resolveVenvPython } from '@pipefx/mcp';
 import type { ToolResult } from '@pipefx/mcp';
-import { loadSystemPrompt } from './prompts/index.js';
+import { loadSystemPrompt, loadLegacySections } from './prompts/index.js';
 
 /**
  * Extract text from an MCP tool-result content. MCP returns content as an
@@ -72,6 +72,11 @@ export let config = {
   supabaseServiceKey: process.env.SUPABASE_SERVICE_ROLE_KEY || '',
 
   systemPrompt: loadSystemPrompt(workspaceRoot),
+  // Legacy md content (memory + pipeline_actions + skills) that the
+  // per-turn composer threads in as a cached section. core.md is
+  // superseded by the identity/tasks/tone/planning sections in
+  // prompts/library.ts.
+  systemPromptLegacy: loadLegacySections(workspaceRoot),
 
   connectors: {
     resolve: {
@@ -134,7 +139,11 @@ export let config = {
         isReady: (result: ToolResult) => {
           const text = extractText(result.content);
           if (!text) return true;
-          return !/no results file found|no results available|result file appears to be stale|pending|processing|please run a script/i.test(
+          // `"status":"waiting"` / "Waiting for new result" is the placeholder
+          // the AE MCP server writes via clearResultsFile() right before it
+          // queues a command — treating it as ready makes the executor hand
+          // the agent a fake success and is what caused the duplicate-comp bug.
+          return !/no results file found|no results available|result file appears to be stale|pending|processing|please run a script|"status"\s*:\s*"waiting"|waiting for new result/i.test(
             text
           );
         },

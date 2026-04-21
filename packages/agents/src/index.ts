@@ -119,6 +119,13 @@ export {
 } from './lib/constants.js';
 export type { ToolNameToken } from './lib/constants.js';
 
+// ── Self-check reminder system ────────────────────────────────────────────
+export type { SelfCheckState } from './lib/selfCheck.js';
+export {
+  freshSelfCheckState,
+  buildPostRoundReminder,
+} from './lib/selfCheck.js';
+
 // ── Logging ───────────────────────────────────────────────────────────────
 export { agentsLog } from './lib/log.js';
 export type { LogLevel } from './lib/log.js';

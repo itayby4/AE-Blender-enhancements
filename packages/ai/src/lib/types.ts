@@ -9,6 +9,25 @@ export interface AgentConfig {
   registry: ConnectorRegistry;
 }
 
+export interface PostRoundToolCall {
+  name: string;
+  args: Record<string, unknown>;
+  isError: boolean;
+}
+
+export interface PostRoundReminderContext {
+  /** Names of tools called in this round (may include duplicates if batched). */
+  toolNames: string[];
+  /**
+   * Full per-call detail for this round — name, args, and whether the result
+   * was flagged as an error. Used by the self-check to detect
+   * same-tool/same-args loops.
+   */
+  toolCalls: PostRoundToolCall[];
+  /** 1-indexed round counter within this chat() invocation. */
+  roundNumber: number;
+}
+
 export interface ChatOptions {
   providerOverride?: string;
   modelOverride?: string;
@@ -26,6 +45,12 @@ export interface ChatOptions {
   onStreamChunk?: (chunk: string) => void;
   /** Called when context compaction occurs (old messages summarized). */
   onCompaction?: (removedCount: number, summary: string) => void;
+  /**
+   * Called after each tool-call round. Return a non-empty string to append as
+   * <system-reminder> to the last tool result so the model sees it next turn.
+   * Return null/undefined to skip.
+   */
+  getPostRoundReminder?: (ctx: PostRoundReminderContext) => string | null | undefined;
 }
 
 export interface Agent {

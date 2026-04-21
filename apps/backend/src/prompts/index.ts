@@ -19,6 +19,17 @@ const PROMPT_SECTIONS = [
 export type PromptSection = (typeof PROMPT_SECTIONS)[number];
 
 /**
+ * Legacy sections — identity/tone/tasks now come from composer.ts, so
+ * `core.md` is excluded here. These three still carry genuinely distinct
+ * content (memory conventions, pipeline_actions JSON protocol, skills).
+ */
+const LEGACY_MD_SECTIONS: readonly PromptSection[] = [
+  'memory',
+  'pipeline_actions',
+  'skills',
+] as const;
+
+/**
  * Markers that MUST appear somewhere in the assembled prompt. If any is
  * missing, the loader throws at boot — preferring a loud failure to a silent
  * regression where the agent quietly loses capabilities.
@@ -82,6 +93,10 @@ function readSection(dir: string, name: PromptSection): string {
  * Assemble the full system prompt by concatenating all sections in order,
  * separated by blank lines. Validates at load time that every required
  * marker is present.
+ *
+ * Kept for backwards compat with any caller that still wants the old
+ * flat-string prompt. New code should use `loadLegacySections()` + the
+ * composer in `./composer.ts`.
  */
 export function loadSystemPrompt(workspaceRoot: string): string {
   const dir = resolvePromptsDir(workspaceRoot);
@@ -101,3 +116,33 @@ export function loadSystemPrompt(workspaceRoot: string): string {
 
   return prompt;
 }
+
+/**
+ * Load only the legacy markdown sections that still carry distinct content
+ * after identity/tone/tasks/planning moved into composer.ts. These three
+ * get threaded through the composer as a single cached `legacy_md` section.
+ */
+export function loadLegacySections(workspaceRoot: string): string {
+  const dir = resolvePromptsDir(workspaceRoot);
+  const parts = LEGACY_MD_SECTIONS.map((section) => readSection(dir, section));
+  const joined = parts.join('\n\n');
+
+  // Only pipeline_actions / analyze_project markers are asserted here —
+  // "PipeFX AI" is the composer's responsibility now (identity section).
+  const required = ['analyze_project', 'pipeline_actions', '```plan'];
+  const missing = required.filter((m) => !joined.includes(m));
+  if (missing.length > 0) {
+    throw new Error(
+      `Legacy prompt sections missing required markers: ${missing
+        .map((m) => `"${m}"`)
+        .join(', ')}. Check the .md files in ${dir}.`
+    );
+  }
+  return joined;
+}
+
+export {
+  composeSystemPrompt,
+  clearSystemPromptSections,
+} from './composer.js';
+export type { PromptContext } from './composer.js';

@@ -53,6 +53,27 @@ export function registerPlanModeTools(
       }
 
       const state = deps.sessions.get(sessionId);
+
+      // ── Anti-loop guard ──────────────────────────────────────────────
+      // If a plan was already approved for this session, REFUSE re-entry.
+      // GPT-5.4 in particular likes to re-propose the same plan after
+      // every intermediate tool call ("let me plan this again"), which
+      // hangs the session forever. The only legitimate re-entry is after
+      // a REJECTION (state.planMode.approved === false with feedback).
+      if (state.planMode.approved === true) {
+        agentsLog.warn('EnterPlanMode blocked', {
+          sessionId,
+          reason: 'already-approved',
+        });
+        return (
+          'A plan has ALREADY been approved in this session. Do NOT call ' +
+          `${TOOL_NAME_TOKENS.ENTER_PLAN_MODE} again. Execute the approved ` +
+          'plan by calling the actual connector tools (run-script, ' +
+          'add_timeline_marker, etc.) and track progress with ' +
+          `${TOOL_NAME_TOKENS.TODO_WRITE}. If the mission is genuinely ` +
+          `finished or the user cancelled, call ${TOOL_NAME_TOKENS.EXIT_PLAN_MODE}.`
+        );
+      }
       // Use the session id + a monotonic suffix for the plan "task".
       const planTaskId = `plan-${Date.now().toString(36)}`;
       state.planMode = { active: true, plan };

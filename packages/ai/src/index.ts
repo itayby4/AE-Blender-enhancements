@@ -6,7 +6,13 @@ export {
   DEFAULT_COMPACTION_CONFIG,
 } from './lib/compaction.js';
 export type { CompactionConfig, CompactionResult } from './lib/compaction.js';
-export type { Agent, AgentConfig, ChatOptions } from './lib/types.js';
+export type {
+  Agent,
+  AgentConfig,
+  ChatOptions,
+  PostRoundReminderContext,
+  PostRoundToolCall,
+} from './lib/types.js';
 
 // Re-export provider abstraction from @pipefx/providers for backward compatibility
 export type {

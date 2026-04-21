@@ -160,81 +160,10 @@ server.resource(
   }
 );
 
-// Add a tool for running read-only scripts
-server.tool(
-  "run-script",
-  "Run a read-only script in After Effects",
-  {
-    script: z.string().describe("Name of the predefined script to run"),
-    parameters: z.record(z.string(), z.unknown()).optional().describe("Optional parameters for the script")
-  },
-  async ({ script, parameters = {} }) => {
-    // Validate that script is safe (only allow predefined scripts)
-    const allowedScripts = [
-      "listCompositions", 
-      "getProjectInfo", 
-      "getLayerInfo", 
-      "createComposition",
-      "createTextLayer",
-      "createShapeLayer",
-      "createSolidLayer",
-      "setLayerProperties",
-      "setLayerKeyframe",
-      "setLayerExpression",
-      "applyEffect",
-      "applyEffectTemplate",
-      "test-animation",
-      "bridgeTestEffects",
-      "createCamera",
-      "batchSetLayerProperties",
-      "setCompositionProperties",
-      "duplicateLayer",
-      "deleteLayer",
-      "setLayerMask"
-    ];
-    
-    if (!allowedScripts.includes(script)) {
-      return {
-        content: [
-          {
-            type: "text",
-            text: `Error: Script "${script}" is not allowed. Allowed scripts are: ${allowedScripts.join(", ")}`
-          }
-        ],
-        isError: true
-      };
-    }
-
-    try {
-      // Clear any stale result data
-      clearResultsFile();
-      
-      // Write command to file for After Effects to pick up
-      writeCommandFile(script, parameters);
-      
-      return {
-        content: [
-          {
-            type: "text",
-            text: `Command to run "${script}" has been queued.\n` +
-                  `Please ensure the "MCP Bridge Auto" panel is open in After Effects.\n` +
-                  `Use the "get-results" tool after a few seconds to check for results.`
-          }
-        ]
-      };
-    } catch (error) {
-      return {
-        content: [
-          {
-            type: "text",
-            text: `Error queuing command: ${String(error)}`
-          }
-        ],
-        isError: true
-      };
-    }
-  }
-);
+// Note: the generic `run-script` tool was removed. Every supported script is
+// exposed as a typed tool below (see "BEGIN TYPED SCRIPT TOOLS"). Forcing the
+// model through a typed schema is what stops the "createShapeLayer with no
+// params → default red rectangle" failure mode that was observed in logs.
 
 // Add a tool to get the results from the last script execution
 server.tool(
@@ -345,7 +274,7 @@ To use this integration with After Effects, follow these steps:
    - The panel will automatically check for commands every few seconds
 
 4. **Run scripts through MCP**
-   - Use the \`run-script\` tool to queue a command
+   - Use a typed tool (e.g. \`create-shape-layer\`, \`create-composition\`) to queue a command
    - The Auto panel will detect and run the command automatically
    - Results will be saved to a temp file
 
@@ -431,7 +360,305 @@ server.tool(
   }
 );
 
-// --- BEGIN NEW TOOLS --- 
+// --- BEGIN TYPED SCRIPT TOOLS ---
+// Each tool below corresponds to an allowed script in the AE bridge.
+// Exposing them with real Zod schemas (instead of funneling everything
+// through the generic `run-script`) forces the LLM to pass the right
+// parameters — the previous generic call was landing with `{}` and
+// producing default rectangles for every "create a circle" request.
+
+function queueAndAck(scriptName: string, params: Record<string, unknown>) {
+  writeCommandFile(scriptName, params);
+  return {
+    content: [
+      {
+        type: "text" as const,
+        text:
+          `Command "${scriptName}" has been queued.\n` +
+          `Ensure the "MCP Bridge Auto" panel is open in After Effects.\n` +
+          `The registry will poll get-results until the real payload arrives.`,
+      },
+    ],
+  };
+}
+
+server.tool(
+  "get-project-info",
+  "Inspect the current After Effects project: item count, compositions, active comp.",
+  {},
+  async () => queueAndAck("getProjectInfo", {})
+);
+
+server.tool(
+  "list-compositions",
+  "List every composition in the current project with id, name, duration, size, and layer count.",
+  {},
+  async () => queueAndAck("listCompositions", {})
+);
+
+server.tool(
+  "get-layer-info",
+  "List layers (name, index, position, in/out points) for one composition or all compositions.",
+  {
+    compositionName: z
+      .string()
+      .optional()
+      .describe("Composition name. Omit to return layers for every composition."),
+  },
+  async (params) => queueAndAck("getLayerInfo", params)
+);
+
+const RgbUnitColor = z
+  .array(z.number().min(0).max(1))
+  .length(3)
+  .describe("RGB color as [r, g, b] in the 0..1 range (AE convention, NOT 0..255).");
+
+server.tool(
+  "create-shape-layer",
+  "Create a vector shape layer (rectangle, ellipse, polygon, or star) in a composition.",
+  {
+    compName: z.string().optional().describe("Target composition by name (preferred)."),
+    compIndex: z
+      .number()
+      .int()
+      .positive()
+      .optional()
+      .describe("1-based index among CompItems. Use only if compName is unknown."),
+    shapeType: z
+      .enum(["rectangle", "ellipse", "polygon", "star"])
+      .describe("Shape geometry. Use 'ellipse' for circles."),
+    position: z
+      .array(z.number())
+      .length(2)
+      .optional()
+      .describe("Layer position as [x, y] in comp pixels. Default center [960, 540]."),
+    size: z
+      .array(z.number().positive())
+      .length(2)
+      .optional()
+      .describe("Shape size as [width, height] in pixels. For circles, pass equal values."),
+    fillColor: RgbUnitColor.optional().describe("Fill color. Default [1, 0, 0] (red)."),
+    strokeColor: RgbUnitColor.optional().describe("Stroke color. Default [0, 0, 0] (black)."),
+    strokeWidth: z
+      .number()
+      .min(0)
+      .optional()
+      .describe("Stroke width in pixels. 0 (default) = no stroke."),
+    startTime: z.number().min(0).optional().describe("Layer start time in seconds. Default 0."),
+    duration: z.number().positive().optional().describe("Layer duration in seconds. Default 5."),
+    name: z.string().optional().describe("Layer name. Default 'Shape Layer'."),
+    points: z
+      .number()
+      .int()
+      .min(3)
+      .optional()
+      .describe("Point count for polygon/star. Default 5."),
+  },
+  async (params) => queueAndAck("createShapeLayer", params)
+);
+
+server.tool(
+  "create-text-layer",
+  "Create a text layer in a composition with configurable font, size, color, alignment.",
+  {
+    compName: z.string().optional().describe("Target composition by name."),
+    text: z.string().describe("Text content."),
+    position: z
+      .array(z.number())
+      .length(2)
+      .optional()
+      .describe("Position as [x, y]. Default [960, 540]."),
+    fontSize: z.number().positive().optional().describe("Font size in points. Default 72."),
+    color: RgbUnitColor.optional().describe("Fill color. Default [1, 1, 1] (white)."),
+    fontFamily: z.string().optional().describe("Font family. Default 'Arial'."),
+    alignment: z
+      .enum(["left", "center", "right"])
+      .optional()
+      .describe("Paragraph alignment. Default 'center'."),
+    startTime: z.number().min(0).optional().describe("Layer start time in seconds. Default 0."),
+    duration: z.number().positive().optional().describe("Layer duration in seconds. Default 5."),
+  },
+  async (params) => queueAndAck("createTextLayer", params)
+);
+
+server.tool(
+  "create-solid-layer",
+  "Create a solid layer (or adjustment layer if isAdjustment=true) in a composition.",
+  {
+    compName: z.string().optional().describe("Target composition by name."),
+    color: RgbUnitColor.optional().describe("Solid color. Default [1, 1, 1] (white)."),
+    name: z.string().optional().describe("Layer name. Default 'Solid Layer'."),
+    position: z
+      .array(z.number())
+      .length(2)
+      .optional()
+      .describe("Position as [x, y]. Default [960, 540]."),
+    size: z
+      .array(z.number().positive())
+      .length(2)
+      .optional()
+      .describe("Size as [width, height]. Defaults to comp size if omitted."),
+    startTime: z.number().min(0).optional().describe("Start time in seconds. Default 0."),
+    duration: z.number().positive().optional().describe("Duration in seconds. Default 5."),
+    isAdjustment: z
+      .boolean()
+      .optional()
+      .describe("If true, the layer becomes an adjustment layer. Default false."),
+  },
+  async (params) => queueAndAck("createSolidLayer", params)
+);
+
+server.tool(
+  "set-layer-properties",
+  "Mutate transform/timing on an existing layer (position, scale, rotation, opacity, startTime, duration).",
+  {
+    compName: z.string().optional().describe("Target composition by name."),
+    layerName: z
+      .string()
+      .optional()
+      .describe("Layer name. Ignored if layerIndex is provided."),
+    layerIndex: z
+      .number()
+      .int()
+      .positive()
+      .optional()
+      .describe("1-based layer index (topmost = 1). Takes precedence over layerName."),
+    position: z
+      .array(z.number())
+      .min(2)
+      .max(3)
+      .optional()
+      .describe("[x, y] or [x, y, z]."),
+    scale: z
+      .array(z.number())
+      .min(2)
+      .max(3)
+      .optional()
+      .describe("Scale as percent, [x, y] or [x, y, z]. 100 = 100%."),
+    rotation: z.number().optional().describe("Rotation in degrees."),
+    opacity: z.number().min(0).max(100).optional().describe("Opacity percent, 0–100."),
+    startTime: z.number().min(0).optional().describe("New in-point in seconds."),
+    duration: z.number().positive().optional().describe("New duration in seconds."),
+  },
+  async (params) => queueAndAck("setLayerProperties", params)
+);
+
+server.tool(
+  "create-camera",
+  "Create a camera layer in a composition (one-node or two-node).",
+  {
+    compName: z.string().optional().describe("Target composition by name. Falls back to active comp if omitted."),
+    name: z.string().optional().describe("Camera layer name. Default: 'Camera'."),
+    zoom: z.number().positive().optional().describe("Zoom in pixels. Default 1777.78 (~50mm equivalent)."),
+    position: z.array(z.number()).length(3).optional().describe("Camera position as [x, y, z]."),
+    pointOfInterest: z.array(z.number()).length(3).optional().describe("Point of interest as [x, y, z]. Ignored when oneNode is true."),
+    oneNode: z.boolean().optional().describe("If true, create a one-node camera (no point of interest). Default false."),
+  },
+  async (params) => queueAndAck("createCamera", params)
+);
+
+const BatchLayerOperation = z
+  .object({
+    layerIndex: z.number().int().positive().optional().describe("1-based layer index. Preferred."),
+    layerName: z.string().optional().describe("Target layer by name. Used only when layerIndex is omitted."),
+    threeDLayer: z.boolean().optional().describe("Toggle 3D layer switch."),
+    position: z.array(z.number()).optional().describe("[x, y] or [x, y, z]. Clears existing position keyframes."),
+    scale: z.array(z.number()).optional().describe("[sx, sy] or [sx, sy, sz] in percent."),
+    rotation: z.number().optional().describe("Rotation in degrees (Z rotation for 3D layers)."),
+    opacity: z.number().min(0).max(100).optional().describe("Opacity 0..100."),
+    blendMode: z
+      .enum(["normal","add","multiply","screen","overlay","softLight","hardLight","darken","lighten","difference"])
+      .optional()
+      .describe("Blend mode name."),
+    startTime: z.number().optional().describe("Layer start time in seconds."),
+    outPoint: z.number().optional().describe("Layer out point in seconds."),
+  })
+  .describe("One layer update. Provide layerIndex or layerName, plus any properties to change.");
+
+server.tool(
+  "batch-set-layer-properties",
+  "Apply property changes to many layers in one composition in a single call.",
+  {
+    compName: z.string().optional().describe("Target composition by name. Falls back to active comp."),
+    operations: z.array(BatchLayerOperation).min(1).describe("One entry per layer to update."),
+  },
+  async (params) => queueAndAck("batchSetLayerProperties", params)
+);
+
+server.tool(
+  "set-composition-properties",
+  "Change composition-level properties (duration, frame rate, dimensions).",
+  {
+    compName: z.string().optional().describe("Target composition by name. Falls back to active comp."),
+    duration: z.number().positive().optional().describe("New duration in seconds."),
+    frameRate: z.number().positive().optional().describe("New frame rate (fps)."),
+    width: z.number().int().positive().optional().describe("New width in pixels. Must be paired with height."),
+    height: z.number().int().positive().optional().describe("New height in pixels. Must be paired with width."),
+  },
+  async (params) => queueAndAck("setCompositionProperties", params)
+);
+
+server.tool(
+  "duplicate-layer",
+  "Duplicate a layer within its composition. Identify the source by index (preferred) or name.",
+  {
+    compName: z.string().optional().describe("Target composition by name. Falls back to active comp."),
+    layerIndex: z.number().int().positive().optional().describe("1-based source layer index. Preferred."),
+    layerName: z.string().optional().describe("Source layer name. Used only when layerIndex is omitted."),
+    newName: z.string().optional().describe("Optional name for the duplicated layer."),
+  },
+  async (params) => queueAndAck("duplicateLayer", params)
+);
+
+server.tool(
+  "delete-layer",
+  "Delete a layer from a composition. Identify by index (preferred) or name.",
+  {
+    compName: z.string().optional().describe("Target composition by name. Falls back to active comp."),
+    layerIndex: z.number().int().positive().optional().describe("1-based layer index. Preferred."),
+    layerName: z.string().optional().describe("Layer name. Used only when layerIndex is omitted."),
+  },
+  async (params) => queueAndAck("deleteLayer", params)
+);
+
+const MaskRect = z
+  .object({
+    top: z.number().describe("Top edge in pixels."),
+    left: z.number().describe("Left edge in pixels."),
+    width: z.number().positive().describe("Rectangle width in pixels."),
+    height: z.number().positive().describe("Rectangle height in pixels."),
+  })
+  .describe("Rectangular mask shorthand. Mutually exclusive with maskPath.");
+
+server.tool(
+  "set-layer-mask",
+  "Create or modify a mask on a layer. Provide maskRect for a rectangle, or maskPath for an arbitrary polygon.",
+  {
+    compName: z.string().optional().describe("Target composition by name. Falls back to active comp."),
+    layerIndex: z.number().int().positive().optional().describe("1-based layer index. Preferred."),
+    layerName: z.string().optional().describe("Layer name. Used only when layerIndex is omitted."),
+    maskIndex: z.number().int().positive().optional().describe("1-based existing mask index to modify. Omit to create a new mask."),
+    maskPath: z
+      .array(z.array(z.number()).length(2))
+      .min(3)
+      .optional()
+      .describe("Polygon vertices as [[x, y], ...] (at least 3 points). Use instead of maskRect."),
+    maskRect: MaskRect.optional(),
+    maskMode: z
+      .enum(["add", "subtract", "intersect", "none"])
+      .optional()
+      .describe("Mask blend mode. Default 'add'."),
+    maskFeather: z.array(z.number()).length(2).optional().describe("Feather as [x, y] in pixels."),
+    maskOpacity: z.number().min(0).max(100).optional().describe("Mask opacity 0..100."),
+    maskExpansion: z.number().optional().describe("Mask expansion in pixels (negative contracts)."),
+    maskName: z.string().optional().describe("Optional mask name."),
+  },
+  async (params) => queueAndAck("setLayerMask", params)
+);
+
+// --- END TYPED SCRIPT TOOLS ---
+
+// --- BEGIN NEW TOOLS ---
 
 // Zod schema for common layer identification
 const LayerIdentifierSchema = {

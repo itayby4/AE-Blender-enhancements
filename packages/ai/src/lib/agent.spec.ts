@@ -205,6 +205,80 @@ describe('createAgent', () => {
       const tr = providerCalls.continueChat[0].toolResults[0];
       expect(tr.isError).toBe(true);
       expect(tr.content).toContain('tool crashed');
+      // OpenClaude-exact format: <tool_use_error>Error calling tool (name): msg</tool_use_error>
+      expect(tr.content).toBe(
+        '<tool_use_error>Error calling tool (broken): tool crashed</tool_use_error>'
+      );
+    });
+
+    it('wraps an MCP result that has isError=true in <tool_use_error>', async () => {
+      const registry = makeRegistry({
+        callTool: async () => ({
+          content: 'something went wrong at the MCP layer',
+          isError: true,
+        }),
+      });
+      providerScript.chat.push({
+        text: null,
+        toolCalls: [{ id: 'c1', name: 'ae.do-thing', args: {} }],
+      });
+      providerScript.continueChat.push({ text: 'saw it', toolCalls: [] });
+
+      const agent = createAgent(makeConfig({ registry }));
+      await agent.chat('go');
+
+      const tr = providerCalls.continueChat[0].toolResults[0];
+      expect(tr.isError).toBe(true);
+      expect(tr.content).toBe(
+        '<tool_use_error>something went wrong at the MCP layer</tool_use_error>'
+      );
+    });
+
+    it('detects {status:"error",message} in a "successful" MCP result and flags it', async () => {
+      // This is the AE bridge pattern — the MCP server didn't set isError,
+      // but the payload itself says the call failed.
+      const registry = makeRegistry({
+        callTool: async () => ({
+          content:
+            '{"status":"error","message":"No composition found with name \'\' and no active composition"}',
+          isError: false,
+        }),
+      });
+      providerScript.chat.push({
+        text: null,
+        toolCalls: [{ id: 'c1', name: 'run-script', args: { script: 'createShapeLayer' } }],
+      });
+      providerScript.continueChat.push({ text: 'noted', toolCalls: [] });
+
+      const agent = createAgent(makeConfig({ registry }));
+      await agent.chat('shape');
+
+      const tr = providerCalls.continueChat[0].toolResults[0];
+      expect(tr.isError).toBe(true);
+      expect(tr.content).toBe(
+        '<tool_use_error>No composition found with name \'\' and no active composition</tool_use_error>'
+      );
+    });
+
+    it('leaves well-formed success results untouched', async () => {
+      const registry = makeRegistry({
+        callTool: async () => ({
+          content: '{"status":"success","composition":{"id":1}}',
+          isError: false,
+        }),
+      });
+      providerScript.chat.push({
+        text: null,
+        toolCalls: [{ id: 'c1', name: 'create-composition', args: {} }],
+      });
+      providerScript.continueChat.push({ text: 'done', toolCalls: [] });
+
+      const agent = createAgent(makeConfig({ registry }));
+      await agent.chat('comp');
+
+      const tr = providerCalls.continueChat[0].toolResults[0];
+      expect(tr.isError).toBeUndefined();
+      expect(tr.content).not.toContain('<tool_use_error>');
     });
 
     it('fires onToolCallStart / onToolCallComplete callbacks', async () => {
