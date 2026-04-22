@@ -4,10 +4,11 @@ import {
   CardHeader,
   CardTitle,
 } from '../../components/ui/card';
-import { CheckCircle2, Circle, Loader2, XCircle, X, Brain, ChevronDown, ChevronUp } from 'lucide-react';
+import { XCircle, X, Brain, ChevronDown, ChevronUp } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { useState } from 'react';
 import type { TaskDTO } from '@pipefx/tasks';
+import { StatusIcon } from '../../components/StatusIcon';
 
 export function TaskManagerWidget({
   tasks,
@@ -173,17 +174,3 @@ function TaskCard({ task }: { task: TaskDTO }) {
   );
 }
 
-function StatusIcon({ status, size = 'md' }: { status: string; size?: 'sm' | 'md' }) {
-  const cls = size === 'sm' ? 'w-3 h-3' : 'w-3.5 h-3.5';
-  switch (status) {
-    case 'in-progress':
-      return <Loader2 className={cn(cls, 'text-primary animate-spin')} />;
-    case 'done':
-      return <CheckCircle2 className={cn(cls, 'text-green-500')} />;
-    case 'error':
-    case 'cancelled':
-      return <XCircle className={cn(cls, 'text-destructive')} />;
-    default:
-      return <Circle className={cn(cls, 'text-muted-foreground')} />;
-  }
-}

@@ -148,6 +148,31 @@ export function taskReducer(
 // ──────────────────────── Collection Reducer ────────────────────────
 
 /**
+ * Finished tasks older than this are pruned when a new task is created,
+ * so the Task Manager UI doesn't accumulate stale completed rows.
+ */
+const STALE_FINISHED_MS = 30_000;
+
+function pruneStaleFinished(
+  state: Map<string, TaskDTO>,
+  now: number
+): Map<string, TaskDTO> {
+  let next: Map<string, TaskDTO> | null = null;
+  for (const [id, task] of state) {
+    const terminal =
+      task.status === 'done' ||
+      task.status === 'error' ||
+      task.status === 'cancelled';
+    if (!terminal) continue;
+    const finishedAt = task.completedAt ?? task.createdAt;
+    if (now - finishedAt < STALE_FINISHED_MS) continue;
+    if (!next) next = new Map(state);
+    next.delete(id);
+  }
+  return next ?? state;
+}
+
+/**
  * Apply a single event to the full tasks collection.
  *
  * Returns a new Map (immutable update) with the event applied.
@@ -164,13 +189,18 @@ export function tasksReducer(
   // All other events operate on a specific taskId
   if (!('taskId' in event)) return state;
 
+  const base =
+    event.type === 'task_created'
+      ? pruneStaleFinished(state, event.timestamp)
+      : state;
+
   const taskId = event.taskId;
-  const currentTask = state.get(taskId);
+  const currentTask = base.get(taskId);
   const updatedTask = taskReducer(currentTask, event);
 
-  if (updatedTask === currentTask) return state;
+  if (updatedTask === currentTask && base === state) return state;
 
-  const newState = new Map(state);
+  const newState = new Map(base);
   if (updatedTask) {
     newState.set(taskId, updatedTask);
   } else {

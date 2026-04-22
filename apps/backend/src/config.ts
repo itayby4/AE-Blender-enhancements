@@ -135,15 +135,16 @@ export let config = {
         },
         // get-results returns JSON strings. These patterns all mean
         // "nothing fresh to see yet" — keep polling. Everything else
-        // (a real ExtendScript result payload) counts as ready.
+        // (a real ExtendScript result payload, or an AE_BRIDGE_TIMEOUT error
+        // the bridge emits after staleness) counts as ready.
         isReady: (result: ToolResult) => {
           const text = extractText(result.content);
           if (!text) return true;
-          // `"status":"waiting"` / "Waiting for new result" is the placeholder
-          // the AE MCP server writes via clearResultsFile() right before it
-          // queues a command — treating it as ready makes the executor hand
-          // the agent a fake success and is what caused the duplicate-comp bug.
-          return !/no results file found|no results available|result file appears to be stale|pending|processing|please run a script|"status"\s*:\s*"waiting"|waiting for new result/i.test(
+          // The bridge emits `"status":"waiting"` while it holds a pending
+          // requestId whose response hasn't arrived yet; that's the signal to
+          // keep polling. An AE_BRIDGE_TIMEOUT payload is a terminal error
+          // and must NOT match here so it surfaces to the agent.
+          return !/no results file|no results available|pending|processing|please run a script|"status"\s*:\s*"waiting"|awaiting result for request/i.test(
             text
           );
         },

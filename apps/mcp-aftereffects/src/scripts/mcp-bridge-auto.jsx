@@ -1495,10 +1495,10 @@ function getLayerInfo() {
 }
 
 // Execute command
-function executeCommand(command, args) {
+function executeCommand(command, args, requestId) {
     var result = "";
 
-    logToPanel("Executing command: " + command);
+    logToPanel("Executing command: " + command + (requestId ? " (requestId=" + requestId + ")" : ""));
     statusText.text = "Running: " + command;
     panel.update();
 
@@ -1604,18 +1604,26 @@ function executeCommand(command, args) {
         logToPanel("Preparing to write result file...");
         var resultString = (typeof result === 'string') ? result : JSON.stringify(result);
         
-        // Try to parse the result as JSON to add a timestamp
+        // Stamp the result with the originating requestId so the Node-side
+        // bridge can correlate this payload to the specific command that
+        // produced it. Without this the bridge would need to guess based on
+        // file-size changes — which is how stale payloads used to leak
+        // through as "fresh" responses.
         try {
             var resultObj = JSON.parse(resultString);
-            // Add a timestamp to help identify if we're getting fresh results
+            resultObj.requestId = requestId || null;
             resultObj._responseTimestamp = new Date().toISOString();
             resultObj._commandExecuted = command;
             resultString = JSON.stringify(resultObj, null, 2);
-            logToPanel("Added timestamp to result JSON for tracking freshness.");
         } catch (parseError) {
-            // If it's not valid JSON, append the timestamp as a comment
-            logToPanel("Could not parse result as JSON to add timestamp: " + parseError.toString());
-            // We'll still continue with the original string
+            logToPanel("Could not parse result as JSON to stamp requestId: " + parseError.toString());
+            // Fall back to wrapping the original payload so requestId still round-trips.
+            resultString = JSON.stringify({
+                requestId: requestId || null,
+                _responseTimestamp: new Date().toISOString(),
+                _commandExecuted: command,
+                rawResult: resultString
+            }, null, 2);
         }
         
         var resultFile = new File(getResultFilePath());
@@ -1656,8 +1664,9 @@ function executeCommand(command, args) {
         // Write detailed error to result file
         try {
             logToPanel("Attempting to write ERROR to result file...");
-            var errorResult = JSON.stringify({ 
-                status: "error", 
+            var errorResult = JSON.stringify({
+                requestId: requestId || null,
+                status: "error",
                 command: command,
                 message: error.toString(),
                 line: error.line,
@@ -1734,9 +1743,10 @@ function checkForCommands() {
                 if (commandData.status === "pending") {
                     // Update status to running
                     updateCommandStatus("running");
-                    
-                    // Execute the command
-                    executeCommand(commandData.command, commandData.args || {});
+
+                    // Execute the command, forwarding requestId so the result
+                    // file can be correlated back to this specific request.
+                    executeCommand(commandData.command, commandData.args || {}, commandData.requestId);
                 }
             }
         }

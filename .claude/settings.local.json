@@ -43,7 +43,10 @@
       "Bash(curl -s \"https://raw.githubusercontent.com/yasasbanukaofficial/claude-code/main/src/query.ts\" -o C:/Users/PC/Documents/GitHub/pipefx/.claude/_query.ts)",
       "Bash(curl -s \"https://github.com/search?q=repo%3Ayasasbanukaofficial%2Fclaude-code+%22duplicate+tool%22&type=code\")",
       "Bash(curl -s \"https://api.github.com/repos/yasasbanukaofficial/claude-code/contents/src/services\")",
-      "Bash(git stash *)"
+      "Bash(git stash *)",
+      "Bash(pnpm install *)",
+      "Bash(grep -E \"\\(warning|src[/\\\\\\\\]index|mcp-bridge-auto\\)\")",
+      "Bash(xargs grep *)"
     ]
   }
 }
