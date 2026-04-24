@@ -300,6 +300,18 @@ importers:
         specifier: ^5.2.2
         version: 5.9.3
 
+  packages/agent-loop-kernel:
+    dependencies:
+      '@pipefx/llm-providers':
+        specifier: workspace:*
+        version: link:../llm-providers
+      '@pipefx/mcp':
+        specifier: workspace:*
+        version: link:../mcp
+      tslib:
+        specifier: ^2.3.0
+        version: 2.8.1
+
   packages/agents:
     dependencies:
       '@pipefx/ai':
@@ -314,6 +326,12 @@ importers:
 
   packages/ai:
     dependencies:
+      '@pipefx/agent-loop-kernel':
+        specifier: workspace:*
+        version: link:../agent-loop-kernel
+      '@pipefx/llm-providers':
+        specifier: workspace:*
+        version: link:../llm-providers
       '@pipefx/mcp':
         specifier: workspace:*
         version: link:../mcp

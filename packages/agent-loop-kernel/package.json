@@ -1,5 +1,5 @@
 {
-  "name": "@pipefx/ai",
+  "name": "@pipefx/agent-loop-kernel",
   "version": "0.0.1",
   "type": "module",
   "main": "./dist/index.js",
@@ -19,16 +19,13 @@
     "!**/*.tsbuildinfo"
   ],
   "dependencies": {
-    "@pipefx/agent-loop-kernel": "workspace:*",
     "@pipefx/llm-providers": "workspace:*",
     "@pipefx/mcp": "workspace:*",
-    "@pipefx/providers": "workspace:*",
-    "dotenv": "^17.3.1",
     "tslib": "^2.3.0"
   },
   "nx": {
     "tags": [
-      "scope:ai"
+      "scope:platform"
     ]
   }
 }

@@ -178,6 +178,7 @@ export default [
                 'scope:shared',
                 'scope:mcp',
                 'scope:ai',
+                'scope:platform',
                 'scope:providers',
               ],
             },

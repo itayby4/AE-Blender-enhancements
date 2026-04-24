@@ -6,7 +6,7 @@ import {
   DEFAULT_COMPACTION_CONFIG,
   type CompactionConfig,
 } from './compaction.js';
-import type { ProviderMessage } from '@pipefx/providers';
+import type { ProviderMessage } from '@pipefx/llm-providers';
 
 function msg(role: ProviderMessage['role'], content: string): ProviderMessage {
   return { role, content };

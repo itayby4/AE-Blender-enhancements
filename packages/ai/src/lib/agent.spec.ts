@@ -66,9 +66,9 @@ const state = vi.hoisted(() => {
   return { providerScript, providerCalls, FakeProvider };
 });
 
-vi.mock('@pipefx/providers', async () => {
-  const actual = await vi.importActual<typeof import('@pipefx/providers')>(
-    '@pipefx/providers'
+vi.mock('@pipefx/llm-providers', async () => {
+  const actual = await vi.importActual<typeof import('@pipefx/llm-providers')>(
+    '@pipefx/llm-providers'
   );
   // Use the class directly as the "constructor" so `new GeminiProvider(...)`
   // works. FakeProvider ignores the apiKey arg.
