@@ -15,6 +15,9 @@
       "path": "../mcp/tsconfig.lib.json"
     },
     {
+      "path": "../brain-contracts/tsconfig.lib.json"
+    },
+    {
       "path": "../ai/tsconfig.lib.json"
     }
   ],

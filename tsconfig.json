@@ -67,6 +67,9 @@
       "path": "./packages/brain-contracts"
     },
     {
+      "path": "./packages/brain-tasks"
+    },
+    {
       "path": "./apps/cloud-api"
     }
   ]

@@ -4,6 +4,7 @@ import type {
   ForkSubAgentOptions,
   PlanDecision,
   RunSubAgentOptions,
+  SubAgentEvent,
   TaskId,
 } from './types.js';
 
@@ -67,6 +68,7 @@ export interface SubAgentsApi {
     sessionId: string;
     taskId: TaskId;
     followUp: string;
+    onEvent?: (ev: SubAgentEvent) => void;
     signal?: AbortSignal;
   }): Promise<{ taskId: TaskId; output: string }>;
   fork(opts: ForkSubAgentOptions): Promise<{ taskId: TaskId; output: string }>;
