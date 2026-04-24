@@ -97,14 +97,7 @@ export default [
                 'scope:usage',
               ],
             },
-            {
-              sourceTag: 'scope:cloud-api',
-              onlyDependOnLibsWithTags: [
-                'scope:shared',
-                'scope:providers',
-                'scope:usage',
-              ],
-            },
+
           ],
         },
       ],
