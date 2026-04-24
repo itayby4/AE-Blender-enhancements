@@ -61,7 +61,7 @@ import { useChat } from '../hooks/useChat.js';
 import { useChatHistory } from '../hooks/useChatHistory.js';
 
 // Auth
-import { useAuth } from '../lib/auth-context.js';
+import { useAuth } from '@pipefx/auth/ui';
 import { LoginPage } from '../features/auth/LoginPage.js';
 
 // ── Static Data ──

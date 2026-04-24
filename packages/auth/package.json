@@ -37,7 +37,24 @@
     "!**/*.tsbuildinfo"
   ],
   "dependencies": {
+    "@supabase/supabase-js": "^2.103.3",
     "tslib": "^2.3.0"
+  },
+  "peerDependencies": {
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
+  "peerDependenciesMeta": {
+    "react": {
+      "optional": true
+    },
+    "react-dom": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3"
   },
   "nx": {
     "tags": [

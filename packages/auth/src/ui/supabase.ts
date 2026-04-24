@@ -1,9 +1,15 @@
 /// <reference types="vite/client" />
 /**
- * PipeFX Desktop — Supabase Client.
+ * PipeFX Auth — Supabase Browser Client.
  *
- * This is the ONLY file that imports @supabase/supabase-js directly.
- * Everything else uses the auth-context wrapper (anti-lock-in per HANDOFF).
+ * This is the ONLY file that imports @supabase/supabase-js for the
+ * browser runtime. Everything else should go through `useAuth()` or
+ * the dedicated helpers exported from `@pipefx/auth/ui`.
+ *
+ * Exposed via `@pipefx/auth/ui` as an escape hatch for code paths
+ * that still need raw client access (e.g. profile updates in
+ * SettingsPage). Prefer adding a typed helper here over widening
+ * the export surface further.
  */
 
 import { createClient } from '@supabase/supabase-js';
@@ -17,10 +23,7 @@ if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
   );
 }
 
-// Use placeholder URL when not configured — the SDK needs a valid URL shape.
-// Auth calls will fail gracefully but the app won't crash.
 export const supabase = createClient(
   SUPABASE_URL || 'https://placeholder.supabase.co',
   SUPABASE_ANON_KEY || 'placeholder-key'
 );
-

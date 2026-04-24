@@ -2,7 +2,7 @@ import { useState, useRef, useCallback } from 'react';
 import type { Skill } from '../lib/load-skills.js';
 import { parseMessageContent } from '../features/skills/ChatCard.js';
 import { dispatchPipelineActions } from '../lib/pipeline-actions.js';
-import { getAccessToken } from '../lib/auth-context.js';
+import { getAccessToken } from '@pipefx/auth/ui';
 
 export interface ChatMessage {
   id: number;

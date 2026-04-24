@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
 import { useReactFlow, type Edge, type Node } from '@xyflow/react';
-import { getAccessToken } from '../../lib/auth-context';
+import { getAccessToken } from '@pipefx/auth/ui';
 
 class Semaphore {
   private count: number;

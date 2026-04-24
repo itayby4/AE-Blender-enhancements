@@ -6,7 +6,7 @@
  * via the Authorization: Bearer header.
  */
 
-import { getAccessToken } from './auth-context.js';
+import { getAccessToken } from '@pipefx/auth/ui';
 
 const API_BASE = 'http://localhost:3001';
 
