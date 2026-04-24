@@ -1,5 +1,5 @@
 import type { Router } from '../router.js';
-import type { Agent } from '@pipefx/ai';
+import type { Agent } from '@pipefx/agent-loop-kernel';
 import type { ConnectorRegistry } from '@pipefx/mcp';
 import { readBody, jsonResponse, jsonError } from '../router.js';
 import { config, updateConfig } from '../config.js';
@@ -9,7 +9,7 @@ import { createAudioSyncHandler } from '../api/audio-sync.js';
 import { handleAiModelRequest } from '../api/ai-models/router.js';
 import { handleSaveRenderRequest } from '../api/save-render.js';
 import { getTimelineInfoWorkflow, autopodWorkflow } from '../workflows/index.js';
-import { createAgent } from '@pipefx/ai';
+import { createAgent } from '@pipefx/brain-loop';
 import { GoogleGenAI } from '@google/genai';
 import { OpenAI } from 'openai';
 

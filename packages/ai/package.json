@@ -20,6 +20,7 @@
   ],
   "dependencies": {
     "@pipefx/agent-loop-kernel": "workspace:*",
+    "@pipefx/brain-loop": "workspace:*",
     "@pipefx/llm-providers": "workspace:*",
     "@pipefx/mcp": "workspace:*",
     "@pipefx/providers": "workspace:*",

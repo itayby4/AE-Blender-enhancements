@@ -1,5 +1,5 @@
 import type { Router } from '../router.js';
-import type { Agent, AggregatedUsage } from '@pipefx/ai';
+import type { Agent, AggregatedUsage } from '@pipefx/agent-loop-kernel';
 import type { UsageData } from '@pipefx/providers';
 import type { ConnectorRegistry } from '@pipefx/mcp';
 import type { AgentSessionStore } from '@pipefx/agents';

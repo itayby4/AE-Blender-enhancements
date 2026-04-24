@@ -37,6 +37,9 @@
       "path": "../../packages/ai/tsconfig.lib.json"
     },
     {
+      "path": "../../packages/agent-loop-kernel/tsconfig.lib.json"
+    },
+    {
       "path": "../../packages/agents/tsconfig.lib.json"
     }
   ]

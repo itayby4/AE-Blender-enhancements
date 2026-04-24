@@ -125,8 +125,10 @@
   "dependencies": {
     "@google/genai": "^1.46.0",
     "@pipefx/agents": "workspace:*",
+    "@pipefx/agent-loop-kernel": "workspace:*",
     "@pipefx/ai": "workspace:*",
     "@pipefx/auth": "workspace:*",
+    "@pipefx/brain-loop": "workspace:*",
     "@pipefx/brain-memory": "workspace:*",
     "@pipefx/brain-planning": "workspace:*",
     "@pipefx/mcp": "workspace:*",

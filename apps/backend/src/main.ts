@@ -1,6 +1,6 @@
 import { ConnectorRegistry } from '@pipefx/mcp';
-import { createAgent } from '@pipefx/ai';
-import type { Agent } from '@pipefx/ai';
+import { createAgent } from '@pipefx/brain-loop';
+import type { Agent } from '@pipefx/agent-loop-kernel';
 import {
   AgentSessionStore,
   createTaskOutputStore,

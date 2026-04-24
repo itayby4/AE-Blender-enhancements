@@ -76,6 +76,9 @@
       "path": "./packages/brain-planning"
     },
     {
+      "path": "./packages/brain-loop"
+    },
+    {
       "path": "./apps/cloud-api"
     }
   ]
