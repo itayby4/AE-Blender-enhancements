@@ -38,9 +38,6 @@
     },
     {
       "path": "./packages/usage"
-    },
-    {
-      "path": "./apps/cloud-api"
     }
   ]
 }

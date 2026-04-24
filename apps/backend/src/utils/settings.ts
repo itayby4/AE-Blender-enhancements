@@ -51,7 +51,7 @@ const DEFAULTS: AppSettings = {
   activePalette: 'cool-teal',
   customPalettes: [],
   apiMode: 'byok',
-  cloudApiUrl: process.env.CLOUD_API_URL || 'https://cloud.pipefx.app',
+  cloudApiUrl: process.env.CLOUD_API_URL || 'https://pipefx-cloud-api-production.up.railway.app',
   deviceToken: '',
 };
 

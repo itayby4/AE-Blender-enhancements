@@ -117,8 +117,15 @@ export class GeminiProvider implements Provider {
     const allToolCalls: any[] = [];
     const allRawCalls: any[] = [];
     const allRawParts: any[] = [];
+    // Gemini streaming puts usageMetadata on individual chunks (typically
+    // the last one), NOT on the stream iterator object. Capture it here.
+    let lastUsageChunk: any = null;
 
     for await (const chunk of response) {
+      // Capture any chunk that carries usageMetadata (last chunk has it)
+      if (chunk?.usageMetadata) {
+        lastUsageChunk = chunk;
+      }
       const chunkParts = chunk?.candidates?.[0]?.content?.parts ?? [];
       let chunkText = '';
       for (const part of chunkParts) {
@@ -158,7 +165,7 @@ export class GeminiProvider implements Provider {
           allRawParts.length > 0
             ? { parts: allRawParts, functionCalls: allRawCalls }
             : undefined,
-        usage: this.extractUsage(response, params.model),
+        usage: this.extractUsage(lastUsageChunk ?? response, params.model),
       },
     };
   }
@@ -193,8 +200,12 @@ export class GeminiProvider implements Provider {
     const allToolCalls: any[] = [];
     const allRawCalls: any[] = [];
     const allRawParts: any[] = [];
+    let lastUsageChunk: any = null;
 
     for await (const chunk of response) {
+      if (chunk?.usageMetadata) {
+        lastUsageChunk = chunk;
+      }
       const chunkParts = chunk?.candidates?.[0]?.content?.parts ?? [];
       let chunkText = '';
       for (const part of chunkParts) {
@@ -234,7 +245,7 @@ export class GeminiProvider implements Provider {
           allRawParts.length > 0
             ? { parts: allRawParts, functionCalls: allRawCalls }
             : undefined,
-        usage: this.extractUsage(response, params.model),
+        usage: this.extractUsage(lastUsageChunk ?? response, params.model),
       },
     };
   }

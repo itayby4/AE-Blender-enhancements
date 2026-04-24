@@ -609,7 +609,7 @@ function ApiModeSection({
 }) {
   const [apiMode, setApiMode] = useState<'byok' | 'cloud'>('byok');
   const [deviceToken, setDeviceToken] = useState('');
-  const [cloudApiUrl, setCloudApiUrl] = useState('https://cloud.pipefx.app');
+  const [cloudApiUrl, setCloudApiUrl] = useState('https://pipefx-cloud-api-production.up.railway.app');
   const [balance, setBalance] = useState<{ available: number; held: number } | null>(null);
   const [isSavingMode, setIsSavingMode] = useState(false);
   const [modeStatus, setModeStatus] = useState<'idle' | 'saved' | 'error'>('idle');
