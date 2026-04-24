@@ -3,6 +3,7 @@ import * as path from 'path';
 import * as os from 'os';
 import * as fs from 'fs';
 import { execSync } from 'child_process';
+import { VIDEO_KIT_PY_SRC } from '@pipefx/video-kit';
 
 /**
  * Resolves the workspace root by walking up from cwd looking for nx.json.
@@ -50,9 +51,6 @@ export const getTimelineInfoWorkflow = {
     const outPath = path.join(tempDir, `discover_${runId}.json`);
 
     try {
-      const workspaceRoot = findWorkspaceRoot();
-      const stoolsDir = path.join(workspaceRoot, 'stools');
-
       // 1. Export XML from the active NLE
       if (appTarget === 'premiere') {
         await registry.callTool('premiere_export_xml', {
@@ -69,7 +67,11 @@ export const getTimelineInfoWorkflow = {
       }
 
       // 2. Run discover_media.py to parse the XML
-      const script = path.join(stoolsDir, 'discover_media.py');
+      const script = path.join(
+        VIDEO_KIT_PY_SRC,
+        'media-discovery',
+        'discover_media.py'
+      );
       execSync(
         `"${pythonExe}" "${script}" --xml "${xmlPath}" --out "${outPath}"`,
         { stdio: 'inherit' }
@@ -208,7 +210,11 @@ export const autopodWorkflow = {
       // STEP 2 — Discover media
       // ──────────────────────────────────────────────────────────
       console.log(`[AUTOPOD] Step 2/6: Parsing timeline XML...`);
-      const discoverScript = path.join(stoolsDir, 'discover_media.py');
+      const discoverScript = path.join(
+        VIDEO_KIT_PY_SRC,
+        'media-discovery',
+        'discover_media.py'
+      );
       execSync(
         `"${pythonExe}" ${pyFlag} "${discoverScript}" --xml "${originalXmlPath}" --out "${configPath}"`,
         { stdio: 'inherit' }
@@ -228,7 +234,11 @@ export const autopodWorkflow = {
         console.log(
           `[AUTOPOD] Step 3/6: Extracting proxy clips and splitting audio channels...`
         );
-        const proxyScript = path.join(stoolsDir, 'proxy_extractor.py');
+        const proxyScript = path.join(
+          VIDEO_KIT_PY_SRC,
+          'proxy-extractor',
+          'proxy_extractor.py'
+        );
         execSync(
           `"${pythonExe}" ${pyFlag} "${proxyScript}" --config "${configPath}" --out-dir "${proxyDir}"`,
           { stdio: 'inherit' }
@@ -242,7 +252,11 @@ export const autopodWorkflow = {
         console.log(
           `[AUTOPOD] Step 4/6: AI camera-to-microphone mapping...`
         );
-        const mapperScript = path.join(stoolsDir, 'sentient_mapper.py');
+        const mapperScript = path.join(
+          VIDEO_KIT_PY_SRC,
+          'sentient-mapper',
+          'sentient_mapper.py'
+        );
         execSync(
           `"${pythonExe}" ${pyFlag} "${mapperScript}" --proxy-config "${proxyConfigPath}" --out "${mappingPath}"`,
           { stdio: 'inherit' }
@@ -318,7 +332,11 @@ export const autopodWorkflow = {
       console.log(
         `[AUTOPOD] Step 6/6: Slicing XML and importing back...`
       );
-      const xmlScript = path.join(stoolsDir, 'xml_multicam.py');
+      const xmlScript = path.join(
+        VIDEO_KIT_PY_SRC,
+        'fcpxml',
+        'xml_multicam.py'
+      );
       execSync(
         `"${pythonExe}" ${pyFlag} "${xmlScript}" --xml "${originalXmlPath}" --cuts "${cutListPath}" --out "${modifiedXmlPath}"`,
         { stdio: 'inherit' }

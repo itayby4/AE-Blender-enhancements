@@ -10,6 +10,9 @@
   "exclude": [],
   "references": [
     {
+      "path": "../../packages/video-kit/tsconfig.lib.json"
+    },
+    {
       "path": "../../packages/usage/tsconfig.lib.json"
     },
     {

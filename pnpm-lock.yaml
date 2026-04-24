@@ -119,6 +119,9 @@ importers:
       '@pipefx/usage':
         specifier: workspace:*
         version: link:../../packages/usage
+      '@pipefx/video-kit':
+        specifier: workspace:*
+        version: link:../../packages/video-kit
       '@supabase/supabase-js':
         specifier: ^2.103.3
         version: 2.103.3

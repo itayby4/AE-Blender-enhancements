@@ -28,12 +28,23 @@
               "input": "apps/backend/src/prompts",
               "glob": "*.md",
               "output": "prompts"
+            },
+            {
+              "input": "packages/video-kit/src",
+              "glob": "**/*.py",
+              "output": "packages/video-kit/src"
             }
           ],
           "esbuildOptions": {
             "sourcemap": true,
             "outExtension": {
               ".js": ".js"
+            },
+            "banner": {
+              "js": "var __pipefxImportMetaUrl=require('url').pathToFileURL(__filename).href;"
+            },
+            "define": {
+              "import.meta.url": "__pipefxImportMetaUrl"
             }
           }
         },
@@ -44,6 +55,12 @@
               "sourcemap": false,
               "outExtension": {
                 ".js": ".js"
+              },
+              "banner": {
+                "js": "var __pipefxImportMetaUrl=require('url').pathToFileURL(__filename).href;"
+              },
+              "define": {
+                "import.meta.url": "__pipefxImportMetaUrl"
               }
             }
           }
@@ -113,6 +130,7 @@
     "@pipefx/providers": "workspace:*",
     "@pipefx/tasks": "workspace:*",
     "@pipefx/usage": "workspace:*",
+    "@pipefx/video-kit": "workspace:*",
     "@supabase/supabase-js": "^2.103.3",
     "better-sqlite3": "^12.9.0",
     "dotenv": "^17.3.1",

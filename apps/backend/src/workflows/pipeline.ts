@@ -2,6 +2,7 @@ import type { WorkflowContext } from './types.js';
 import * as fs from 'fs';
 import * as path from 'path';
 import { execSync } from 'child_process';
+import { VIDEO_KIT_PY_SRC } from '@pipefx/video-kit';
 
 export interface PipelineOptions {
   start_seconds?: number;
@@ -70,7 +71,7 @@ export async function runTranscriptionPipeline(
 
   if (options.use_vad) {
     chunksToTranscribe = [];
-    const vadSplitScript = path.join(process.cwd(), 'stools', 'vad_split.py');
+    const vadSplitScript = path.join(VIDEO_KIT_PY_SRC, 'vad', 'vad_split.py');
 
     for (const chunk of resJson.audio_chunks) {
       const actualPath = resolveChunkPath(chunk.path);

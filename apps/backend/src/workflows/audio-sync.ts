@@ -3,6 +3,7 @@ import * as path from 'path';
 import * as os from 'os';
 import * as fs from 'fs';
 import { execSync } from 'child_process';
+import { VIDEO_KIT_PY_SRC } from '@pipefx/video-kit';
 
 /**
  * Resolves the workspace root by walking up from cwd looking for nx.json.
@@ -142,7 +143,11 @@ export const syncExternalAudioWorkflow: WorkflowDefinition = {
       // STEP 2 ΓÇö Discover media (video source paths)
       // ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
       console.log(`[AUDIO-SYNC] Step 2/5: Discovering media...`);
-      const discoverScript = path.join(stoolsDir, 'discover_media.py');
+      const discoverScript = path.join(
+        VIDEO_KIT_PY_SRC,
+        'media-discovery',
+        'discover_media.py'
+      );
       execSync(
         `"${pythonExe}" ${pyFlag} "${discoverScript}" --xml "${originalXmlPath}" --out "${configPath}"`,
         { stdio: 'inherit', env: pyEnv }

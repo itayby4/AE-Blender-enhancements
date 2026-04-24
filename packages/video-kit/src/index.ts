@@ -1,11 +1,12 @@
-import { fileURLToPath } from 'node:url';
 import * as path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 /**
  * Absolute path to the root of the `@pipefx/video-kit` package
- * (i.e. the directory containing `package.json`, `pyproject.toml`,
- * and `src/`). Works both when importing from source
- * (`@pipefx/source` condition) and from the built `dist/` output.
+ * (the directory containing `package.json`, `pyproject.toml`, and `src/`).
+ * Works for both the built ESM dist and the TS source loaded through the
+ * `@pipefx/source` condition (CJS consumers provide `import.meta.url` via
+ * an esbuild `define` that points at `pathToFileURL(__filename).href`).
  */
 export const VIDEO_KIT_PACKAGE_ROOT = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
