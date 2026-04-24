@@ -1,5 +1,5 @@
 import type { Provider, UsageData } from '@pipefx/llm-providers';
-import type { ConnectorRegistry } from '@pipefx/mcp';
+import type { ConnectorRegistry } from '@pipefx/connectors';
 
 /**
  * Context required to run a single chat turn through the kernel.

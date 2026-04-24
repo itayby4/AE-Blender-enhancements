@@ -1,8 +1,8 @@
 import * as dotenv from 'dotenv';
 import * as path from 'path';
 import * as fs from 'fs';
-import { resolveVenvPython } from '@pipefx/mcp';
-import type { ToolResult } from '@pipefx/mcp';
+import { resolveVenvPython } from '@pipefx/mcp-transport';
+import type { ToolResult } from '@pipefx/connectors';
 import { loadSystemPrompt, loadLegacySections } from './prompts/index.js';
 
 /**

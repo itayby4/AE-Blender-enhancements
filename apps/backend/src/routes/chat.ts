@@ -1,7 +1,7 @@
 import type { Router } from '../router.js';
 import type { Agent, AggregatedUsage } from '@pipefx/agent-loop-kernel';
 import type { UsageData } from '@pipefx/providers';
-import type { ConnectorRegistry } from '@pipefx/mcp';
+import type { ConnectorRegistry } from '@pipefx/connectors';
 import type { AgentSessionStore } from '@pipefx/brain-tasks';
 import { brainSubagentsLog as agentsLog } from '@pipefx/brain-subagents';
 import type { PlanApprovalBroker } from '@pipefx/brain-planning';

@@ -1,4 +1,4 @@
-import type { Tool } from '@pipefx/mcp';
+import type { Tool } from '@pipefx/connectors';
 
 /**
  * Maps an array of MCP tools to the Gemini functionDeclarations format.

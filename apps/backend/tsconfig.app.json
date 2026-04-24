@@ -22,7 +22,10 @@
       "path": "../../packages/providers/tsconfig.lib.json"
     },
     {
-      "path": "../../packages/mcp/tsconfig.lib.json"
+      "path": "../../packages/mcp-transport/tsconfig.lib.json"
+    },
+    {
+      "path": "../../packages/connectors/tsconfig.lib.json"
     },
     {
       "path": "../../packages/brain-tasks/tsconfig.lib.json"

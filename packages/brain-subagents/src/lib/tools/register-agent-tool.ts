@@ -1,4 +1,4 @@
-import type { ConnectorRegistry } from '@pipefx/mcp';
+import type { ConnectorRegistry } from '@pipefx/connectors';
 import type {
   AgentProfile,
   TaskType,

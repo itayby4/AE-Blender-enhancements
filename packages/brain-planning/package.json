@@ -20,7 +20,7 @@
   ],
   "dependencies": {
     "@pipefx/brain-contracts": "workspace:*",
-    "@pipefx/mcp": "workspace:*",
+    "@pipefx/connectors": "workspace:*",
     "@pipefx/agent-loop-kernel": "workspace:*",
     "tslib": "^2.3.0"
   },

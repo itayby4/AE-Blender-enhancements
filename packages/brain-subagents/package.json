@@ -24,7 +24,7 @@
     "@pipefx/brain-planning": "workspace:*",
     "@pipefx/brain-tasks": "workspace:*",
     "@pipefx/agent-loop-kernel": "workspace:*",
-    "@pipefx/mcp": "workspace:*",
+    "@pipefx/connectors": "workspace:*",
     "tslib": "^2.3.0"
   },
   "nx": {

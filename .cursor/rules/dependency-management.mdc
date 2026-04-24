@@ -17,11 +17,11 @@ globs:
 
 ### Concrete examples
 
-- `@modelcontextprotocol/sdk` belongs in `packages/mcp/package.json` -- not root.
-- `@google/genai` belongs in `packages/ai/package.json` -- not root.
+- `@modelcontextprotocol/sdk` belongs in `packages/connectors/package.json` -- not root.
+- `@google/genai` belongs in `packages/llm-providers/package.json` -- not root.
 - `dotenv` belongs in `apps/backend/package.json` -- not root.
-- `@pipefx/mcp` in `packages/ai/package.json` as `"workspace:*"`.
-- `@pipefx/mcp` and `@pipefx/ai` in `apps/backend/package.json` as `"workspace:*"`.
+- `@pipefx/connectors` in `packages/brain-loop/package.json` as `"workspace:*"`.
+- `@pipefx/connectors` and every `@pipefx/brain-*` in `apps/backend/package.json` as `"workspace:*"`.
 
 The root `package.json` `dependencies` should be empty (`{}`). All runtime deps live in the projects that use them.
 
@@ -37,9 +37,10 @@ Current rules:
 | `scope:async`    | `scope:shared`, `scope:async`          |
 | `scope:colors`   | `scope:shared`, `scope:colors`         |
 | `scope:strings`  | `scope:shared`, `scope:strings`        |
-| `scope:mcp`      | `scope:shared`, `scope:async`, `scope:mcp` |
-| `scope:ai`       | `scope:shared`, `scope:mcp`, `scope:ai`    |
-| `scope:backend`  | `scope:shared`, `scope:mcp`, `scope:ai`    |
+| `scope:platform` | `scope:shared`, `scope:platform`                          |
+| `scope:feature`  | `scope:shared`, `scope:platform`, `scope:feature` (own)   |
+| `scope:app`      | `scope:shared`, `scope:platform`, `scope:feature`, `scope:app`, `scope:mcp` |
+| `scope:mcp`      | `scope:shared`, `scope:platform`, `scope:mcp` (mcp-* apps + mcp-transport)  |
 
 When adding a new package or app:
 1. Add a `scope:<name>` Nx tag to its `package.json`.

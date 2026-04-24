@@ -28,8 +28,8 @@ packages/<name>/
 
 - ALWAYS use `.js` extensions in relative imports: `import { foo } from './lib/bar.js'`
 - NEVER use extensionless imports: `import { foo } from './lib/bar'` -- this will fail at runtime with ESM.
-- Import workspace packages by name: `import { ConnectorRegistry } from '@pipefx/mcp'`
-- NEVER use relative paths to reach into other packages (e.g., `../../packages/mcp/src/...`).
+- Import workspace packages by name: `import { ConnectorRegistry } from '@pipefx/connectors'`
+- NEVER use relative paths to reach into other packages (e.g., `../../packages/connectors/src/...`).
 - Use `import type { ... }` for type-only imports to avoid runtime overhead.
 
 ## Exports
@@ -41,7 +41,7 @@ packages/<name>/
 ## Dependencies
 
 - External deps go in the package's own `package.json`, not the root.
-- Workspace deps use `"workspace:*"` protocol: `"@pipefx/mcp": "workspace:*"`.
+- Workspace deps use `"workspace:*"` protocol: `"@pipefx/connectors": "workspace:*"`.
 - Every package must include `"tslib": "^2.3.0"` in dependencies (required by `importHelpers`).
 - Root `package.json` should only contain devDependencies (build tools, Nx, TypeScript, etc.).
 

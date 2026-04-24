@@ -12,10 +12,10 @@
   "include": ["src/**/*.ts"],
   "references": [
     {
-      "path": "../mcp/tsconfig.lib.json"
+      "path": "../llm-providers/tsconfig.lib.json"
     },
     {
-      "path": "../llm-providers/tsconfig.lib.json"
+      "path": "../connectors/tsconfig.lib.json"
     }
   ]
 }

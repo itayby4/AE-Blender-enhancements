@@ -1,4 +1,5 @@
-import { ConnectorRegistry } from '@pipefx/mcp';
+import { ConnectorRegistry } from '@pipefx/connectors';
+import { mountConnectorRoutes } from '@pipefx/connectors/backend';
 import { createAgent } from '@pipefx/brain-loop';
 import type { Agent } from '@pipefx/agent-loop-kernel';
 import {
@@ -269,6 +270,7 @@ async function main() {
     taskOutput,
   });
   mountMemoryRoutes(router);
+  mountConnectorRoutes(router, { registry });
   registerProjectRoutes(router, { registry });
   registerSkillRoutes(router);
   registerSessionRoutes(router);

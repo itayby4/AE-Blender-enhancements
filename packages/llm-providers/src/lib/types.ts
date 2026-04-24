@@ -1,4 +1,4 @@
-import type { Tool } from '@pipefx/mcp';
+import type { Tool } from '@pipefx/connectors';
 
 /**
  * Unified message format used across all LLM providers.

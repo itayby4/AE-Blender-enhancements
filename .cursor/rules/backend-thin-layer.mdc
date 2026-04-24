@@ -23,9 +23,9 @@ The backend (`apps/backend`) is a thin wiring layer. Its sole responsibility is:
 
 ## Forbidden in `apps/backend`
 
-- **MCP client or transport code.** Use `ConnectorRegistry` and `createConnector()` from `@pipefx/mcp`.
-- **AI model API calls.** Use `createAgent()` and `agent.chat()` from `@pipefx/ai`.
-- **Tool definitions or tool mapping.** This is handled by `@pipefx/ai` and the Python MCP servers.
+- **MCP client or transport code.** Use `ConnectorRegistry` and `createConnector()` from `@pipefx/connectors` (+ `@pipefx/mcp-transport` for the lower-level transport factory).
+- **AI model API calls.** Use `createAgent()` and `agent.chat()` from `@pipefx/brain-loop`.
+- **Tool definitions or tool mapping.** This is handled by `@pipefx/llm-providers` + the brain-* packages and the Python MCP servers.
 - **Application-specific logic** (DaVinci Resolve API calls, Premiere Pro scripting, etc.).
 - **Utility functions** that could be shared. Move them to the appropriate `packages/` library.
 

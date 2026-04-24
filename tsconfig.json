@@ -22,9 +22,6 @@
       "path": "./apps/backend"
     },
     {
-      "path": "./packages/mcp"
-    },
-    {
       "path": "./packages/mcp-transport"
     },
     {

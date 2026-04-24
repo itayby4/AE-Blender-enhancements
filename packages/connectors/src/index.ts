@@ -42,4 +42,14 @@ export type {
   ConnectorsApi,
   ConnectorSnapshot,
   ConnectorCapabilityManifest,
+  // Transitional aliases — drop once all consumers adopt the Tool*Descriptor
+  // / ToolCallResult names. See contracts/src/lib/types.ts.
+  Tool,
+  ToolResult,
+  // Transport shapes — re-exported so a consumer that only imports the
+  // registry (e.g. apps/backend config module) doesn't need a second
+  // import line against @pipefx/mcp-transport.
+  TransportConfig,
+  StdioTransportConfig,
+  SseTransportConfig,
 } from '@pipefx/connectors-contracts';

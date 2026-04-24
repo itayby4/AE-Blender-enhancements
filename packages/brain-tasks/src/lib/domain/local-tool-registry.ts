@@ -1,5 +1,5 @@
 // Minimal subset of ConnectorRegistry used by brain-tasks tool registrations.
-// Structurally satisfied by @pipefx/mcp ConnectorRegistry — no direct dep needed.
+// Structurally satisfied by @pipefx/connectors ConnectorRegistry — no direct dep needed.
 export interface LocalToolRegistry {
   registerLocalTool(
     name: string,

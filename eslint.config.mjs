@@ -63,8 +63,9 @@ export default [
                 'scope:mcp',
               ],
             },
-            // scope:mcp covers both the current @pipefx/mcp package and
-            // future apps/mcp-* app projects.
+            // scope:mcp covers the apps/mcp-* server projects and the low-level
+            // @pipefx/mcp-transport package. Runtime connector code lives in
+            // @pipefx/connectors (scope:feature + feature:connectors).
             {
               sourceTag: 'scope:mcp',
               onlyDependOnLibsWithTags: [

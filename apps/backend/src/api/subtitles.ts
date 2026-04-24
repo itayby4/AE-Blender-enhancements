@@ -1,5 +1,5 @@
 import type { IncomingMessage, ServerResponse } from 'http';
-import type { ConnectorRegistry } from '@pipefx/mcp';
+import type { ConnectorRegistry } from '@pipefx/connectors';
 import type { WorkflowContext } from '../workflows/types.js';
 import { runTranscriptionPipeline } from '../workflows/pipeline.js';
 

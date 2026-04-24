@@ -1,6 +1,6 @@
 import type { Router } from '../router.js';
 import type { Agent } from '@pipefx/agent-loop-kernel';
-import type { ConnectorRegistry } from '@pipefx/mcp';
+import type { ConnectorRegistry } from '@pipefx/connectors';
 import { readBody, jsonResponse, jsonError } from '../router.js';
 import { config, updateConfig } from '../config.js';
 import { loadSettings, saveSettings } from '../utils/settings.js';
