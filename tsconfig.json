@@ -61,6 +61,9 @@
       "path": "./packages/auth-tokens"
     },
     {
+      "path": "./packages/auth"
+    },
+    {
       "path": "./apps/cloud-api"
     }
   ]

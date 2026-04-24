@@ -63,3 +63,5 @@ venv/
 
 # Local data
 data/
+# …but feature-package data layers are source
+!packages/*/src/data/
