@@ -10,8 +10,8 @@ import nx from '@nx/eslint-plugin';
 //            media-gen | post-production | node-system
 //
 // All rules run at WARN during the migration. Phase 11 flips to ERROR.
-// Transitional per-package scope tags (scope:async, scope:ai, …) remain so
-// current packages keep lint-clean until Phase 1+ moves them onto the new
+// Transitional per-package scope tags (scope:ai, scope:providers, …) remain
+// so current packages keep lint-clean until Phase 1+ moves them onto the new
 // axes.
 // ---------------------------------------------------------------------------
 
@@ -64,14 +64,12 @@ export default [
               ],
             },
             // scope:mcp covers both the current @pipefx/mcp package and
-            // future apps/mcp-* app projects. `scope:async` stays in the
-            // allowed list until @pipefx/mcp migrates off it (Phase 1).
+            // future apps/mcp-* app projects.
             {
               sourceTag: 'scope:mcp',
               onlyDependOnLibsWithTags: [
                 'scope:shared',
                 'scope:platform',
-                'scope:async',
                 'scope:mcp',
               ],
             },
@@ -161,18 +159,6 @@ export default [
             // package migrates onto the new scope/layer/feature axes during
             // Phase 1+. Do not add new ones.
             {
-              sourceTag: 'scope:async',
-              onlyDependOnLibsWithTags: ['scope:shared', 'scope:async'],
-            },
-            {
-              sourceTag: 'scope:colors',
-              onlyDependOnLibsWithTags: ['scope:shared', 'scope:colors'],
-            },
-            {
-              sourceTag: 'scope:strings',
-              onlyDependOnLibsWithTags: ['scope:shared', 'scope:strings'],
-            },
-            {
               sourceTag: 'scope:ai',
               onlyDependOnLibsWithTags: [
                 'scope:shared',
@@ -207,7 +193,6 @@ export default [
               sourceTag: 'scope:agents',
               onlyDependOnLibsWithTags: [
                 'scope:shared',
-                'scope:async',
                 'scope:mcp',
                 'scope:ai',
                 'scope:providers',
