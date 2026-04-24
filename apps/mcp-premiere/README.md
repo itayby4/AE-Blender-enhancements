@@ -1,4 +1,26 @@
-# Adobe Premiere Pro MCP Server
+# `@pipefx/mcp-premiere`
+
+MCP server for Adobe Premiere Pro. Part of the PipeFX monorepo.
+
+**Status:** functional.
+**IPC mode:** stdio.
+**Language:** Python >= 3.10 (FastMCP + Pymiere).
+**Backend connector id:** `premiere` — see [apps/backend/src/config.ts](../../apps/backend/src/config.ts).
+
+## Tools
+
+Registered in [src/mcp_premiere/tools/__init__.py](src/mcp_premiere/tools/__init__.py). Categories: project, cutting, understanding, xml_tools, audio, transcript, subtitles. Each module exposes `def register(mcp, connector):`.
+
+## Nx targets
+
+```powershell
+pnpm nx serve @pipefx/mcp-premiere   # .\venv\Scripts\python.exe -m mcp_premiere.server
+pnpm nx test  @pipefx/mcp-premiere   # import-smoke
+```
+
+---
+
+## Details
 
 This is the Model Context Protocol (MCP) server for Adobe Premiere Pro, part of the **PipeFX** application. It allows our AI to natively control and edit videos on the Premiere Pro timeline.
 

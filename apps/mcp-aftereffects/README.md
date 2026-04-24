@@ -1,3 +1,40 @@
+# `@pipefx/mcp-aftereffects`
+
+MCP server for Adobe After Effects. Part of the PipeFX monorepo.
+
+**Status:** functional.
+**IPC mode:** file-IPC bridge (intentional outlier — the 4 Python MCPs use stdio). The server queues commands that the `ae-mcp-bridge-auto.jsx` panel polls from inside After Effects; results are picked up via `get-results`. The backend's `asyncPolicy` in [apps/backend/src/config.ts](../../apps/backend/src/config.ts) transparently polls `get-results` so callers see a synchronous API. This eliminates the 4-duplicate-composition bug by construction.
+**Language:** Node.js (TypeScript, esbuild bundle to `build/index.js`).
+**Backend connector id:** `aftereffects` — see [apps/backend/src/config.ts](../../apps/backend/src/config.ts).
+
+## Tools
+
+See the upstream table below (`## Available MCP Tools`). Tool definitions live in [src/index.ts](src/index.ts); the ExtendScript side of the bridge is in [src/scripts/mcp-bridge-auto.jsx](src/scripts/mcp-bridge-auto.jsx).
+
+## Nx targets
+
+```powershell
+pnpm nx build   @pipefx/mcp-aftereffects   # esbuild → build/index.js
+pnpm nx serve   @pipefx/mcp-aftereffects   # node build/index.js  (dependsOn build)
+pnpm nx test    @pipefx/mcp-aftereffects   # node --check build/index.js (syntax smoke)
+```
+
+## Setup (one-time bridge install)
+
+```powershell
+cd apps/mcp-aftereffects
+pnpm install
+pnpm run install-bridge   # copies mcp-bridge-auto.jsx into the AE Scripts folder
+```
+
+In After Effects: Window → `mcp-bridge-auto.jsx`, enable "Auto-run commands".
+
+---
+
+## Upstream documentation
+
+> Forked from [Dakkshin/after-effects-mcp](https://github.com/Dakkshin/after-effects-mcp). Sections below are preserved from the upstream README.
+
 # 🎬 After Effects MCP Server
 
 ![Node.js](https://img.shields.io/badge/node-%3E=14.x-brightgreen.svg)
