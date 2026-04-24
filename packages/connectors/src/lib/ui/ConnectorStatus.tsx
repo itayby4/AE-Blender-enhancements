@@ -1,8 +1,18 @@
 import { useState } from 'react';
 import { ChevronDown } from 'lucide-react';
-import { cn } from '../../lib/utils.js';
+import { clsx, type ClassValue } from 'clsx';
+import { twMerge } from 'tailwind-merge';
 
-interface ConnectorStatusProps {
+/**
+ * Local `cn` helper — inlined so this package does not need to depend on a
+ * desktop-app shared utils module. Matches the shadcn/ui convention used by
+ * `apps/desktop/src/lib/utils.ts`.
+ */
+function cn(...inputs: ClassValue[]): string {
+  return twMerge(clsx(inputs));
+}
+
+export interface ConnectorStatusProps {
   activeApp: string;
   isConnected: boolean;
   onChangeApp: (app: string) => void;

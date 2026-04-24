@@ -18,6 +18,12 @@
       "types": "./dist/backend.d.ts",
       "import": "./dist/backend.js",
       "default": "./dist/backend.js"
+    },
+    "./ui": {
+      "@pipefx/source": "./src/ui.ts",
+      "types": "./dist/ui.d.ts",
+      "import": "./dist/ui.js",
+      "default": "./dist/ui.js"
     }
   },
   "files": [
@@ -29,7 +35,26 @@
     "@pipefx/connectors-contracts": "workspace:*",
     "@pipefx/event-bus": "workspace:*",
     "@pipefx/mcp-transport": "workspace:*",
+    "clsx": "^2.1.1",
+    "lucide-react": "^0.575.0",
+    "tailwind-merge": "^3.5.0",
     "tslib": "^2.3.0"
+  },
+  "peerDependencies": {
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
+  "peerDependenciesMeta": {
+    "react": {
+      "optional": true
+    },
+    "react-dom": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3"
   },
   "nx": {
     "tags": [

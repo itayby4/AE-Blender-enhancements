@@ -198,6 +198,9 @@ importers:
       '@pipefx/auth':
         specifier: workspace:*
         version: link:../../packages/auth
+      '@pipefx/connectors':
+        specifier: workspace:*
+        version: link:../../packages/connectors
       '@pipefx/tasks':
         specifier: workspace:*
         version: link:../../packages/tasks
@@ -478,9 +481,31 @@ importers:
       '@pipefx/mcp-transport':
         specifier: workspace:*
         version: link:../mcp-transport
+      clsx:
+        specifier: ^2.1.1
+        version: 2.1.1
+      lucide-react:
+        specifier: ^0.575.0
+        version: 0.575.0(react@19.2.4)
+      react:
+        specifier: ^19.0.0
+        version: 19.2.4
+      react-dom:
+        specifier: ^19.0.0
+        version: 19.2.4(react@19.2.4)
+      tailwind-merge:
+        specifier: ^3.5.0
+        version: 3.5.0
       tslib:
         specifier: ^2.3.0
         version: 2.8.1
+    devDependencies:
+      '@types/react':
+        specifier: ^19.2.14
+        version: 19.2.14
+      '@types/react-dom':
+        specifier: ^19.2.3
+        version: 19.2.3(@types/react@19.2.14)
 
   packages/connectors-contracts:
     dependencies:

@@ -35,6 +35,9 @@
       "path": "../../packages/tasks/tsconfig.lib.json"
     },
     {
+      "path": "../../packages/connectors/tsconfig.lib.json"
+    },
+    {
       "path": "../../packages/auth/tsconfig.lib.json"
     }
   ]

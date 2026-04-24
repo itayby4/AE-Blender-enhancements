@@ -20,6 +20,7 @@
     "@fontsource-variable/inter": "^5.2.8",
     "@fontsource-variable/jetbrains-mono": "^5.2.8",
     "@pipefx/auth": "workspace:*",
+    "@pipefx/connectors": "workspace:*",
     "@pipefx/tasks": "workspace:*",
     "@react-three/drei": "^10.7.7",
     "@react-three/fiber": "^9.6.0",

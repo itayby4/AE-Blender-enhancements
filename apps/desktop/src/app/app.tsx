@@ -32,7 +32,7 @@ import { fetchProjects, createProject, switchApp, getActiveAppState } from '../l
 
 // Layout
 import { NavRail } from '../components/layout/NavRail.js';
-import { ConnectorStatus } from '../components/layout/ConnectorStatus.js';
+import { ConnectorStatus } from '@pipefx/connectors/ui';
 import { TitleBar } from '../components/layout/TitleBar.js';
 import { TerminalSpinner } from '../components/ui/TerminalSpinner.js';
 
