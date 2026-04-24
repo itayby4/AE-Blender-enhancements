@@ -107,6 +107,9 @@ importers:
       '@pipefx/ai':
         specifier: workspace:*
         version: link:../../packages/ai
+      '@pipefx/auth':
+        specifier: workspace:*
+        version: link:../../packages/auth
       '@pipefx/mcp':
         specifier: workspace:*
         version: link:../../packages/mcp
@@ -122,9 +125,6 @@ importers:
       '@pipefx/video-kit':
         specifier: workspace:*
         version: link:../../packages/video-kit
-      '@supabase/supabase-js':
-        specifier: ^2.103.3
-        version: 2.103.3
       better-sqlite3:
         specifier: ^12.9.0
         version: 12.9.0

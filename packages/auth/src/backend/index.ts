@@ -1,2 +1,10 @@
-// TODO: phase-3.4 — backend auth middleware + mount() land here.
-export {};
+export {
+  createAuthMiddleware,
+  type AuthUser,
+  type AuthMiddleware,
+  type AuthMiddlewareConfig,
+} from './middleware.js';
+export {
+  createSupabaseAdmin,
+  type SupabaseAdminConfig,
+} from './supabase-admin.js';

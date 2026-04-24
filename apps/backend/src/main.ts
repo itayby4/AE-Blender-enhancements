@@ -55,13 +55,20 @@ import { registerSkillRoutes } from './routes/skills.js';
 import { registerSessionRoutes } from './routes/sessions.js';
 import { registerUsageRoutes } from './routes/usage.js';
 import { registerMiscRoutes } from './routes/misc.js';
-import { verifyAuth } from './middleware/auth.js';
+import { createAuthMiddleware } from '@pipefx/auth/backend';
 
 async function main() {
   console.log('Starting PipeFX AI Engine...');
 
   const loadedSettings = await loadSettings();
   updateConfig(loadedSettings);
+
+  // ── Auth gate middleware (Supabase JWT verifier) ──
+  // Built after config is finalized so it sees loaded settings.
+  const verifyAuth = createAuthMiddleware({
+    supabaseUrl: config.supabaseUrl,
+    supabaseServiceKey: config.supabaseServiceKey,
+  });
 
   // ΓöÇΓöÇ Connector Registry ΓöÇΓöÇ
   const registry = new ConnectorRegistry();

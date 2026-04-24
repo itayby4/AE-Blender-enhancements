@@ -25,6 +25,9 @@
       "path": "../../packages/mcp/tsconfig.lib.json"
     },
     {
+      "path": "../../packages/auth/tsconfig.lib.json"
+    },
+    {
       "path": "../../packages/ai/tsconfig.lib.json"
     },
     {
