@@ -3,5 +3,21 @@
   "$schema": "../../node_modules/nx/schemas/project-schema.json",
   "projectType": "application",
   "sourceRoot": "apps/mcp-blender/src",
-  "tags": ["type:app", "scope:mcp"]
+  "tags": ["type:app", "scope:mcp"],
+  "targets": {
+    "serve": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": ".\\venv\\Scripts\\python.exe -m mcp_blender.server",
+        "cwd": "apps/mcp-blender"
+      }
+    },
+    "test": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": ".\\venv\\Scripts\\python.exe -c \"import mcp_blender.server; print('smoke ok')\"",
+        "cwd": "apps/mcp-blender"
+      }
+    }
+  }
 }
