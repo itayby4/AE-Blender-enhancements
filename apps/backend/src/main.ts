@@ -148,7 +148,7 @@ async function main() {
 
   // ── Register local AI tools (OpenClaude-style agents + memory) ──
   // `registerTaskTools` (old create_task_plan / update_task_step / finish_task)
-  // is replaced by the @pipefx/agents TodoWrite + Task* suite.
+  // is replaced by the @pipefx/brain-subagents TodoWrite + Task* suite.
   registerMemoryTools(registry);
 
   // Sub-agent runtime needs an AgentConfig base. Constructed after the

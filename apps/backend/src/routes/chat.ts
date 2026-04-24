@@ -246,8 +246,8 @@ export function registerChatRoutes(router: Router, deps: ChatRouteDeps) {
 
       memoryTaskManager.createTask(resolvedTaskId, 'AI Assistant Working', [], projectId);
 
-      // Register an SSE emitter for this session so @pipefx/agents tool
-      // handlers can push todo_updated / plan_proposed / subagent_* events.
+      // Register an SSE emitter for this session so @pipefx/brain-subagents
+      // tool handlers can push todo_updated / plan_proposed / subagent_* events.
       if (deps.sseBroker && resolvedSessionId) {
         deps.sseBroker.set(resolvedSessionId, (ev) => sseWrite(res, ev));
       }
@@ -437,9 +437,10 @@ export function registerChatRoutes(router: Router, deps: ChatRouteDeps) {
       });
 
       try {
-        // Wrap agent invocation in AsyncLocalStorage so @pipefx/agents tool
-        // handlers (TodoWrite, EnterPlanMode, AgentTool, Task*) can resolve
-        // the current sessionId via sessionALS.getStore().
+        // Wrap agent invocation in AsyncLocalStorage so the brain tool
+        // handlers (TodoWrite, EnterPlanMode, AgentTool, Task*) registered
+        // by @pipefx/brain-subagents can resolve the current sessionId via
+        // sessionALS.getStore().
         console.log(
           `[chat] calling runChat sessionId=${resolvedSessionId} activeApp=${activeApp} excludedToolsCount=${excludedTools.length}`
         );

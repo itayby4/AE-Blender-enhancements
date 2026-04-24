@@ -59,13 +59,28 @@ pipefx/
     mcp-davinci/       -> (Python)          MCP server for DaVinci Resolve
 
   packages/
-    mcp/               -> @pipefx/mcp       Connector interface, registry, transport
-    ai/                -> @pipefx/ai        Gemini agent loop, tool mapper
-    async/             -> @pipefx/async     Retry with exponential backoff
-    strings/           -> @pipefx/strings   String utilities
-    colors/            -> @pipefx/colors    Color conversion utilities
-    utils/             -> @pipefx/utils     Shared low-level helpers
+    mcp/               -> @pipefx/mcp              Connector interface, registry, transport
+    agent-loop-kernel/ -> @pipefx/agent-loop-kernel Low-level agent loop + compaction
+    llm-providers/     -> @pipefx/llm-providers    Gemini/OpenAI/Anthropic/Cloud adapters
+    brain-contracts/   -> @pipefx/brain-contracts  Frozen types + events for the brain surface
+    brain-loop/        -> @pipefx/brain-loop       Agent loop glue + system prompts
+    brain-tasks/       -> @pipefx/brain-tasks      Task state, session store, task output
+    brain-memory/      -> @pipefx/brain-memory     KB, project context, agent memory
+    brain-planning/    -> @pipefx/brain-planning   Plan generation, approval broker
+    brain-subagents/   -> @pipefx/brain-subagents  Fork/resume runtime, AgentTool, coordinator
+    tasks/             -> @pipefx/tasks            Task-queue primitives
+    async/             -> @pipefx/async            Retry with exponential backoff
+    strings/           -> @pipefx/strings          String utilities
+    colors/            -> @pipefx/colors           Color conversion utilities
+    utils/             -> @pipefx/utils            Shared low-level helpers
 ```
+
+> **Post-Phase-4 note:** `@pipefx/ai` and `@pipefx/agents` no longer exist.
+> The brain surface is split into six packages (`brain-contracts` +
+> loop/tasks/memory/planning/subagents) per `Refactore/phase-04-brain.md`.
+> `brain-contracts` is treated as semver-frozen; implementation packages
+> depend on it only (brain-subagents is the documented orchestrator
+> exception — it may reach loop/tasks/planning).
 
 ---
 
@@ -73,27 +88,36 @@ pipefx/
 
 Dependencies flow **downward only**. This is enforced by `@nx/enforce-module-boundaries` in `eslint.config.mjs`.
 
+Three tag axes, declared in `eslint.config.mjs`:
+
+- **scope:** `shared | platform | feature | app | mcp`
+- **layer:** `contracts | domain | ui | backend | data`
+- **feature:** `brain | chat | auth | billing | connectors | skills | media-gen | post-production | node-system`, plus brain sub-tags `feature:brain-<loop|tasks|memory|planning|subagents>`.
+
 ```
-  apps/backend  (scope:backend)
-      |     \
-      |      \
-  @pipefx/ai  (scope:ai)
-      |
-  @pipefx/mcp (scope:mcp)
-      |
-  @pipefx/async (scope:async)   @pipefx/strings (scope:strings)
-      \                              |
-       \___________________________/
-                   |
-             @pipefx/utils (scope:shared)
+  apps/backend  (scope:app)
+      │
+      ├── @pipefx/brain-subagents  (feature:brain-subagents)  ─┐  orchestrator
+      │       └── brain-loop, brain-tasks, brain-planning      │  (documented
+      ├── @pipefx/brain-planning   (feature:brain-planning)    │   exception)
+      ├── @pipefx/brain-memory     (feature:brain-memory)      │
+      ├── @pipefx/brain-tasks      (feature:brain-tasks)       │
+      ├── @pipefx/brain-loop       (feature:brain-loop)        │
+      │       └── @pipefx/brain-contracts (scope:platform) ←───┘
+      ├── @pipefx/llm-providers    (scope:platform)
+      ├── @pipefx/agent-loop-kernel (scope:platform)
+      ├── @pipefx/mcp              (scope:mcp)
+      └── @pipefx/tasks, @pipefx/usage, @pipefx/auth, …
+
+  @pipefx/async, @pipefx/strings, @pipefx/colors, @pipefx/utils  (scope:shared)
 ```
 
 **Rules:**
 
 - `scope:shared` can only depend on `scope:shared`.
-- `scope:mcp` can depend on `scope:shared` and `scope:async`.
-- `scope:ai` can depend on `scope:shared` and `scope:mcp`.
-- `scope:backend` can depend on `scope:shared`, `scope:mcp`, and `scope:ai`.
+- `scope:platform` can depend on `scope:shared` and `scope:platform`.
+- `scope:feature` packages depend on `scope:shared`, `scope:platform`, and (their own) `scope:feature`.
+- Within the brain family: `brain-loop / brain-tasks / brain-memory / brain-planning` **cannot** import each other — only `brain-contracts`. `brain-subagents` may additionally import `brain-loop / brain-tasks / brain-planning` (orchestrator exception; see `Refactore/phase-04-brain.md`).
 - Packages MUST NOT import from apps. Apps MUST NOT import from each other.
 - Every project that imports a workspace package must declare it in its own `package.json` `dependencies` using `"workspace:*"`.
 
@@ -187,18 +211,26 @@ To support a new application (e.g., Adobe Premiere Pro):
 3. **Register in `main.ts`:** `registry.register(config.connectors.premiere);`
 4. That is it. The AI agent automatically discovers all tools from all connectors.
 
-Do NOT put connector-specific logic in `@pipefx/mcp` or `@pipefx/ai`. Those packages are application-agnostic.
+Do NOT put connector-specific logic in `@pipefx/mcp` or in any brain-* package. Those packages are application-agnostic.
 
 ---
 
-## AI Agent Architecture (`@pipefx/ai`)
+## Brain Architecture (six-package split)
 
-- `createAgent(config)` returns an `Agent` with a single `chat(message)` method.
-- The agent uses a `ConnectorRegistry` to discover tools and route tool calls.
-- The tool-call loop: Gemini -> functionCall -> `registry.callTool()` -> functionResponse -> repeat until text.
-- The agent is **stateless per call** -- each `chat()` invocation creates a fresh Gemini chat session.
+Post-Phase-4 the brain lives in six packages. High level responsibilities:
 
-Do NOT hardcode tool names, connector IDs, or application-specific prompts inside `@pipefx/ai`. All configuration is passed via `AgentConfig`.
+- `@pipefx/brain-contracts` — frozen types, events, and `*Api` interfaces. Semver-locked; every change is a bump.
+- `@pipefx/brain-loop` — `createAgent(config)` + system-prompt building blocks. Consumes `@pipefx/agent-loop-kernel` and `@pipefx/llm-providers`.
+- `@pipefx/brain-tasks` — `AgentSessionStore`, `TaskOutputStore`, `TaskTranscriptStore`, task type metadata, TodoWrite/Task* tool registrars, `mountAgentTaskRoutes`.
+- `@pipefx/brain-memory` — KB, project-memory, agent memory store.
+- `@pipefx/brain-planning` — plan approval broker, EnterPlanMode/ExitPlanMode tools, `mountPlanningRoutes`.
+- `@pipefx/brain-subagents` — `createSubAgentRuntime`, AgentTool, coordinator-mode wrapper, `registerAgentTools` orchestrator, built-in + user agent profiles.
+
+Rules:
+
+- Consumers (apps/backend) compose by calling each brain package's public API — no deep imports.
+- Implementation packages depend on `brain-contracts` only. `brain-subagents` is the orchestrator exception and may import `brain-loop / brain-tasks / brain-planning`. Nothing may import `brain-memory` except `apps/backend`.
+- Do NOT hardcode tool names, connector IDs, or application-specific prompts inside any brain-* package. Configuration flows in via `AgentConfig` / `SubAgentRuntimeConfig` / deps objects.
 
 ---
 
@@ -212,7 +244,8 @@ The backend is a **thin wiring layer**. It must contain:
 It must NOT contain:
 
 - Business logic (belongs in packages).
-- AI model interaction code (belongs in `@pipefx/ai`).
+- Agent-loop / model interaction code (belongs in `@pipefx/brain-loop` + `@pipefx/agent-loop-kernel` + `@pipefx/llm-providers`).
+- Brain runtime state, task/session logic, planning, sub-agent orchestration (belongs in the relevant `@pipefx/brain-*` package).
 - MCP client/transport code (belongs in `@pipefx/mcp`).
 
 ---
