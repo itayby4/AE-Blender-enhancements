@@ -61,6 +61,9 @@
       "path": "./packages/brain-contracts"
     },
     {
+      "path": "./packages/connectors-contracts"
+    },
+    {
       "path": "./packages/brain-tasks"
     },
     {

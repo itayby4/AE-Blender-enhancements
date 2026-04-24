@@ -464,6 +464,18 @@ importers:
         specifier: ^2.3.0
         version: 2.8.1
 
+  packages/connectors-contracts:
+    dependencies:
+      '@pipefx/event-bus':
+        specifier: workspace:*
+        version: link:../event-bus
+      '@pipefx/mcp-transport':
+        specifier: workspace:*
+        version: link:../mcp-transport
+      tslib:
+        specifier: ^2.3.0
+        version: 2.8.1
+
   packages/event-bus:
     dependencies:
       tslib:
