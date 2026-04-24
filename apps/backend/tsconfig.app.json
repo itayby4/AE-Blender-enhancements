@@ -25,10 +25,19 @@
       "path": "../../packages/mcp/tsconfig.lib.json"
     },
     {
+      "path": "../../packages/brain-tasks/tsconfig.lib.json"
+    },
+    {
       "path": "../../packages/brain-planning/tsconfig.lib.json"
     },
     {
       "path": "../../packages/brain-memory/tsconfig.lib.json"
+    },
+    {
+      "path": "../../packages/brain-loop/tsconfig.lib.json"
+    },
+    {
+      "path": "../../packages/brain-contracts/tsconfig.lib.json"
     },
     {
       "path": "../../packages/auth/tsconfig.lib.json"

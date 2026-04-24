@@ -113,6 +113,9 @@ importers:
       '@pipefx/auth':
         specifier: workspace:*
         version: link:../../packages/auth
+      '@pipefx/brain-contracts':
+        specifier: workspace:*
+        version: link:../../packages/brain-contracts
       '@pipefx/brain-loop':
         specifier: workspace:*
         version: link:../../packages/brain-loop
@@ -122,6 +125,12 @@ importers:
       '@pipefx/brain-planning':
         specifier: workspace:*
         version: link:../../packages/brain-planning
+      '@pipefx/brain-subagents':
+        specifier: workspace:*
+        version: link:../../packages/brain-subagents
+      '@pipefx/brain-tasks':
+        specifier: workspace:*
+        version: link:../../packages/brain-tasks
       '@pipefx/mcp':
         specifier: workspace:*
         version: link:../../packages/mcp
@@ -347,6 +356,9 @@ importers:
       '@pipefx/brain-planning':
         specifier: workspace:*
         version: link:../brain-planning
+      '@pipefx/brain-subagents':
+        specifier: workspace:*
+        version: link:../brain-subagents
       '@pipefx/brain-tasks':
         specifier: workspace:*
         version: link:../brain-tasks
@@ -466,6 +478,30 @@ importers:
       '@pipefx/brain-contracts':
         specifier: workspace:*
         version: link:../brain-contracts
+      '@pipefx/mcp':
+        specifier: workspace:*
+        version: link:../mcp
+      tslib:
+        specifier: ^2.3.0
+        version: 2.8.1
+
+  packages/brain-subagents:
+    dependencies:
+      '@pipefx/agent-loop-kernel':
+        specifier: workspace:*
+        version: link:../agent-loop-kernel
+      '@pipefx/brain-contracts':
+        specifier: workspace:*
+        version: link:../brain-contracts
+      '@pipefx/brain-loop':
+        specifier: workspace:*
+        version: link:../brain-loop
+      '@pipefx/brain-planning':
+        specifier: workspace:*
+        version: link:../brain-planning
+      '@pipefx/brain-tasks':
+        specifier: workspace:*
+        version: link:../brain-tasks
       '@pipefx/mcp':
         specifier: workspace:*
         version: link:../mcp

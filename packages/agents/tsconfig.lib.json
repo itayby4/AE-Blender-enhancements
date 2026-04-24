@@ -24,6 +24,9 @@
       "path": "../brain-memory/tsconfig.lib.json"
     },
     {
+      "path": "../brain-loop/tsconfig.lib.json"
+    },
+    {
       "path": "../brain-contracts/tsconfig.lib.json"
     },
     {

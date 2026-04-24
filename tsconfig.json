@@ -79,6 +79,9 @@
       "path": "./packages/brain-loop"
     },
     {
+      "path": "./packages/brain-subagents"
+    },
+    {
       "path": "./apps/cloud-api"
     }
   ]

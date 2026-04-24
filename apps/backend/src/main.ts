@@ -4,17 +4,20 @@ import type { Agent } from '@pipefx/agent-loop-kernel';
 import {
   AgentSessionStore,
   createTaskOutputStore,
-  createSubAgentRuntime,
-  registerAgentTools,
-  agentsLog,
-  loadAgentsDir,
-  composeProfiles,
-  BUILT_IN_AGENTS,
   getAllTaskTypes,
-  type SubAgentEvent,
-  type TodoItem,
+  mountAgentTaskRoutes,
+} from '@pipefx/brain-tasks';
+import type { TodoItem } from '@pipefx/brain-contracts';
+import {
+  BUILT_IN_AGENTS,
+  brainSubagentsLog,
+  composeProfiles,
+  createSubAgentRuntime,
+  loadAgentsDir,
+  registerAgentTools,
   type AgentProfile,
-} from '@pipefx/agents';
+  type SubAgentEvent,
+} from '@pipefx/brain-subagents';
 import {
   createInMemoryPlanApprovalBroker,
   mountPlanningRoutes,
@@ -51,7 +54,6 @@ import type { KnowledgeCategory } from '@pipefx/brain-memory';
 // ΓöÇΓöÇ Router & Routes ΓöÇΓöÇ
 import { Router } from './router.js';
 import { registerChatRoutes } from './routes/chat.js';
-import { registerAgentRoutes } from './routes/agents.js';
 import { registerProjectRoutes } from './routes/projects.js';
 import { registerSkillRoutes } from './routes/skills.js';
 import { registerSessionRoutes } from './routes/sessions.js';
@@ -119,22 +121,22 @@ async function main() {
   const sseBroker = {
     set(sessionId: string, emit: SessionSseEmit) {
       sseEmitters.set(sessionId, emit);
-      agentsLog.debug('sse-broker attach', { sessionId });
+      brainSubagentsLog.debug('sse-broker attach', { sessionId });
     },
     clear(sessionId: string) {
       sseEmitters.delete(sessionId);
-      agentsLog.debug('sse-broker detach', { sessionId });
+      brainSubagentsLog.debug('sse-broker detach', { sessionId });
     },
     emit(sessionId: string, ev: Record<string, unknown>) {
       const emitter = sseEmitters.get(sessionId);
       if (emitter) {
-        agentsLog.debug('sse-broker emit', {
+        brainSubagentsLog.debug('sse-broker emit', {
           sessionId,
           type: ev.type as string | undefined,
         });
         emitter(ev);
       } else {
-        agentsLog.warn('sse-broker drop (no listener)', {
+        brainSubagentsLog.warn('sse-broker drop (no listener)', {
           sessionId,
           type: ev.type as string | undefined,
         });
@@ -179,7 +181,7 @@ async function main() {
     agentProfiles: profiles,
   });
 
-  agentsLog.info('wiring agent tools', {
+  brainSubagentsLog.info('wiring agent tools', {
     tempDir: path.join(os.tmpdir(), 'pipefx-agents'),
     builtInAgents: BUILT_IN_AGENTS.length,
     userAgents: userProfiles.length,
@@ -262,7 +264,7 @@ async function main() {
     planBroker,
     agentSessions,
   });
-  registerAgentRoutes(router, {
+  mountAgentTaskRoutes(router, {
     agentSessions,
     taskOutput,
   });
