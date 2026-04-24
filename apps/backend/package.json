@@ -132,6 +132,7 @@
     "@pipefx/brain-planning": "workspace:*",
     "@pipefx/brain-subagents": "workspace:*",
     "@pipefx/brain-tasks": "workspace:*",
+    "@pipefx/chat": "workspace:*",
     "@pipefx/connectors": "workspace:*",
     "@pipefx/mcp-transport": "workspace:*",
     "@pipefx/providers": "workspace:*",

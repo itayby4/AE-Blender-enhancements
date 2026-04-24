@@ -1,5 +1,5 @@
-import type { Router } from '../router.js';
-import { readBody, jsonResponse, jsonError } from '../router.js';
+import { readBody, jsonResponse, jsonError } from '../internal/http.js';
+import type { RouterLike } from '../internal/http.js';
 import {
   createChatSession,
   listChatSessions,
@@ -8,21 +8,21 @@ import {
   deleteChatSession,
   updateChatSessionTitle,
   getLatestChatSession,
-} from '../services/memory/chat-sessions.js';
+} from '@pipefx/brain-memory';
 
 /**
  * Registers REST endpoints for chat session persistence.
  *
- * GET  /api/sessions              ΓåÆ list sessions (optional ?projectId=)
- * GET  /api/sessions/latest       ΓåÆ get latest session (optional ?projectId=)
- * GET  /api/sessions/:id          ΓåÆ get session details
- * GET  /api/sessions/:id/messages ΓåÆ get messages (optional ?limit=&offset=)
- * POST /api/sessions              ΓåÆ create new session
- * POST /api/sessions/:id/title    ΓåÆ update session title
- * DELETE /api/sessions/:id        ΓåÆ delete session
+ * GET  /api/sessions              → list sessions (optional ?projectId=)
+ * GET  /api/sessions/latest       → get latest session (optional ?projectId=)
+ * GET  /api/sessions/:id          → get session details
+ * GET  /api/sessions/:id/messages → get messages (optional ?limit=&offset=)
+ * POST /api/sessions              → create new session
+ * POST /api/sessions/:id/title    → update session title
+ * DELETE /api/sessions/:id        → delete session
  */
-export function registerSessionRoutes(router: Router) {
-  // GET /api/sessions ΓÇö list all sessions
+export function registerSessionRoutes(router: RouterLike) {
+  // GET /api/sessions — list all sessions
   router.get('/api/sessions', async (req, res) => {
     try {
       const url = new URL(req.url!, `http://localhost`);
@@ -35,7 +35,7 @@ export function registerSessionRoutes(router: Router) {
     }
   });
 
-  // GET /api/sessions/latest ΓÇö get the most recent session
+  // GET /api/sessions/latest — get the most recent session
   router.get('/api/sessions/latest', async (req, res) => {
     try {
       const url = new URL(req.url!, `http://localhost`);
@@ -47,7 +47,7 @@ export function registerSessionRoutes(router: Router) {
     }
   });
 
-  // GET /api/sessions/:id (prefix match ΓÇö handles both /api/sessions/:id and /api/sessions/:id/messages)
+  // GET /api/sessions/:id (prefix match — handles both /api/sessions/:id and /api/sessions/:id/messages)
   router.get('/api/sessions/', async (req, res) => {
     try {
       const urlPath = req.url!.split('?')[0];
@@ -86,7 +86,7 @@ export function registerSessionRoutes(router: Router) {
     }
   }, true); // prefix match
 
-  // POST /api/sessions ΓÇö create new session
+  // POST /api/sessions — create new session
   router.post('/api/sessions', async (req, res) => {
     try {
       const body = await readBody(req);
@@ -99,7 +99,7 @@ export function registerSessionRoutes(router: Router) {
     }
   });
 
-  // POST /api/sessions/:id/title ΓÇö update session title
+  // POST /api/sessions/:id/title — update session title
   router.post('/api/sessions/', async (req, res) => {
     try {
       const urlPath = req.url!.split('?')[0];

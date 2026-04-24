@@ -33,8 +33,10 @@ import { registerLocalWorkflows } from './workflows/index.js';
 import { createSubtitleHandler } from './api/subtitles.js';
 import { GoogleGenAI } from '@google/genai';
 import { OpenAI } from 'openai';
-import { createSqliteUsageStore } from '@pipefx/usage';
+import { calculateCost, createSqliteUsageStore, createUsageEvent } from '@pipefx/usage';
 import type { UsageStore } from '@pipefx/usage';
+import { composeSystemPrompt } from './prompts/index.js';
+import { mountChatRoutes } from '@pipefx/chat/backend';
 
 // ── AI Brain (SQLite-backed memory engine) ──
 import {
@@ -54,13 +56,11 @@ import type { KnowledgeCategory } from '@pipefx/brain-memory';
 
 // ΓöÇΓöÇ Router & Routes ΓöÇΓöÇ
 import { Router } from './router.js';
-import { registerChatRoutes } from './routes/chat.js';
 import { registerProjectRoutes } from './routes/projects.js';
 import { registerSkillRoutes } from './routes/skills.js';
-import { registerSessionRoutes } from './routes/sessions.js';
 import { registerUsageRoutes } from './routes/usage.js';
 import { registerMiscRoutes } from './routes/misc.js';
-import { mountMemoryRoutes } from '@pipefx/brain-memory';
+import { mountMemoryRoutes, assembleProjectContext } from '@pipefx/brain-memory';
 import { createAuthMiddleware } from '@pipefx/auth/backend';
 
 async function main() {
@@ -252,7 +252,7 @@ async function main() {
   // ΓöÇΓöÇ Build Router ΓöÇΓöÇ
   const router = new Router();
 
-  registerChatRoutes(router, {
+  mountChatRoutes(router, {
     getAgent: () => agent,
     registry,
     sessionALS,
@@ -260,6 +260,22 @@ async function main() {
     agentSessions,
     planBroker,
     usageStore,
+    buildSystemPrompt: async (skill, activeApp, projectId) => {
+      if (skill?.systemInstruction && !activeApp) {
+        return skill.systemInstruction as string;
+      }
+      const projectContext = projectId
+        ? assembleProjectContext(projectId, '') || undefined
+        : undefined;
+      return composeSystemPrompt({
+        activeApp,
+        skillSystemInstruction: skill?.systemInstruction,
+        projectContext,
+        legacySections: config.systemPromptLegacy,
+      });
+    },
+    calculateCost,
+    createUsageEvent,
   });
   mountPlanningRoutes(router, {
     planBroker,
@@ -273,7 +289,6 @@ async function main() {
   mountConnectorRoutes(router, { registry });
   registerProjectRoutes(router, { registry });
   registerSkillRoutes(router);
-  registerSessionRoutes(router);
   registerUsageRoutes(router, {
     usageStore,
     getUserId: () => 'local-user', // BYOK: no authenticated user, hardcode local

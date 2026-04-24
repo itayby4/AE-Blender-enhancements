@@ -14,10 +14,31 @@
   "include": ["src/**/*.ts", "src/**/*.tsx"],
   "references": [
     {
+      "path": "../llm-providers/tsconfig.lib.json"
+    },
+    {
+      "path": "../connectors/tsconfig.lib.json"
+    },
+    {
+      "path": "../brain-tasks/tsconfig.lib.json"
+    },
+    {
+      "path": "../brain-subagents/tsconfig.lib.json"
+    },
+    {
+      "path": "../brain-planning/tsconfig.lib.json"
+    },
+    {
+      "path": "../brain-memory/tsconfig.lib.json"
+    },
+    {
       "path": "../brain-contracts/tsconfig.lib.json"
     },
     {
       "path": "../auth/tsconfig.lib.json"
+    },
+    {
+      "path": "../agent-loop-kernel/tsconfig.lib.json"
     }
   ]
 }

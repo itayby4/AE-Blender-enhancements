@@ -1,5 +1,18 @@
-// ── @pipefx/chat/backend — HTTP mount + chat-service ─────────────────────
-// Populated in sub-phase 6.4 (routes verbatim) and 6.5 (chat-service with
-// ports). apps/backend will swap its current registerChatRoutes() call for
-// mountChatRoutes(deps) exported here.
-export {};
+// ── @pipefx/chat/backend — HTTP mount ────────────────────────────────────
+// Public surface: `mountChatRoutes(router, deps)` wires the chat turn +
+// session-history routes onto any router satisfying `RouterLike`.
+//
+// Phase 6.4 performs a near-verbatim move of the previous
+// `apps/backend/src/routes/{chat,sessions}.ts` into this package. A few
+// dependencies (prompt composer, usage cost helpers) are injected through
+// `deps` so the package stays scope:feature-clean. Phase 6.5 introduces a
+// proper chat-service that depends on `@pipefx/brain-contracts` only.
+
+export { mountChatRoutes } from './mount.js';
+export type { ChatMountDeps } from './mount.js';
+export type {
+  ChatRouteDeps,
+  CostShape,
+  UsageStoreLike,
+} from './routes/chat.js';
+export type { RouterLike, RouteHandler } from './internal/http.js';

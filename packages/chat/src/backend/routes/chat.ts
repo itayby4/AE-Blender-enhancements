@@ -1,6 +1,5 @@
-import type { Router } from '../router.js';
 import type { Agent, AggregatedUsage } from '@pipefx/agent-loop-kernel';
-import type { UsageData } from '@pipefx/providers';
+import type { UsageData } from '@pipefx/llm-providers';
 import type { ConnectorRegistry } from '@pipefx/connectors';
 import type { AgentSessionStore } from '@pipefx/brain-tasks';
 import { brainSubagentsLog as agentsLog } from '@pipefx/brain-subagents';
@@ -9,21 +8,36 @@ import {
   freshSelfCheckState,
   buildPostRoundReminder,
 } from '@pipefx/brain-planning';
-import type { AsyncLocalStorage } from 'node:async_hooks';
-import { readBody, jsonResponse, jsonError } from '../router.js';
-import { memoryTaskManager, assembleProjectContext } from '../services/memory/index.js';
 import {
+  memoryTaskManager,
   createChatSession,
   appendChatMessage,
   chatSessionExists,
-} from '../services/memory/chat-sessions.js';
-import { config } from '../config.js';
-import { composeSystemPrompt } from '../prompts/index.js';
-import {
-  calculateCost,
-  createUsageEvent,
-} from '@pipefx/usage';
-import type { UsageStore } from '@pipefx/usage';
+} from '@pipefx/brain-memory';
+import type { AsyncLocalStorage } from 'node:async_hooks';
+import { readBody, jsonResponse, jsonError } from '../internal/http.js';
+import type { RouterLike } from '../internal/http.js';
+
+/**
+ * Structural shapes for the cost / usage-store deps. `apps/backend` passes
+ * the real `calculateCost` / `createUsageEvent` / `UsageStore` from
+ * `@pipefx/usage` (scope:usage — not reachable from `feature:chat`), so we
+ * keep duck-typed shapes here and let structural typing line them up.
+ */
+export interface CostShape {
+  costUsd: number;
+  credits: number;
+  breakdown: {
+    inputCost: number;
+    outputCost: number;
+    thinkingCost: number;
+    cachedDiscount: number;
+  };
+}
+
+export interface UsageStoreLike {
+  record(event: unknown): void;
+}
 
 export interface ChatRouteDeps {
   getAgent: () => Agent;
@@ -35,7 +49,28 @@ export interface ChatRouteDeps {
   };
   agentSessions?: AgentSessionStore;
   planBroker?: PlanApprovalBroker;
-  usageStore?: UsageStore;
+  usageStore?: UsageStoreLike;
+  /**
+   * Build the per-turn system prompt. Injected so the chat package stays
+   * free of `apps/backend`'s `config` + `prompts/*` wiring.
+   */
+  buildSystemPrompt: (
+    skill: any,
+    activeApp: string | undefined,
+    projectId: string | undefined
+  ) => Promise<string>;
+  /** Injected from `@pipefx/usage` by the app. */
+  calculateCost: (usage: UsageData) => CostShape;
+  /** Injected from `@pipefx/usage` by the app. */
+  createUsageEvent: (args: {
+    userId: string;
+    sessionId: string;
+    requestId: string;
+    roundIndex: number;
+    usage: UsageData;
+    cost: CostShape;
+    isByok: boolean;
+  }) => unknown;
 }
 
 /**
@@ -50,45 +85,10 @@ function sseWrite(res: any, event: Record<string, unknown>) {
 const STREAM_TIMEOUT = 120_000;
 
 /**
- * Build the system prompt for a chat request via the section composer.
- *
- * The composer assembles identity / doing-tasks / tone / executing-actions /
- * planning-discipline / (AE bridge contract when applicable) / legacy-md
- * sections, with per-section caching keyed by activeApp. The planning
- * section is the important addition: without it Gemini skipped
- * EnterPlanMode + TodoWrite entirely on multi-step AE tasks.
- *
- * Stays `async` so compute functions can do real work in the future
- * (memory fetches, MCP instructions, etc.) without touching callers.
- */
-async function buildSystemPrompt(
-  skill: any,
-  activeApp: string | undefined,
-  projectId: string | undefined
-): Promise<string> {
-  // Skill with a full systemInstruction still takes over — matches prior
-  // behavior so in-flight skills don't break.
-  if (skill?.systemInstruction && !activeApp) {
-    return skill.systemInstruction;
-  }
-
-  const projectContext = projectId
-    ? assembleProjectContext(projectId, '') || undefined
-    : undefined;
-
-  return composeSystemPrompt({
-    activeApp,
-    skillSystemInstruction: skill?.systemInstruction,
-    projectContext,
-    legacySections: config.systemPromptLegacy,
-  });
-}
-
-/**
  * Registers the POST /chat and POST /chat/stream routes.
  */
-export function registerChatRoutes(router: Router, deps: ChatRouteDeps) {
-  // ΓöÇΓöÇ POST /chat (legacy ΓÇö full response) ΓöÇΓöÇ
+export function registerChatRoutes(router: RouterLike, deps: ChatRouteDeps) {
+  // ── POST /chat (legacy — full response) ──
   router.post('/chat', async (req, res) => {
     const abortController = new AbortController();
     req.on('aborted', () => abortController.abort());
@@ -108,7 +108,7 @@ export function registerChatRoutes(router: Router, deps: ChatRouteDeps) {
         return;
       }
 
-      const systemPromptOverride = await buildSystemPrompt(skill, activeApp, projectId);
+      const systemPromptOverride = await deps.buildSystemPrompt(skill, activeApp, projectId);
       const resolvedTaskId = taskId || `chat-${Date.now()}`;
 
       try {
@@ -187,12 +187,12 @@ export function registerChatRoutes(router: Router, deps: ChatRouteDeps) {
     }
   });
 
-  // ΓöÇΓöÇ POST /chat/stream (new ΓÇö SSE streaming) ΓöÇΓöÇ
+  // ── POST /chat/stream (SSE streaming) ──
   router.post('/chat/stream', async (req, res) => {
     agentsLog.info('POST /chat/stream opened');
     const abortController = new AbortController();
     // For SSE: listen on `res` close (client disconnect), NOT `req` close
-    // (`req` close fires as soon as the POST body is read ΓÇö instantly killing the stream)
+    // (`req` close fires as soon as the POST body is read — instantly killing the stream)
     res.on('close', () => abortController.abort());
 
     try {
@@ -205,7 +205,7 @@ export function registerChatRoutes(router: Router, deps: ChatRouteDeps) {
         return;
       }
 
-      // ΓöÇΓöÇ Session persistence: ensure session exists ΓöÇΓöÇ
+      // ── Session persistence: ensure session exists ──
       let resolvedSessionId = sessionId as string | undefined;
       if (!resolvedSessionId) {
         resolvedSessionId = `session-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -240,7 +240,7 @@ export function registerChatRoutes(router: Router, deps: ChatRouteDeps) {
       // todo_updated → list) silently no-op on the very first request.
       sseWrite(res, { type: 'session', sessionId: resolvedSessionId });
 
-      const systemPromptOverride = await buildSystemPrompt(skill, activeApp, projectId);
+      const systemPromptOverride = await deps.buildSystemPrompt(skill, activeApp, projectId);
       const resolvedTaskId = taskId || `chat-${Date.now()}`;
       const stepIndices = new Map<string, number>();
 
@@ -252,12 +252,12 @@ export function registerChatRoutes(router: Router, deps: ChatRouteDeps) {
         deps.sseBroker.set(resolvedSessionId, (ev) => sseWrite(res, ev));
       }
 
-      // Fresh turn ΓÇö drop any cached idempotency entries from the
+      // Fresh turn — drop any cached idempotency entries from the
       // previous turn so a genuine re-run of the same (tool, args) is
       // allowed to actually re-fire.
       deps.registry.clearIdempotencyCaches();
 
-      // Global timeout ΓÇö prevents zombie connections from hanging forever
+      // Global timeout — prevents zombie connections from hanging forever
       const streamTimeout = setTimeout(() => {
         abortController.abort();
         sseWrite(res, { type: 'error', error: 'Request timed out after 2 minutes.' });
@@ -269,19 +269,10 @@ export function registerChatRoutes(router: Router, deps: ChatRouteDeps) {
       // If the user targets After Effects, probe the bridge once before
       // spending tokens. A dead bridge means every AE tool call will
       // silently queue forever — fail fast and tell the user to bring
-      // AE to the front. The *prompt-side* AE contract (tool choice,
-      // whitelist, async semantics) now lives in prompts/library.ts —
-      // see `aeBridgeContract`. This block only does the live probe.
+      // AE to the front.
       const excludedTools: string[] = [];
 
       // ── Plan-mode anti-loop: drop EnterPlanMode if already approved ──
-      // Once a plan has been approved for this session, keep the tool out
-      // of the model's tool list entirely. Without this, GPT-5.4 in
-      // particular re-proposes the same plan after every intermediate
-      // tool call and never executes. The server-side handler also
-      // guards against this, but excluding from the tool list is the
-      // cleaner fix — the model physically can't call what it doesn't
-      // see. ExitPlanMode stays available.
       if (deps.agentSessions && resolvedSessionId) {
         const existing = deps.agentSessions.has(resolvedSessionId)
           ? deps.agentSessions.get(resolvedSessionId)
@@ -296,11 +287,6 @@ export function registerChatRoutes(router: Router, deps: ChatRouteDeps) {
       }
       if (activeApp === 'aftereffects') {
         try {
-          // Ensure the tool index is populated before probing. On the very
-          // first request of a process, `callTool` throws `Unknown tool` if
-          // `getAllTools()` has not run yet — which silently skipped the
-          // preflight and left `bridge-health` in the model's tool list,
-          // causing it to re-probe after every step.
           await deps.registry.getAllTools();
           const probe = await deps.registry.callTool('bridge-health', {});
           const probeText = (() => {
@@ -388,9 +374,9 @@ export function registerChatRoutes(router: Router, deps: ChatRouteDeps) {
               : null;
           return buildPostRoundReminder(ctx, selfCheck, session);
         },
-        onRoundUsage: (usage: UsageData, roundNumber: number) => {
+        onRoundUsage: (usage, roundNumber) => {
           // Emit per-round usage to the SSE stream for real-time cost display
-          const cost = calculateCost(usage);
+          const cost = deps.calculateCost(usage);
           sseWrite(res, {
             type: 'usage_round',
             roundNumber,
@@ -410,7 +396,7 @@ export function registerChatRoutes(router: Router, deps: ChatRouteDeps) {
 
           // Record to SQLite
           if (deps.usageStore) {
-            const event = createUsageEvent({
+            const event = deps.createUsageEvent({
               userId: 'local-user',
               sessionId: resolvedSessionId!,
               requestId: resolvedTaskId,

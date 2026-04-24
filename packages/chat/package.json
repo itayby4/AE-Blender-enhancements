@@ -37,8 +37,15 @@
     "!**/*.tsbuildinfo"
   ],
   "dependencies": {
+    "@pipefx/agent-loop-kernel": "workspace:*",
     "@pipefx/auth": "workspace:*",
     "@pipefx/brain-contracts": "workspace:*",
+    "@pipefx/brain-memory": "workspace:*",
+    "@pipefx/brain-planning": "workspace:*",
+    "@pipefx/brain-subagents": "workspace:*",
+    "@pipefx/brain-tasks": "workspace:*",
+    "@pipefx/connectors": "workspace:*",
+    "@pipefx/llm-providers": "workspace:*",
     "tslib": "^2.3.0"
   },
   "peerDependencies": {
