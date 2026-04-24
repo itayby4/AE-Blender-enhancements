@@ -1,0 +1,13 @@
+[project]
+name = "mcp-davinci"
+version = "0.1.0"
+description = "MCP server for DaVinci Resolve"
+requires-python = ">=3.10"
+dependencies = [
+    "mcp[cli]",
+    "opentimelineio",
+    "webrtcvad",
+]
+
+[project.scripts]
+mcp-davinci = "mcp_davinci.server:main"

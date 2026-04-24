@@ -1,0 +1,2 @@
+[console_scripts]
+mcp-blender = mcp_blender.server:main
