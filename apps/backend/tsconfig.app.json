@@ -28,6 +28,9 @@
       "path": "../../packages/brain-tasks/tsconfig.lib.json"
     },
     {
+      "path": "../../packages/brain-subagents/tsconfig.lib.json"
+    },
+    {
       "path": "../../packages/brain-planning/tsconfig.lib.json"
     },
     {
@@ -43,13 +46,7 @@
       "path": "../../packages/auth/tsconfig.lib.json"
     },
     {
-      "path": "../../packages/ai/tsconfig.lib.json"
-    },
-    {
       "path": "../../packages/agent-loop-kernel/tsconfig.lib.json"
-    },
-    {
-      "path": "../../packages/agents/tsconfig.lib.json"
     }
   ]
 }

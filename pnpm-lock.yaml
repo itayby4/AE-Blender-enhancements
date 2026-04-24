@@ -104,12 +104,6 @@ importers:
       '@pipefx/agent-loop-kernel':
         specifier: workspace:*
         version: link:../../packages/agent-loop-kernel
-      '@pipefx/agents':
-        specifier: workspace:*
-        version: link:../../packages/agents
-      '@pipefx/ai':
-        specifier: workspace:*
-        version: link:../../packages/ai
       '@pipefx/auth':
         specifier: workspace:*
         version: link:../../packages/auth
@@ -341,9 +335,6 @@ importers:
 
   packages/agents:
     dependencies:
-      '@pipefx/ai':
-        specifier: workspace:*
-        version: link:../ai
       '@pipefx/brain-contracts':
         specifier: workspace:*
         version: link:../brain-contracts

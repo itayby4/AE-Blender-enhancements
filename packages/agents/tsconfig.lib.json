@@ -18,6 +18,9 @@
       "path": "../brain-tasks/tsconfig.lib.json"
     },
     {
+      "path": "../brain-subagents/tsconfig.lib.json"
+    },
+    {
       "path": "../brain-planning/tsconfig.lib.json"
     },
     {
@@ -28,9 +31,6 @@
     },
     {
       "path": "../brain-contracts/tsconfig.lib.json"
-    },
-    {
-      "path": "../ai/tsconfig.lib.json"
     }
   ],
   "exclude": [

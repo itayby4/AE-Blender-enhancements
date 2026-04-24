@@ -19,7 +19,6 @@
     "!**/*.tsbuildinfo"
   ],
   "dependencies": {
-    "@pipefx/ai": "workspace:*",
     "@pipefx/brain-contracts": "workspace:*",
     "@pipefx/brain-loop": "workspace:*",
     "@pipefx/brain-memory": "workspace:*",
