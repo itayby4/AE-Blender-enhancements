@@ -9,13 +9,5 @@
     "forceConsistentCasingInFileNames": true,
     "types": ["node"]
   },
-  "include": ["src/**/*.ts"],
-  "references": [
-    {
-      "path": "../llm-providers/tsconfig.lib.json"
-    },
-    {
-      "path": "../media-providers/tsconfig.lib.json"
-    }
-  ]
+  "include": ["src/**/*.ts"]
 }

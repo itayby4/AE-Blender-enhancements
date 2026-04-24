@@ -31,6 +31,12 @@
       "path": "./packages/providers"
     },
     {
+      "path": "./packages/llm-providers"
+    },
+    {
+      "path": "./packages/media-providers"
+    },
+    {
       "path": "./packages/tasks"
     },
     {

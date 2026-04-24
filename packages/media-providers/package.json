@@ -1,5 +1,5 @@
 {
-  "name": "@pipefx/providers",
+  "name": "@pipefx/media-providers",
   "version": "0.0.1",
   "type": "module",
   "main": "./dist/index.js",
@@ -20,12 +20,17 @@
   ],
   "dependencies": {
     "tslib": "^2.3.0",
-    "@pipefx/llm-providers": "workspace:*",
-    "@pipefx/media-providers": "workspace:*"
+    "@elevenlabs/elevenlabs-js": "^2.42.0",
+    "@google/genai": "^1.46.0",
+    "jsonwebtoken": "^9.0.3",
+    "openai": "^6.32.0"
+  },
+  "devDependencies": {
+    "@types/jsonwebtoken": "^9.0.10"
   },
   "nx": {
     "tags": [
-      "scope:providers"
+      "scope:platform"
     ]
   }
 }

@@ -1,5 +1,5 @@
 {
-  "name": "@pipefx/providers",
+  "name": "@pipefx/llm-providers",
   "version": "0.0.1",
   "type": "module",
   "main": "./dist/index.js",
@@ -20,12 +20,14 @@
   ],
   "dependencies": {
     "tslib": "^2.3.0",
-    "@pipefx/llm-providers": "workspace:*",
-    "@pipefx/media-providers": "workspace:*"
+    "@anthropic-ai/sdk": "^0.82.0",
+    "@google/genai": "^1.46.0",
+    "@pipefx/mcp": "workspace:*",
+    "openai": "^6.32.0"
   },
   "nx": {
     "tags": [
-      "scope:providers"
+      "scope:platform"
     ]
   }
 }
