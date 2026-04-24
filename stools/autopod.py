@@ -3,8 +3,22 @@ import argparse
 import os
 import sys
 
-# Import our VAD tool
-from vad import get_speech_intervals
+# TODO(phase-9): autopod.py moves into video-kit once the pipeline engines
+# migrate out of stools/. Until then reach across the boundary via sys.path
+# to the relocated vad.py.
+_VIDEO_KIT_VAD_DIR = os.path.abspath(
+    os.path.join(
+        os.path.dirname(__file__),
+        '..',
+        'packages',
+        'video-kit',
+        'src',
+        'vad',
+    )
+)
+if _VIDEO_KIT_VAD_DIR not in sys.path:
+    sys.path.insert(0, _VIDEO_KIT_VAD_DIR)
+from vad import get_speech_intervals  # noqa: E402
 
 def calculate_overlap(tracks_activity: dict, fps: float, total_duration_sec: float, mapping: dict, fallback: str) -> list:
     """

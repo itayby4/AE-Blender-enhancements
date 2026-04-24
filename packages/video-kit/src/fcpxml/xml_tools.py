@@ -1,6 +1,15 @@
 import xml.etree.ElementTree as ET
 import os
-from .audio_sync import find_audio_offset
+import sys
+
+# TODO(phase-9): audio_sync.py moves into video-kit once the audio engine
+# migrates out of stools/. Until then reach across the boundary via sys.path.
+_STOOLS_DIR = os.path.abspath(
+    os.path.join(os.path.dirname(__file__), '..', '..', '..', '..', 'stools')
+)
+if _STOOLS_DIR not in sys.path:
+    sys.path.insert(0, _STOOLS_DIR)
+from audio_sync import find_audio_offset  # noqa: E402
 
 def sync_fcpxml_with_external_audio(xml_path: str, external_audio_path: str, out_path: str):
     """

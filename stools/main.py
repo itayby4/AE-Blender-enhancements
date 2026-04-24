@@ -1,6 +1,23 @@
+import os
 import sys
 import argparse
-from .xml_tools import sync_fcpxml_with_external_audio
+
+# TODO(phase-9): main.py moves into video-kit once the pipeline engines
+# migrate out of stools/. Until then reach across the boundary via sys.path
+# to the relocated xml_tools.py.
+_VIDEO_KIT_FCPXML_DIR = os.path.abspath(
+    os.path.join(
+        os.path.dirname(__file__),
+        '..',
+        'packages',
+        'video-kit',
+        'src',
+        'fcpxml',
+    )
+)
+if _VIDEO_KIT_FCPXML_DIR not in sys.path:
+    sys.path.insert(0, _VIDEO_KIT_FCPXML_DIR)
+from xml_tools import sync_fcpxml_with_external_audio  # noqa: E402
 
 def main():
     parser = argparse.ArgumentParser(description="PipeFX Audio Sync Engine (STOOLS)")

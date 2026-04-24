@@ -37,6 +37,9 @@
       "path": "./packages/event-bus"
     },
     {
+      "path": "./packages/video-kit"
+    },
+    {
       "path": "./packages/providers"
     },
     {
