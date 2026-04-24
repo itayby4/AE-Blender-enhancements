@@ -38,6 +38,9 @@
       "path": "../../packages/connectors/tsconfig.lib.json"
     },
     {
+      "path": "../../packages/chat/tsconfig.lib.json"
+    },
+    {
       "path": "../../packages/auth/tsconfig.lib.json"
     }
   ]

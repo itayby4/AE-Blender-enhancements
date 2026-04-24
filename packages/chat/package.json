@@ -37,6 +37,7 @@
     "!**/*.tsbuildinfo"
   ],
   "dependencies": {
+    "@pipefx/auth": "workspace:*",
     "@pipefx/brain-contracts": "workspace:*",
     "tslib": "^2.3.0"
   },

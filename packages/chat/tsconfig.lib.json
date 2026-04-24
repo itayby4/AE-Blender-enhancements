@@ -15,6 +15,9 @@
   "references": [
     {
       "path": "../brain-contracts/tsconfig.lib.json"
+    },
+    {
+      "path": "../auth/tsconfig.lib.json"
     }
   ]
 }

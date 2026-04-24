@@ -24,7 +24,12 @@ import {
   PopoverTrigger,
 } from '../../components/ui/popover.js';
 import { Separator } from '../../components/ui/separator.js';
-import type { ChatSession } from '../../hooks/useChatHistory.js';
+import type {
+  ChatSession,
+  TranscriptMessage,
+  TodoItem,
+  SubAgentInfo,
+} from '@pipefx/chat/contracts';
 import { Button } from '../../components/ui/button.js';
 import { ScrollArea } from '../../components/ui/scroll-area.js';
 import { Textarea } from '../../components/ui/textarea.js';
@@ -32,7 +37,6 @@ import { cn } from '../../lib/utils.js';
 import { parseMessageContent, ChatCard } from '../skills/ChatCard.js';
 import { SkillBuilderCard } from '../skills/SkillBuilderCard.js';
 import { SkillAutocomplete } from '../skills/SkillAutocomplete.js';
-import type { ChatMessage, TodoItem, SubAgentInfo } from '../../hooks/useChat.js';
 import type { TaskDTO } from '@pipefx/tasks';
 import type { Skill } from '../../lib/load-skills.js';
 import { loadSkills } from '../../lib/load-skills.js';
@@ -42,7 +46,7 @@ import { TodoListPanel } from '../../components/TodoListPanel.js';
 import { SubAgentActivity } from '../../components/SubAgentActivity.js';
 
 interface ChatPanelProps {
-  messages: ChatMessage[];
+  messages: TranscriptMessage[];
   isTyping: boolean;
   currentTaskId: string | null;
   taskMap: Map<string, TaskDTO>;
@@ -252,14 +256,14 @@ export function ChatPanel({
                       >
                         <div className="flex-1 min-w-0">
                           <p className="text-[13px] font-medium text-foreground truncate leading-snug">
-                            {session.title}
+                            {session.title || 'Untitled'}
                           </p>
                           <p className="text-[11px] text-muted-foreground mt-0.5">
                             {new Date(session.updatedAt).toLocaleDateString(undefined, {
                               month: 'short', day: 'numeric',
                               hour: '2-digit', minute: '2-digit',
                             })}
-                            {' · '}{session.messages.length} msgs
+                            {' · '}{session.messageCount} msgs
                           </p>
                         </div>
                         <button
@@ -299,14 +303,14 @@ export function ChatPanel({
           {messages.map((msg, msgIdx) => {
             // Group consecutive user messages; show separator between user/ai
             const prevMsg = msgIdx > 0 ? messages[msgIdx - 1] : null;
-            const showSenderSwitch = prevMsg && prevMsg.sender !== msg.sender;
+            const showSenderSwitch = prevMsg && prevMsg.role !== msg.role;
 
             return (
             <div key={msg.id} className="flex flex-col">
               {/* Visual separator when switching between user/ai */}
               {showSenderSwitch && <div className="h-3" />}
 
-              {msg.sender === 'user' ? (
+              {msg.role === 'user' ? (
                 /* ── User Message ── Clean right-aligned chat bubble */
                 <div className="flex justify-end mt-1 first:mt-0 group">
                   <div
@@ -420,7 +424,7 @@ export function ChatPanel({
               )}
 
               {/* Chain of Thought block — Warp-style */}
-              {msg.sender === 'ai' && msg.taskId && taskMap.get(msg.taskId) && (() => {
+              {msg.role === 'assistant' && msg.taskId && taskMap.get(msg.taskId) && (() => {
                 const task = taskMap.get(msg.taskId!)!;
                 if (task.steps.length === 0) return null;
                 const isExpanded = expandedThoughts.has(msg.taskId!);

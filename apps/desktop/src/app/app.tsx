@@ -57,8 +57,9 @@ import { TooltipProvider } from '../components/ui/tooltip.js';
 
 // Hooks
 import { useTaskStream } from '../hooks/useTaskStream.js';
-import { useChat } from '../hooks/useChat.js';
-import { useChatHistory } from '../hooks/useChatHistory.js';
+import { useChat, useChatHistory } from '@pipefx/chat/ui';
+import { dispatchPipelineActions } from '../lib/pipeline-actions.js';
+import { parseMessageContent } from '../features/skills/ChatCard.js';
 
 // Auth
 import { useAuth } from '@pipefx/auth/ui';
@@ -250,20 +251,40 @@ export function App() {
   const chatHistory = useChatHistory(activeProjectId);
 
   const chat = useChat({
-    skills,
-    selectedSkillId,
     selectedLlmModel,
     activeApp,
     activeProjectId,
     onNavigate: setActiveView,
-    onPlanDetected: (content) => {
-      setActivePlanContent(content);
-      setActiveView('skill-planner');
+    onTurnComplete: (finalText) => {
+      // Detect plan blocks in the completed assistant message and surface
+      // them to the Skill Planner view.
+      const parts = parseMessageContent(finalText);
+      const planPart = parts.find(
+        (p) => typeof p === 'object' && p.type === 'plan'
+      );
+      if (planPart) {
+        setActivePlanContent((planPart as { content: string }).content);
+        setActiveView('skill-planner');
+      }
+      // The freshly-created session is now visible server-side.
+      void chatHistory.refreshSessions();
     },
     sessionId: chatHistory.activeSessionId,
     onSessionIdChange: chatHistory.setActiveSessionId,
-    onSaveSession: chatHistory.saveSession,
+    dispatchPipelineActions: (actions) =>
+      dispatchPipelineActions(actions as Parameters<typeof dispatchPipelineActions>[0]),
   });
+
+  // Resolve the currently-selected skill (if any) so we can pass it per
+  // send to `chat.sendMessage`.
+  const resolveActiveSkill = useCallback(
+    (overrideSkill?: Skill): Skill | undefined => {
+      if (overrideSkill) return overrideSkill;
+      if (selectedSkillId === 'default') return undefined;
+      return skills.find((s) => s.id === selectedSkillId);
+    },
+    [skills, selectedSkillId]
+  );
 
   // ── Effects ──
 
@@ -337,7 +358,7 @@ export function App() {
   // optional right-sidebar chat. Both mounts read the same `chat` and
   // `chatHistory` hooks, so messages + sessions are automatically in sync.
   const chatPanelProps = {
-    messages: chat.chatMessages,
+    messages: chat.messages,
     isTyping: chat.isAiTyping,
     currentTaskId: chat.currentChatTaskId,
     taskMap,
@@ -352,7 +373,7 @@ export function App() {
       if (!chatHistory.activeSessionId) {
         chatHistory.newSession();
       }
-      chat.sendMessageToAi(text, skill);
+      void chat.sendMessage(text, resolveActiveSkill(skill));
     },
     onStopGeneration: chat.stopGeneration,
     onClearChat: chat.clearChat,
@@ -366,11 +387,13 @@ export function App() {
     },
     chatSessions: chatHistory.sessions,
     activeSessionId: chatHistory.activeSessionId,
-    onLoadSession: (id: string) => {
-      const msgs = chatHistory.loadSession(id);
-      chat.setChatMessages(msgs);
+    onLoadSession: async (id: string) => {
+      const msgs = await chatHistory.loadSession(id);
+      chat.setMessages(msgs);
     },
-    onDeleteSession: chatHistory.deleteSession,
+    onDeleteSession: (id: string) => {
+      void chatHistory.deleteSession(id);
+    },
     onNewSession: () => {
       chatHistory.newSession();
       chat.clearChat();
@@ -665,7 +688,7 @@ export function App() {
                         skillId={skill.id}
                         onExecute={(params) => {
                           const paramStr = JSON.stringify(params, null, 2);
-                          chat.sendMessageToAi(
+                          void chat.sendMessage(
                             `Execute the UI action with parameters:\n\`\`\`json\n${paramStr}\n\`\`\``,
                             skill
                           );

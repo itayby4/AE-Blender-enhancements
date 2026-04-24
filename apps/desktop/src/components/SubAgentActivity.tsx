@@ -9,7 +9,7 @@ import {
 } from 'lucide-react';
 import { cn } from '../lib/utils.js';
 import { TerminalSpinner } from './ui/TerminalSpinner.js';
-import type { SubAgentInfo } from '../hooks/useChat.js';
+import type { SubAgentInfo } from '@pipefx/chat/contracts';
 
 interface SubAgentActivityProps {
   subAgents: SubAgentInfo[];

@@ -201,6 +201,9 @@ importers:
       '@pipefx/auth':
         specifier: workspace:*
         version: link:../../packages/auth
+      '@pipefx/chat':
+        specifier: workspace:*
+        version: link:../../packages/chat
       '@pipefx/connectors':
         specifier: workspace:*
         version: link:../../packages/connectors
@@ -466,6 +469,9 @@ importers:
 
   packages/chat:
     dependencies:
+      '@pipefx/auth':
+        specifier: workspace:*
+        version: link:../auth
       '@pipefx/brain-contracts':
         specifier: workspace:*
         version: link:../brain-contracts
