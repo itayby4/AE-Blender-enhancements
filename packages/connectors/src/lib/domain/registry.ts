@@ -3,6 +3,8 @@ import type {
   Connector,
   ConnectorConfig,
   ConnectorId,
+  ConnectorSnapshot,
+  ConnectorStatus,
   McpEventMap,
   ToolCallResult,
   ToolDescriptor,
@@ -51,6 +53,14 @@ export class ConnectorRegistry {
    */
   private lastToolsFingerprint: string | null = null;
 
+  /**
+   * Last observed lifecycle status per connector. Seeded to `'disconnected'`
+   * at registration and updated from the lifecycle callback — the HTTP
+   * surface reads this to serve `GET /connectors` without forcing a probe.
+   */
+  private statuses = new Map<ConnectorId, ConnectorStatus>();
+  private lastErrors = new Map<ConnectorId, string>();
+
   constructor(options: ConnectorRegistryOptions = {}) {
     this.bus = options.eventBus;
   }
@@ -67,9 +77,31 @@ export class ConnectorRegistry {
     });
     this.connectors.set(config.id, connector);
     this.configs.set(config.id, config);
+    this.statuses.set(config.id, 'disconnected');
     if (config.asyncPolicy) {
       this.idempotencyCaches.set(config.id, new IdempotencyCache());
     }
+  }
+
+  /**
+   * Snapshot of every registered connector. Implementation of
+   * `ConnectorsApi.listConnectors` — the UI's connector list and Phase 7's
+   * capability matcher both pull status from here rather than probing
+   * `isConnected()` directly.
+   */
+  listConnectors(): ConnectorSnapshot[] {
+    const out: ConnectorSnapshot[] = [];
+    for (const [id, connector] of this.connectors) {
+      const status = this.statuses.get(id) ?? 'disconnected';
+      const lastError = this.lastErrors.get(id);
+      out.push({
+        id,
+        name: connector.config.name,
+        status,
+        ...(lastError ? { lastError } : {}),
+      });
+    }
+    return out;
   }
 
   /**
@@ -274,6 +306,12 @@ export class ConnectorRegistry {
     info?: { reason?: string }
   ): void {
     const ts = Date.now();
+    this.statuses.set(config.id, status);
+    if (status === 'connected') {
+      this.lastErrors.delete(config.id);
+    } else if (status === 'error' && info?.reason) {
+      this.lastErrors.set(config.id, info.reason);
+    }
     if (status === 'connected') {
       void this.bus?.publish('mcp.connector.connected', {
         type: 'mcp.connector.connected',
