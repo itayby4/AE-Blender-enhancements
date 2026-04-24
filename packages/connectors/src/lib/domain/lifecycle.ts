@@ -1,4 +1,9 @@
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
+import type { RequestOptions } from '@modelcontextprotocol/sdk/shared/protocol.js';
+import {
+  CallToolResultSchema,
+  type CallToolResult,
+} from '@modelcontextprotocol/sdk/types.js';
 import { createTransport } from '@pipefx/mcp-transport';
 import type {
   Connector,
@@ -132,8 +137,9 @@ export function createConnector(options: CreateConnectorOptions): Connector {
       name: string,
       args: Record<string, unknown>
     ): Promise<ToolCallResult> {
-      const executeWithTimeout = (): Promise<any> => {
-        return new Promise((resolve, reject) => {
+      const requestOptions: RequestOptions = { timeout: TOOL_TIMEOUT };
+      const executeWithTimeout = (): Promise<CallToolResult> => {
+        return new Promise<CallToolResult>((resolve, reject) => {
           const timeoutId = setTimeout(() => {
             reject(
               new Error(
@@ -145,12 +151,12 @@ export function createConnector(options: CreateConnectorOptions): Connector {
           client
             .callTool(
               { name, arguments: args },
-              undefined as any,
-              { timeout: TOOL_TIMEOUT } as any
+              CallToolResultSchema,
+              requestOptions
             )
             .then((res) => {
               clearTimeout(timeoutId);
-              resolve(res);
+              resolve(res as CallToolResult);
             })
             .catch((err) => {
               clearTimeout(timeoutId);
@@ -163,9 +169,9 @@ export function createConnector(options: CreateConnectorOptions): Connector {
         const result = await executeWithTimeout();
         return {
           content: result.content,
-          isError: result.isError as boolean | undefined,
+          isError: result.isError,
         };
-      } catch (err) {
+      } catch {
         // Cooldown: don't reconnect if we just reconnected recently.
         // This prevents storm-reconnect when the external app isn't running.
         const now = Date.now();
@@ -186,9 +192,9 @@ export function createConnector(options: CreateConnectorOptions): Connector {
           const result = await executeWithTimeout();
           return {
             content: result.content,
-            isError: result.isError as boolean | undefined,
+            isError: result.isError,
           };
-        } catch (reconnectErr) {
+        } catch {
           // Reconnect failed too — throw without the massive stack trace
           throw new Error(
             `Tool call "${name}" on "${config.id}" failed after reconnect attempt. ` +
