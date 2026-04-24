@@ -154,20 +154,43 @@ export default [
               ];
             }),
 
+            // ===== Brain sub-feature isolation (Phase 4.8) =====
+            // Brain is split into six packages (see Refactore/phase-04-brain.md):
+            //   brain-contracts (scope:platform)
+            //   brain-loop, brain-tasks, brain-memory, brain-planning,
+            //   brain-subagents (scope:feature, feature:brain).
+            //
+            // Implementation packages depend on brain-contracts only; they do
+            // NOT import each other — except brain-subagents, which orchestrates
+            // brain-loop + brain-tasks + brain-planning (documented exception).
+            //
+            // We express this with deny-lists: each implementation package's
+            // sub-tag bans the siblings it must not import. The broader
+            // `feature:brain` allow-list above still applies, so platform +
+            // cross-feature contracts remain reachable.
+            ...(() => {
+              const siblings = ['loop', 'tasks', 'memory', 'planning'];
+              return [
+                ...siblings.map((self) => ({
+                  sourceTag: `feature:brain-${self}`,
+                  notDependOnLibsWithTags: siblings
+                    .filter((x) => x !== self)
+                    .map((x) => `feature:brain-${x}`)
+                    .concat(['feature:brain-subagents']),
+                })),
+                // brain-subagents is the orchestrator: can reach loop/tasks/planning,
+                // but not brain-memory.
+                {
+                  sourceTag: 'feature:brain-subagents',
+                  notDependOnLibsWithTags: ['feature:brain-memory'],
+                },
+              ];
+            })(),
+
             // ===== Transitional: current per-package scope tags =====
             // These are the tags packages carry today. They come off as each
             // package migrates onto the new scope/layer/feature axes during
             // Phase 1+. Do not add new ones.
-            {
-              sourceTag: 'scope:ai',
-              onlyDependOnLibsWithTags: [
-                'scope:shared',
-                'scope:mcp',
-                'scope:ai',
-                'scope:platform',
-                'scope:providers',
-              ],
-            },
             {
               sourceTag: 'scope:tasks',
               onlyDependOnLibsWithTags: ['scope:shared', 'scope:tasks'],
@@ -190,24 +213,12 @@ export default [
               ],
             },
             {
-              sourceTag: 'scope:agents',
-              onlyDependOnLibsWithTags: [
-                'scope:shared',
-                'scope:mcp',
-                'scope:ai',
-                'scope:providers',
-                'scope:agents',
-              ],
-            },
-            {
               sourceTag: 'scope:backend',
               onlyDependOnLibsWithTags: [
                 'scope:shared',
                 'scope:mcp',
-                'scope:ai',
                 'scope:providers',
                 'scope:tasks',
-                'scope:agents',
                 'scope:usage',
                 'scope:platform',
                 'scope:feature',

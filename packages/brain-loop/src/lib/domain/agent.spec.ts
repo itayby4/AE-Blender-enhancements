@@ -4,7 +4,7 @@ import type {
   StreamEvent,
   ChatParams,
   ContinueParams,
-} from '@pipefx/providers';
+} from '@pipefx/llm-providers';
 
 // ── Hoisted test state ──
 // We use vi.hoisted() because vi.mock() is hoisted above imports: the factory

@@ -28,9 +28,6 @@
       "path": "./packages/mcp-transport"
     },
     {
-      "path": "./packages/ai"
-    },
-    {
       "path": "./packages/agent-loop-kernel"
     },
     {
@@ -50,9 +47,6 @@
     },
     {
       "path": "./packages/tasks"
-    },
-    {
-      "path": "./packages/agents"
     },
     {
       "path": "./packages/usage"

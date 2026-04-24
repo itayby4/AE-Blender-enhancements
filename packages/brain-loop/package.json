@@ -28,7 +28,8 @@
   "nx": {
     "tags": [
       "scope:feature",
-      "feature:brain"
+      "feature:brain",
+      "feature:brain-loop"
     ]
   }
 }
