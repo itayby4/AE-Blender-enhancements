@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react';
 import { useReactFlow, type Edge, type Node } from '@xyflow/react';
+import { getAccessToken } from '../../lib/auth-context';
 
 class Semaphore {
   private count: number;
@@ -150,6 +151,7 @@ export function usePipelineExecutor() {
           nanobanana: 'gemini2',
           seeddance: 'seeddance2',
           seeddream: 'seeddream45',
+          'gpt-image-2': 'gpt-image-2',
           'elevenlabs-tts': 'elevenlabs-tts',
           'elevenlabs-sfx': 'elevenlabs-sfx',
           'elevenlabs-sts': 'elevenlabs-sts',
@@ -163,9 +165,13 @@ export function usePipelineExecutor() {
             `[Pipeline] Triggering node ${executionId} (${backendModel}) with prompt: ${prompt} | ratio: ${selectedRatio} | duration: ${selectedDuration}s | resolution: ${selectedResolution}`
           );
 
+          const token = await getAccessToken();
           const response = await fetch('http://localhost:3001/api/ai-models', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: {
+              'Content-Type': 'application/json',
+              ...(token ? { Authorization: `Bearer ${token}` } : {}),
+            },
             body: JSON.stringify({
               model: backendModel,
               prompt: prompt || 'Cinematic highly-detailed scene',
@@ -190,7 +196,10 @@ export function usePipelineExecutor() {
           try {
             await fetch('http://localhost:3001/api/save-render', {
               method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
+              headers: {
+                'Content-Type': 'application/json',
+                ...(token ? { Authorization: `Bearer ${token}` } : {}),
+              },
               body: JSON.stringify({
                 url: result.url,
                 type: result.type || 'video',

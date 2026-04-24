@@ -74,6 +74,12 @@ export function ModelNode({
       bgColor: 'bg-rose-500/20',
       textColor: 'text-rose-500',
     },
+    'gpt-image-2': {
+      icon: Sparkles,
+      borderColor: 'border-sky-400/50 hover:border-sky-400',
+      bgColor: 'bg-sky-400/20',
+      textColor: 'text-sky-400',
+    },
     anthropic: {
       icon: Brain,
       borderColor: 'border-purple-500/50 hover:border-purple-500',
