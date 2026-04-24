@@ -119,6 +119,31 @@ export interface Connector {
   isConnected(): boolean;
 }
 
+/**
+ * Declarative description of the capabilities a connector exposes. Lives
+ * alongside the MCP app (e.g. `apps/mcp-davinci/capabilities.json`) and is
+ * loaded opportunistically by the registry. When absent, the registry falls
+ * back to a namespace-from-tool-name heuristic (see `deriveCapabilities`).
+ *
+ * Phase 7 (Skills) subscribes to `mcp.tools.changed` and runs the capability
+ * map to decide which skills light up for the current connector set.
+ */
+export interface ConnectorCapabilityManifest {
+  /** Must match the owning ConnectorConfig.id. */
+  connectorId: ConnectorId;
+  /**
+   * Dotted capability identifiers this connector exposes
+   * (e.g. `resolve.timeline.*`, `video.ffmpeg.probe`).
+   */
+  capabilities: string[];
+  /**
+   * Optional per-tool override: map tool name → one or more capability ids.
+   * Useful when a single tool contributes to several capabilities, or when
+   * the tool name does not decompose cleanly under the default heuristic.
+   */
+  toolCapabilities?: Record<string, string[]>;
+}
+
 // ── Transitional aliases ──────────────────────────────────────────────────
 // The phase-5 rename `Tool → ToolDescriptor` / `ToolResult → ToolCallResult`
 // happens in a dedicated sweep (sub-phase 5.6). Until then these aliases keep

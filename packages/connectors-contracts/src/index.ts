@@ -11,6 +11,7 @@ export type {
   StdioTransportConfig,
   SseTransportConfig,
   TransportConfig,
+  ConnectorCapabilityManifest,
   // Transitional aliases — removed in sub-phase 5.6 once call sites migrate.
   Tool,
   ToolResult,

@@ -10,6 +10,15 @@ export type {
   LifecycleStatus,
 } from './lib/domain/lifecycle.js';
 
+// Capability map — namespace-from-tool-name heuristic with optional
+// manifest override. Phase 7 (Skills) consumes this to light up / grey
+// out capability-gated affordances in response to `mcp.tools.changed`.
+export {
+  deriveCapabilities,
+  loadCapabilityManifest,
+} from './lib/domain/capability-map.js';
+export type { DeriveCapabilitiesOptions } from './lib/domain/capability-map.js';
+
 // ── Contracts re-export ──────────────────────────────────────────────────
 // Consumers already on `@pipefx/connectors-contracts` don't need this —
 // but the backend today reaches for `Connector`, `ToolCallResult`, etc.
@@ -32,4 +41,5 @@ export type {
   McpToolsChangedEvent,
   ConnectorsApi,
   ConnectorSnapshot,
+  ConnectorCapabilityManifest,
 } from '@pipefx/connectors-contracts';
