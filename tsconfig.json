@@ -80,6 +80,9 @@
     },
     {
       "path": "./apps/cloud-api"
+    },
+    {
+      "path": "./packages/chat"
     }
   ]
 }
