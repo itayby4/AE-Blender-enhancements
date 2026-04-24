@@ -118,6 +118,14 @@ export const IMAGE_MODELS = [
     icon: Video,
     color: 'text-amber-500',
   },
+  {
+    type: 'modelNode',
+    model: 'gpt-image-2',
+    label: 'GPT Image 2',
+    desc: 'OpenAI flagship image generation & editing',
+    icon: Sparkles,
+    color: 'text-sky-400',
+  },
 ];
 
 export const LLM_MODELS = [
@@ -209,10 +217,47 @@ export const TOOLS_NODES = [
 let id = 0;
 const getId = () => `node_${id++}`;
 
+const PERSIST_KEY = 'pipefx-node-system-graph';
+
+type PersistedGraph = { nodes: Node[]; edges: Edge[] };
+
+function loadPersistedGraph(): PersistedGraph {
+  try {
+    const raw = localStorage.getItem(PERSIST_KEY);
+    if (!raw) return { nodes: [], edges: [] };
+    const parsed = JSON.parse(raw) as PersistedGraph;
+    const nodes = Array.isArray(parsed.nodes) ? parsed.nodes : [];
+    const edges = Array.isArray(parsed.edges) ? parsed.edges : [];
+    // Bump id counter past any persisted ids (monotonic — never regress)
+    for (const n of nodes) {
+      const m = /^node_(\d+)$/.exec(n.id);
+      if (m) id = Math.max(id, Number(m[1]) + 1);
+    }
+    return { nodes, edges };
+  } catch {
+    return { nodes: [], edges: [] };
+  }
+}
+
 function NodeSystemFlow() {
   const reactFlowWrapper = useRef<HTMLDivElement>(null);
-  const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
-  const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
+  // Lazy initializer — runs exactly once, unlike useRef(expr) which evaluates expr every render.
+  const [initialGraph] = useState<PersistedGraph>(loadPersistedGraph);
+  const [nodes, setNodes, onNodesChange] = useNodesState<Node>(initialGraph.nodes);
+  const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>(initialGraph.edges);
+
+  // Persist graph to localStorage whenever nodes or edges change.
+  // Debounced via microtask to coalesce rapid updates during drags.
+  useEffect(() => {
+    const handle = setTimeout(() => {
+      try {
+        localStorage.setItem(PERSIST_KEY, JSON.stringify({ nodes, edges }));
+      } catch {
+        // Quota/serialization errors — ignore (data URLs in mediaNodes can be large)
+      }
+    }, 300);
+    return () => clearTimeout(handle);
+  }, [nodes, edges]);
   const [draggedNode, setDraggedNode] = useState<{
     type: string;
     model: string;

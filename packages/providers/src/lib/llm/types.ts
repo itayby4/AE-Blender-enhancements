@@ -20,6 +20,27 @@ export interface ProviderToolCall {
 }
 
 /**
+ * Token usage reported by the LLM provider.
+ * Source of truth for billing — never estimate, always read from the provider response.
+ */
+export interface UsageData {
+  /** Number of tokens in the prompt / input. */
+  inputTokens: number;
+  /** Number of tokens in the completion / output. */
+  outputTokens: number;
+  /** Thinking/reasoning tokens (Gemini thinking models, OpenAI o-series). Billed at output rates. */
+  thinkingTokens: number;
+  /** Tokens served from provider cache (discounted or free). */
+  cachedTokens: number;
+  /** Total = inputTokens + outputTokens + thinkingTokens. */
+  totalTokens: number;
+  /** The model ID as reported by the provider (may differ from the request model). */
+  model: string;
+  /** Provider identifier for cost calculation. */
+  provider: 'gemini' | 'openai' | 'anthropic';
+}
+
+/**
  * The result of a single provider chat turn.
  * Either the model returns text, requests tool calls, or both.
  */
@@ -30,6 +51,8 @@ export interface ProviderResponse {
   toolCalls: ProviderToolCall[];
   /** Raw provider-specific response for passthrough (e.g. Anthropic content blocks). */
   raw?: unknown;
+  /** Token usage from the provider. Null only if the provider didn't report it. */
+  usage: UsageData | null;
 }
 
 /**
@@ -49,7 +72,8 @@ export interface ProviderToolResult {
 export type StreamEvent =
   | { type: 'text'; text: string }
   | { type: 'tool_call'; toolCall: ProviderToolCall }
-  | { type: 'done'; response: ProviderResponse };
+  | { type: 'done'; response: ProviderResponse }
+  | { type: 'usage'; usage: UsageData };
 
 /**
  * Shared params for chat requests.

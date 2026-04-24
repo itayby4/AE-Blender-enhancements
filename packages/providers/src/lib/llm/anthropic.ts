@@ -6,6 +6,7 @@ import type {
   StreamEvent,
   ChatParams,
   ContinueParams,
+  UsageData,
 } from './types.js';
 
 /**
@@ -119,12 +120,21 @@ export class AnthropicProvider implements Provider {
       }
     }
 
+    // Get the final message for usage data (if we haven't already)
+    let finalMsg: Anthropic.Message | null = null;
+    try {
+      finalMsg = await stream.finalMessage();
+    } catch {
+      /* stream may already be consumed */
+    }
+
     yield {
       type: 'done',
       response: {
         text: fullText || null,
         toolCalls,
         raw: toolCalls.length > 0 ? contentBlocks : undefined,
+        usage: finalMsg ? this.extractUsage(finalMsg) : null,
       },
     };
   }
@@ -172,6 +182,28 @@ export class AnthropicProvider implements Provider {
       text,
       toolCalls,
       raw: toolCalls.length > 0 ? response.content : undefined,
+      usage: this.extractUsage(response),
+    };
+  }
+
+  /**
+   * Extract token usage from an Anthropic Message's usage field.
+   * Handles cache_read_input_tokens from their prompt caching API.
+   */
+  private extractUsage(response: Anthropic.Message): UsageData | null {
+    const u = response.usage;
+    if (!u) return null;
+    const input = u.input_tokens ?? 0;
+    const output = u.output_tokens ?? 0;
+    const cached = (u as any).cache_read_input_tokens ?? 0;
+    return {
+      inputTokens: input,
+      outputTokens: output,
+      thinkingTokens: 0,
+      cachedTokens: cached,
+      totalTokens: input + output,
+      model: response.model,
+      provider: 'anthropic',
     };
   }
 }

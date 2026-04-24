@@ -52,6 +52,12 @@ export function registerMiscRoutes(
         createSubtitleHandler(deps.registry, newCtx)
       );
 
+      // Resolve cloud config if user is in cloud mode
+      const loadedSettings = await loadSettings();
+      const cloudConfig = loadedSettings.apiMode === 'cloud' && loadedSettings.deviceToken
+        ? { cloudApiUrl: loadedSettings.cloudApiUrl, deviceToken: loadedSettings.deviceToken }
+        : undefined;
+
       deps.setAgent(
         createAgent({
           model: config.geminiModel,
@@ -60,6 +66,7 @@ export function registerMiscRoutes(
           anthropicApiKey: config.anthropicApiKey,
           systemPrompt: config.systemPrompt,
           registry: deps.registry,
+          cloudConfig,
         })
       );
 

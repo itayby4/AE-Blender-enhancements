@@ -3,3 +3,5 @@ export { mapToolsToGemini, mapToolsToOpenAI, mapToolsToAnthropic } from './tool-
 export { GeminiProvider } from './gemini.js';
 export { OpenAIProvider } from './openai.js';
 export { AnthropicProvider } from './anthropic.js';
+export { CloudProvider } from './cloud.js';
+export type { CloudProviderConfig } from './cloud.js';

@@ -147,7 +147,7 @@ describe('createAgent', () => {
 
   describe('non-streaming chat', () => {
     it('returns text directly when the provider emits no tool calls', async () => {
-      providerScript.chat.push({ text: 'hello back', toolCalls: [] });
+      providerScript.chat.push({ text: 'hello back', toolCalls: [], usage: null });
 
       const agent = createAgent(makeConfig());
       const result = await agent.chat('hi');
@@ -165,10 +165,12 @@ describe('createAgent', () => {
       providerScript.chat.push({
         text: null,
         toolCalls: [{ id: 'call-1', name: 'add', args: { a: 1, b: 2 } }],
+        usage: null,
       });
       providerScript.continueChat.push({
         text: 'the answer is 3',
         toolCalls: [],
+        usage: null,
       });
 
       const agent = createAgent(makeConfig({ registry }));
@@ -192,10 +194,12 @@ describe('createAgent', () => {
       providerScript.chat.push({
         text: null,
         toolCalls: [{ id: 'c1', name: 'broken', args: {} }],
+        usage: null,
       });
       providerScript.continueChat.push({
         text: 'saw the error',
         toolCalls: [],
+        usage: null,
       });
 
       const agent = createAgent(makeConfig({ registry }));
@@ -221,8 +225,9 @@ describe('createAgent', () => {
       providerScript.chat.push({
         text: null,
         toolCalls: [{ id: 'c1', name: 'ae.do-thing', args: {} }],
+        usage: null,
       });
-      providerScript.continueChat.push({ text: 'saw it', toolCalls: [] });
+      providerScript.continueChat.push({ text: 'saw it', toolCalls: [], usage: null });
 
       const agent = createAgent(makeConfig({ registry }));
       await agent.chat('go');
@@ -247,8 +252,9 @@ describe('createAgent', () => {
       providerScript.chat.push({
         text: null,
         toolCalls: [{ id: 'c1', name: 'run-script', args: { script: 'createShapeLayer' } }],
+        usage: null,
       });
-      providerScript.continueChat.push({ text: 'noted', toolCalls: [] });
+      providerScript.continueChat.push({ text: 'noted', toolCalls: [], usage: null });
 
       const agent = createAgent(makeConfig({ registry }));
       await agent.chat('shape');
@@ -270,8 +276,9 @@ describe('createAgent', () => {
       providerScript.chat.push({
         text: null,
         toolCalls: [{ id: 'c1', name: 'create-composition', args: {} }],
+        usage: null,
       });
-      providerScript.continueChat.push({ text: 'done', toolCalls: [] });
+      providerScript.continueChat.push({ text: 'done', toolCalls: [], usage: null });
 
       const agent = createAgent(makeConfig({ registry }));
       await agent.chat('comp');
@@ -285,8 +292,9 @@ describe('createAgent', () => {
       providerScript.chat.push({
         text: null,
         toolCalls: [{ id: 'c1', name: 'ping', args: { n: 1 } }],
+        usage: null,
       });
-      providerScript.continueChat.push({ text: 'done', toolCalls: [] });
+      providerScript.continueChat.push({ text: 'done', toolCalls: [], usage: null });
 
       const onStart = vi.fn();
       const onComplete = vi.fn();
@@ -302,7 +310,7 @@ describe('createAgent', () => {
     });
 
     it('falls back to a default message when the provider returns no text', async () => {
-      providerScript.chat.push({ text: null, toolCalls: [] });
+      providerScript.chat.push({ text: null, toolCalls: [], usage: null });
       const agent = createAgent(makeConfig());
       const result = await agent.chat('hi');
       expect(result).toMatch(/no text response/i);
@@ -315,7 +323,7 @@ describe('createAgent', () => {
           { name: 'blocked', inputSchema: {}, connectorId: 'x' },
         ],
       });
-      providerScript.chat.push({ text: 'ok', toolCalls: [] });
+      providerScript.chat.push({ text: 'ok', toolCalls: [], usage: null });
 
       const agent = createAgent(makeConfig({ registry }));
       await agent.chat('go', { allowedTools: ['allowed'] });
@@ -328,6 +336,7 @@ describe('createAgent', () => {
       providerScript.chat.push({
         text: null,
         toolCalls: [{ id: 'c1', name: 'slow', args: {} }],
+        usage: null,
       });
 
       const controller = new AbortController();
@@ -347,7 +356,7 @@ describe('createAgent', () => {
         { type: 'text', text: 'lo' },
         {
           type: 'done',
-          response: { text: 'hello', toolCalls: [] },
+          response: { text: 'hello', toolCalls: [], usage: null },
         },
       ]);
 
@@ -369,6 +378,7 @@ describe('createAgent', () => {
           response: {
             text: null,
             toolCalls: [{ id: 'c1', name: 'add', args: { a: 1 } }],
+            usage: null,
           },
         },
       ]);
@@ -376,7 +386,7 @@ describe('createAgent', () => {
         { type: 'text', text: 'final' },
         {
           type: 'done',
-          response: { text: 'final', toolCalls: [] },
+          response: { text: 'final', toolCalls: [], usage: null },
         },
       ]);
 
@@ -401,7 +411,7 @@ describe('createAgent', () => {
 
   describe('context compaction', () => {
     it('fires onCompaction when history is large enough to compact', async () => {
-      providerScript.chat.push({ text: 'ok', toolCalls: [] });
+      providerScript.chat.push({ text: 'ok', toolCalls: [], usage: null });
 
       // Build a history big enough to exceed the 8000-token default budget.
       // Each message has ~2500 tokens worth of content.
@@ -423,7 +433,7 @@ describe('createAgent', () => {
     });
 
     it('does NOT compact when history is small', async () => {
-      providerScript.chat.push({ text: 'ok', toolCalls: [] });
+      providerScript.chat.push({ text: 'ok', toolCalls: [], usage: null });
       const onCompaction = vi.fn();
       const agent = createAgent(makeConfig());
 
@@ -436,3 +446,4 @@ describe('createAgent', () => {
     });
   });
 });
+

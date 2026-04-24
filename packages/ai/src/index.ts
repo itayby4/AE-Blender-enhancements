@@ -12,6 +12,7 @@ export type {
   ChatOptions,
   PostRoundReminderContext,
   PostRoundToolCall,
+  AggregatedUsage,
 } from './lib/types.js';
 
 // Re-export provider abstraction from @pipefx/providers for backward compatibility
@@ -22,6 +23,7 @@ export type {
   StreamEvent,
   ChatParams,
   ContinueParams,
+  UsageData,
 } from '@pipefx/providers';
 export {
   GeminiProvider,

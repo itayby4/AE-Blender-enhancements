@@ -6,6 +6,7 @@ import type {
   StreamEvent,
   ChatParams,
   ContinueParams,
+  UsageData,
 } from './types.js';
 
 /**
@@ -121,13 +122,20 @@ export class OpenAIProvider implements Provider {
       messages,
       tools: tools.length > 0 ? tools : undefined,
       stream: true,
+      stream_options: { include_usage: true },
     });
 
     let fullText = '';
     // Accumulate tool calls from deltas
     const toolCallMap = new Map<number, { id: string; name: string; args: string }>();
+    // Usage data from the final chunk (requires stream_options.include_usage)
+    let streamUsage: any = null;
 
     for await (const chunk of stream) {
+      // Capture usage from the final chunk (sent when include_usage is true)
+      if ((chunk as any).usage) {
+        streamUsage = (chunk as any).usage;
+      }
       const delta = chunk.choices[0]?.delta;
       if (!delta) continue;
 
@@ -180,6 +188,7 @@ export class OpenAIProvider implements Provider {
         text: fullText || null,
         toolCalls,
         raw: rawMsg,
+        usage: streamUsage ? this.extractUsageFromRaw(streamUsage, model) : null,
       },
     };
   }
@@ -198,6 +207,25 @@ export class OpenAIProvider implements Provider {
       text: msg.content ?? null,
       toolCalls,
       raw: toolCalls.length > 0 ? msg : undefined,
+      usage: this.extractUsageFromRaw(response.usage, response.model),
+    };
+  }
+
+  /**
+   * Extract token usage from OpenAI's usage object.
+   * Handles reasoning_tokens from completion_tokens_details for o-series models.
+   */
+  private extractUsageFromRaw(usage: any, model: string): UsageData | null {
+    if (!usage) return null;
+    const reasoning = usage.completion_tokens_details?.reasoning_tokens ?? 0;
+    return {
+      inputTokens: usage.prompt_tokens ?? 0,
+      outputTokens: (usage.completion_tokens ?? 0) - reasoning,
+      thinkingTokens: reasoning,
+      cachedTokens: usage.prompt_tokens_details?.cached_tokens ?? 0,
+      totalTokens: usage.total_tokens ?? 0,
+      model,
+      provider: 'openai',
     };
   }
 }

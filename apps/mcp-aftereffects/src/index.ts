@@ -1,6 +1,6 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
-import { execSync } from "child_process";
+import { randomUUID } from "node:crypto";
 import * as fs from "fs";
 import * as os from "os";
 import * as path from "path";
@@ -35,60 +35,151 @@ function getAETempDir(): string {
 
 // Headless CLI execution has been removed. All interactions are routed through the Bridge panel.
 
-// Helper function to read results from After Effects temp file
+// Bridge protocol (v2): every command carries a `requestId` (UUID). The AE
+// panel script echoes it back in the result file. `get-results` only returns
+// content whose `requestId` matches the most recently queued command — any
+// earlier payload is treated as stale and triggers continued polling.
+const BRIDGE_STALE_TIMEOUT_MS = 30_000;
+const isBridgeDebug = (): boolean => process.env.PIPEFX_AE_BRIDGE_DEBUG === '1';
+
+let pendingRequestId: string | null = null;
+let pendingRequestStartedAt: number | null = null;
+
+// Extracted so both the requestId-mismatch and no-requestId paths can emit the
+// same terminal error without duplicating the message.
+function expireBridgeRequest(ageMs: number): string {
+  const expiredId = pendingRequestId;
+  console.error(
+    `[ae-bridge] timeout after ${ageMs}ms waiting for requestId=${expiredId}`
+  );
+  pendingRequestId = null;
+  pendingRequestStartedAt = null;
+  return JSON.stringify({
+    error: "AE_BRIDGE_TIMEOUT",
+    message:
+      "After Effects did not respond within " +
+      `${Math.round(BRIDGE_STALE_TIMEOUT_MS / 1000)}s. Open Window > mcp-bridge-auto.jsx in AE and make sure the Auto panel's "Run Commands Automatically" checkbox is on.`,
+    requestId: expiredId,
+    waitedMs: ageMs,
+  });
+}
+
+// Helper function to read results from After Effects temp file.
+// Returns a JSON string. The tool handler surfaces it to the agent; the
+// registry's asyncPolicy decides whether the content is "ready" or still
+// needs polling (see apps/backend/src/config.ts).
 function readResultsFromTempFile(): string {
+  const tempFilePath = path.join(getAETempDir(), 'ae_mcp_result.json');
   try {
-    const tempFilePath = path.join(getAETempDir(), 'ae_mcp_result.json');
-    
-    // Add debugging info
-    console.error(`Checking for results at: ${tempFilePath}`);
-    
-    if (fs.existsSync(tempFilePath)) {
-      // Get file stats to check modification time
-      const stats = fs.statSync(tempFilePath);
-      console.error(`Result file exists, last modified: ${stats.mtime.toISOString()}`);
-      
-      const content = fs.readFileSync(tempFilePath, 'utf8');
-      console.error(`Result file content length: ${content.length} bytes`);
-      
-      // If the result file is older than 30 seconds, warn the user
-      const thirtySecondsAgo = new Date(Date.now() - 30 * 1000);
-      if (stats.mtime < thirtySecondsAgo) {
-        console.error(`WARNING: Result file is older than 30 seconds. After Effects may not be updating results.`);
-        return JSON.stringify({ 
-          warning: "Result file appears to be stale (not recently updated).",
-          message: "This could indicate After Effects is not properly writing results or the MCP Bridge Auto panel isn't running.",
-          lastModified: stats.mtime.toISOString(),
-          originalContent: content
-        });
-      }
-      
-      return content;
-    } else {
-      console.error(`Result file not found at: ${tempFilePath}`);
-      return JSON.stringify({ error: "No results file found. Please run a script in After Effects first." });
+    if (isBridgeDebug()) {
+      console.error(`[ae-bridge] poll ${tempFilePath} pending=${pendingRequestId ?? 'none'}`);
     }
+
+    if (!fs.existsSync(tempFilePath)) {
+      return JSON.stringify({
+        status: "waiting",
+        message: "No results file yet. After Effects has not written anything.",
+        pendingRequestId,
+      });
+    }
+
+    const content = fs.readFileSync(tempFilePath, 'utf8');
+
+    let parsed: any = null;
+    try {
+      parsed = JSON.parse(content);
+    } catch {
+      // Unparseable — treat as waiting so the registry keeps polling briefly.
+      return JSON.stringify({
+        status: "waiting",
+        message: "Result file contains invalid JSON (possibly mid-write).",
+        pendingRequestId,
+      });
+    }
+
+    if (pendingRequestId) {
+      // Preferred path: new JSX echoes back the requestId. Strict match.
+      if (typeof parsed?.requestId === 'string') {
+        if (parsed.requestId !== pendingRequestId) {
+          // Correlation miss — result for a prior command. Treat as stale.
+          const ageMs = pendingRequestStartedAt ? Date.now() - pendingRequestStartedAt : 0;
+          if (ageMs > BRIDGE_STALE_TIMEOUT_MS) {
+            return expireBridgeRequest(ageMs);
+          }
+          return JSON.stringify({
+            status: "waiting",
+            message: `Awaiting result for request ${pendingRequestId}.`,
+            pendingRequestId,
+          });
+        }
+        console.error(`[ae-bridge] result matched requestId=${pendingRequestId}`);
+        pendingRequestId = null;
+        pendingRequestStartedAt = null;
+        return content;
+      }
+
+      // Fallback for older JSX panels that don't echo requestId. Because we
+      // clear the result file before queuing each command (see
+      // writeCommandFile), any content present here must have been written
+      // by AE in response to the current request — treat it as fresh.
+      if (pendingRequestStartedAt) {
+        try {
+          const mtimeMs = fs.statSync(tempFilePath).mtimeMs;
+          if (mtimeMs >= pendingRequestStartedAt - 50) {
+            console.error(`[ae-bridge] result (legacy, no requestId) accepted for pending=${pendingRequestId}`);
+            pendingRequestId = null;
+            pendingRequestStartedAt = null;
+            return content;
+          }
+        } catch {
+          // stat failed; fall through to timeout/waiting handling below
+        }
+      }
+
+      const ageMs = pendingRequestStartedAt ? Date.now() - pendingRequestStartedAt : 0;
+      if (ageMs > BRIDGE_STALE_TIMEOUT_MS) {
+        return expireBridgeRequest(ageMs);
+      }
+      return JSON.stringify({
+        status: "waiting",
+        message: `Awaiting result for request ${pendingRequestId}.`,
+        pendingRequestId,
+      });
+    }
+
+    // No pending request — caller just wants whatever's on disk (legacy path).
+    return content;
   } catch (error) {
-    console.error("Error reading results file:", error);
+    console.error("[ae-bridge] read error:", error);
     return JSON.stringify({ error: `Failed to read results: ${String(error)}` });
   }
 }
 
-// Helper to wait for a fresh result produced by a specific command
-async function waitForBridgeResult(expectedCommand?: string, timeoutMs: number = 5000, pollMs: number = 250): Promise<string> {
+// Helper to wait for a fresh result produced by a specific command (used by
+// the `compositions` resource which is synchronous-style). Uses requestId
+// correlation — a prior command's output cannot satisfy this wait.
+async function waitForBridgeResult(
+  expectedRequestId: string,
+  timeoutMs: number = 5000,
+  pollMs: number = 250
+): Promise<string> {
   const start = Date.now();
   const resultPath = path.join(getAETempDir(), 'ae_mcp_result.json');
-  let lastSize = -1;
 
   while (Date.now() - start < timeoutMs) {
     if (fs.existsSync(resultPath)) {
       try {
         const content = fs.readFileSync(resultPath, 'utf8');
-        if (content && content.length > 0 && content.length !== lastSize) {
-          lastSize = content.length;
+        if (content && content.length > 0) {
           try {
             const parsed = JSON.parse(content);
-            if (!expectedCommand || parsed._commandExecuted === expectedCommand) {
+            if (parsed?.requestId === expectedRequestId) {
+              return content;
+            }
+            // Legacy JSX panels don't echo requestId. Because the result
+            // file was cleared before queuing, any content here is a fresh
+            // response to our command.
+            if (typeof parsed?.requestId !== 'string') {
               return content;
             }
           } catch {
@@ -101,43 +192,50 @@ async function waitForBridgeResult(expectedCommand?: string, timeoutMs: number =
     }
     await new Promise(r => setTimeout(r, pollMs));
   }
-  return JSON.stringify({ error: `Timed out waiting for bridge result${expectedCommand ? ` for command '${expectedCommand}'` : ''}.` });
+  return JSON.stringify({
+    error: "AE_BRIDGE_TIMEOUT",
+    message: `Timed out after ${timeoutMs}ms waiting for requestId=${expectedRequestId}.`,
+    requestId: expectedRequestId,
+  });
 }
 
-// Helper function to write command to file
-function writeCommandFile(command: string, args: Record<string, any> = {}): void {
+// Helper function to write command to file. Generates a UUID requestId, marks
+// it pending for the next get-results read, and returns it for callers that
+// want to await a specific response (see waitForBridgeResult).
+function writeCommandFile(command: string, args: Record<string, any> = {}): string {
+  const requestId = randomUUID();
   try {
-    const commandFile = path.join(getAETempDir(), 'ae_command.json');
+    const bridgeDir = getAETempDir();
+    const commandFile = path.join(bridgeDir, 'ae_command.json');
+    const resultFile = path.join(bridgeDir, 'ae_mcp_result.json');
+
+    // Delete any stale result from a prior command BEFORE queuing. This gives
+    // the read side a second, orthogonal freshness signal (for JSX panels that
+    // predate requestId echo-back): if a result file exists after this point,
+    // AE wrote it in response to our command.
+    try {
+      if (fs.existsSync(resultFile)) {
+        fs.unlinkSync(resultFile);
+      }
+    } catch (clearError) {
+      console.error("[ae-bridge] failed to clear prior result file:", clearError);
+    }
+
     const commandData = {
+      requestId,
       command,
       args,
       timestamp: new Date().toISOString(),
       status: "pending"  // pending, running, completed, error
     };
     fs.writeFileSync(commandFile, JSON.stringify(commandData, null, 2));
-    console.error(`Command "${command}" written to ${commandFile}`);
+    pendingRequestId = requestId;
+    pendingRequestStartedAt = Date.now();
+    console.error(`[ae-bridge] queued command="${command}" requestId=${requestId}`);
   } catch (error) {
-    console.error("Error writing command file:", error);
+    console.error("[ae-bridge] error writing command file:", error);
   }
-}
-
-// Helper function to clear the results file to avoid stale cache
-function clearResultsFile(): void {
-  try {
-    const resultFile = path.join(getAETempDir(), 'ae_mcp_result.json');
-    
-    // Write a placeholder message to indicate the file is being reset
-    const resetData = {
-      status: "waiting",
-      message: "Waiting for new result from After Effects...",
-      timestamp: new Date().toISOString()
-    };
-    
-    fs.writeFileSync(resultFile, JSON.stringify(resetData, null, 2));
-    console.error(`Results file cleared at ${resultFile}`);
-  } catch (error) {
-    console.error("Error clearing results file:", error);
-  }
+  return requestId;
 }
 
 // Add a resource to expose project compositions
@@ -145,10 +243,9 @@ server.resource(
   "compositions",
   "aftereffects://compositions",
   async (uri) => {
-    // Clear old results, queue the command, and wait for bridge output
-    clearResultsFile();
-    writeCommandFile("listCompositions", {});
-    const result = await waitForBridgeResult("listCompositions", 6000, 250);
+    // Queue the command and wait for the matching response via requestId.
+    const requestId = writeCommandFile("listCompositions", {});
+    const result = await waitForBridgeResult(requestId, 6000, 250);
 
     return {
       contents: [{
@@ -1143,9 +1240,6 @@ server.tool(
   {},
   async () => {
     try {
-      // Clear any stale result data
-      clearResultsFile();
-      
       // Write command to file for After Effects to pick up
       writeCommandFile("bridgeTestEffects", {});
       

@@ -1,6 +1,6 @@
-import type { Agent, AgentConfig, ChatOptions } from './types.js';
-import type { Provider, ProviderMessage, ProviderToolResult, ProviderResponse } from '@pipefx/providers';
-import { GeminiProvider, OpenAIProvider, AnthropicProvider } from '@pipefx/providers';
+import type { Agent, AgentConfig, ChatOptions, AggregatedUsage } from './types.js';
+import type { Provider, ProviderMessage, ProviderToolResult, ProviderResponse, UsageData } from '@pipefx/providers';
+import { GeminiProvider, OpenAIProvider, AnthropicProvider, CloudProvider } from '@pipefx/providers';
 import { shouldCompact, compactHistory, DEFAULT_COMPACTION_CONFIG } from './compaction.js';
 
 // ── Verbose agent-loop logging ───────────────────────────────────────────────
@@ -64,6 +64,24 @@ function resolveProvider(
   config: AgentConfig,
   providerOverride?: string
 ): { provider: Provider; model: string } {
+  // ── Cloud Mode: all providers route through the cloud-api ──
+  if (config.cloudConfig) {
+    // Use the same model mapping as BYOK mode so the UI model selector works
+    const modelMap: Record<string, string> = {
+      'claude-opus-4.6': 'claude-opus-4-6-20260401',
+      'claude-sonnet-4.6': 'claude-sonnet-4-6-20260201',
+    };
+    const selectedModel = providerOverride
+      ? (modelMap[providerOverride] ?? providerOverride)
+      : config.model;
+
+    return {
+      provider: new CloudProvider(config.cloudConfig),
+      model: selectedModel,
+    };
+  }
+
+  // ── BYOK Mode: direct provider calls ──
   const id = providerOverride || 'gemini';
 
   if (id === 'claude-opus-4.6' || id === 'claude-sonnet-4.6' || id.startsWith('claude')) {
@@ -343,6 +361,28 @@ export function createAgent(config: AgentConfig): Agent {
 
       const chatParams = { model, systemPrompt, messages, tools };
 
+      // ── Usage tracking accumulator ─────────────────────────────────────
+      // Collects UsageData from every LLM round so the caller can bill/log.
+      const usageRounds: UsageData[] = [];
+      const trackRoundUsage = (response: ProviderResponse, roundNumber: number): void => {
+        if (response.usage) {
+          usageRounds.push(response.usage);
+          options?.onRoundUsage?.(response.usage, roundNumber);
+        }
+      };
+      const emitAggregatedUsage = (toolCallRounds: number): void => {
+        if (!options?.onUsage || usageRounds.length === 0) return;
+        const aggregated: AggregatedUsage = {
+          rounds: usageRounds,
+          totalInputTokens: usageRounds.reduce((s, u) => s + u.inputTokens, 0),
+          totalOutputTokens: usageRounds.reduce((s, u) => s + u.outputTokens, 0),
+          totalThinkingTokens: usageRounds.reduce((s, u) => s + u.thinkingTokens, 0),
+          totalCachedTokens: usageRounds.reduce((s, u) => s + u.cachedTokens, 0),
+          toolCallRounds,
+        };
+        options.onUsage(aggregated);
+      };
+
       // Once plan mode is approved (or blocked as already-approved), strip
       // EnterPlanMode from the tool list for the rest of this turn so the
       // model can't re-propose the same plan in a loop.
@@ -377,6 +417,7 @@ export function createAgent(config: AgentConfig): Agent {
         }
 
         if (!response) throw new Error('Stream ended without done event');
+        trackRoundUsage(response, 0); // Round 0 = initial response
 
         // Tool call loop (streaming)
         let rounds = 0;
@@ -432,13 +473,16 @@ export function createAgent(config: AgentConfig): Agent {
           }
 
           if (!response) throw new Error('Stream ended without done event');
+          trackRoundUsage(response, rounds);
         }
 
+        emitAggregatedUsage(rounds);
         return response.text ?? 'I processed your request, but I have no text response.';
       }
 
       // --- Non-streaming Agent Loop (backward compatible) ---
       let response = await provider.chat(chatParams);
+      trackRoundUsage(response, 0); // Round 0 = initial response
 
       let rounds = 0;
       while (response.toolCalls.length > 0) {
@@ -479,8 +523,10 @@ export function createAgent(config: AgentConfig): Agent {
           toolResults,
           previousResponse: response.raw,
         });
+        trackRoundUsage(response, rounds);
       }
 
+      emitAggregatedUsage(rounds);
       return response.text ?? 'I processed your request, but I have no text response.';
     },
   };

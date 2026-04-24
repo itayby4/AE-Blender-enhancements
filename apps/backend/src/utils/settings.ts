@@ -24,6 +24,12 @@ export interface AppSettings {
   anthropicApiKey: string;
   activePalette: string;
   customPalettes: CustomPalette[];
+  /** 'byok' = user's own API keys, 'cloud' = PipeFX credits via cloud-api. */
+  apiMode: 'byok' | 'cloud';
+  /** Cloud-API URL (defaults to production). */
+  cloudApiUrl: string;
+  /** Device token for cloud-api authentication. */
+  deviceToken: string;
 }
 
 // ────────────────────────────────────────────────────────
@@ -44,6 +50,9 @@ const DEFAULTS: AppSettings = {
   anthropicApiKey: process.env.ANTHROPIC_API_KEY || '',
   activePalette: 'cool-teal',
   customPalettes: [],
+  apiMode: 'byok',
+  cloudApiUrl: process.env.CLOUD_API_URL || 'https://cloud.pipefx.app',
+  deviceToken: '',
 };
 
 export async function loadSettings(): Promise<AppSettings> {
@@ -56,6 +65,9 @@ export async function loadSettings(): Promise<AppSettings> {
       anthropicApiKey: parsed.anthropicApiKey || DEFAULTS.anthropicApiKey,
       activePalette: parsed.activePalette || DEFAULTS.activePalette,
       customPalettes: Array.isArray(parsed.customPalettes) ? parsed.customPalettes : [],
+      apiMode: parsed.apiMode === 'cloud' ? 'cloud' : 'byok',
+      cloudApiUrl: parsed.cloudApiUrl || DEFAULTS.cloudApiUrl,
+      deviceToken: parsed.deviceToken || '',
     };
   } catch (error: any) {
     if (error.code === 'ENOENT') {

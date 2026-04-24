@@ -67,6 +67,14 @@ export default [
               ],
             },
             {
+              sourceTag: 'scope:usage',
+              onlyDependOnLibsWithTags: [
+                'scope:shared',
+                'scope:providers',
+                'scope:usage',
+              ],
+            },
+            {
               sourceTag: 'scope:agents',
               onlyDependOnLibsWithTags: [
                 'scope:shared',
@@ -86,6 +94,15 @@ export default [
                 'scope:providers',
                 'scope:tasks',
                 'scope:agents',
+                'scope:usage',
+              ],
+            },
+            {
+              sourceTag: 'scope:cloud-api',
+              onlyDependOnLibsWithTags: [
+                'scope:shared',
+                'scope:providers',
+                'scope:usage',
               ],
             },
           ],

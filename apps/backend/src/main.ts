@@ -26,6 +26,8 @@ import { registerLocalWorkflows } from './workflows/index.js';
 import { createSubtitleHandler } from './api/subtitles.js';
 import { GoogleGenAI } from '@google/genai';
 import { OpenAI } from 'openai';
+import { createSqliteUsageStore } from '@pipefx/usage';
+import type { UsageStore } from '@pipefx/usage';
 
 // ΓöÇΓöÇ AI Brain (SQLite-backed memory engine) ΓöÇΓöÇ
 import {
@@ -51,6 +53,7 @@ import { registerProjectRoutes } from './routes/projects.js';
 import { registerMemoryRoutes } from './routes/memory.js';
 import { registerSkillRoutes } from './routes/skills.js';
 import { registerSessionRoutes } from './routes/sessions.js';
+import { registerUsageRoutes } from './routes/usage.js';
 import { registerMiscRoutes } from './routes/misc.js';
 import { verifyAuth } from './middleware/auth.js';
 
@@ -81,6 +84,10 @@ async function main() {
       `[Memory] Migrated ${migrationResult.migrated} projects from JSON ΓåÆ SQLite (${migrationResult.skipped} already existed)`
     );
   }
+  // ── Usage Store (SQLite-backed usage tracking) ──
+  const usageStore: UsageStore = createSqliteUsageStore(getDatabase());
+  console.log('[Usage] SQLite usage store initialized');
+
   const purged = memoryTaskManager.purgeOldTasks();
   if (purged > 0) {
     console.log(`[Memory] Startup cleanup: purged ${purged} old completed tasks`);
@@ -141,6 +148,10 @@ async function main() {
     anthropicApiKey: config.anthropicApiKey,
     systemPrompt: config.systemPrompt,
     registry,
+    // If the user saved cloud mode settings, route LLM calls through the cloud-api
+    cloudConfig: loadedSettings.apiMode === 'cloud' && loadedSettings.deviceToken
+      ? { cloudApiUrl: loadedSettings.cloudApiUrl, deviceToken: loadedSettings.deviceToken }
+      : undefined,
   };
 
   // Compose built-in agent profiles with any user-provided ones from
@@ -234,6 +245,7 @@ async function main() {
     sseBroker,
     agentSessions,
     planBroker,
+    usageStore,
   });
   registerAgentRoutes(router, {
     planBroker,
@@ -245,6 +257,10 @@ async function main() {
   registerMemoryRoutes(router);
   registerSkillRoutes(router);
   registerSessionRoutes(router);
+  registerUsageRoutes(router, {
+    usageStore,
+    getUserId: () => 'local-user', // BYOK: no authenticated user, hardcode local
+  });
   registerMiscRoutes(router, {
     registry,
     setAgent: (a) => { agent = a; },

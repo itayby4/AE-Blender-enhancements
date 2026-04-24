@@ -1,4 +1,5 @@
 import type { ConnectorRegistry } from '@pipefx/mcp';
+import type { UsageData, CloudProviderConfig } from '@pipefx/providers';
 
 export interface AgentConfig {
   model: string;
@@ -7,6 +8,8 @@ export interface AgentConfig {
   anthropicApiKey?: string;
   systemPrompt: string;
   registry: ConnectorRegistry;
+  /** If set, routes LLM calls through the cloud-api instead of direct provider calls. */
+  cloudConfig?: CloudProviderConfig;
 }
 
 export interface PostRoundToolCall {
@@ -26,6 +29,26 @@ export interface PostRoundReminderContext {
   toolCalls: PostRoundToolCall[];
   /** 1-indexed round counter within this chat() invocation. */
   roundNumber: number;
+}
+
+/**
+ * Aggregated usage across all LLM rounds in a single chat() invocation.
+ * This is the "trace" concept — one user message may trigger many LLM calls
+ * (initial response + tool-call rounds). This type captures the total.
+ */
+export interface AggregatedUsage {
+  /** Individual usage records, one per LLM round. */
+  rounds: UsageData[];
+  /** Sum of all input tokens across rounds. */
+  totalInputTokens: number;
+  /** Sum of all output tokens across rounds. */
+  totalOutputTokens: number;
+  /** Sum of all thinking tokens across rounds. */
+  totalThinkingTokens: number;
+  /** Sum of all cached tokens across rounds. */
+  totalCachedTokens: number;
+  /** Number of tool-call rounds (0 = direct text response). */
+  toolCallRounds: number;
 }
 
 export interface ChatOptions {
@@ -51,6 +74,16 @@ export interface ChatOptions {
    * Return null/undefined to skip.
    */
   getPostRoundReminder?: (ctx: PostRoundReminderContext) => string | null | undefined;
+  /**
+   * Called per-round with that round's usage data (for real-time cost display).
+   * Fires after each LLM call completes (streaming or non-streaming).
+   */
+  onRoundUsage?: (usage: UsageData, roundNumber: number) => void;
+  /**
+   * Called with aggregated usage data after chat() completes (success or error).
+   * Aggregates all rounds into a single summary.
+   */
+  onUsage?: (usage: AggregatedUsage) => void;
 }
 
 export interface Agent {

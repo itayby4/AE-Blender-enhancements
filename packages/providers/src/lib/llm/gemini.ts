@@ -7,6 +7,7 @@ import type {
   StreamEvent,
   ChatParams,
   ContinueParams,
+  UsageData,
 } from './types.js';
 
 /** Default timeout for a Gemini API call (90 seconds). */
@@ -119,12 +120,20 @@ export class GeminiProvider implements Provider {
 
     for await (const chunk of response) {
       const chunkParts = chunk?.candidates?.[0]?.content?.parts ?? [];
+      let chunkText = '';
       for (const part of chunkParts) {
         allRawParts.push(JSON.parse(JSON.stringify(part)));
+        if (typeof part?.text === 'string') {
+          chunkText += part.text;
+        }
       }
-      if (chunk.text) {
-        fullText += chunk.text;
-        yield { type: 'text', text: chunk.text };
+      // Extracting text from parts directly (rather than reading chunk.text)
+      // avoids the Gemini SDK warning "there are non-text parts functionCall
+      // in the response, returning concatenation of all text parts" when a
+      // chunk contains both text and a function call.
+      if (chunkText) {
+        fullText += chunkText;
+        yield { type: 'text', text: chunkText };
       }
       if (chunk.functionCalls) {
         for (const call of chunk.functionCalls) {
@@ -149,6 +158,7 @@ export class GeminiProvider implements Provider {
           allRawParts.length > 0
             ? { parts: allRawParts, functionCalls: allRawCalls }
             : undefined,
+        usage: this.extractUsage(response, params.model),
       },
     };
   }
@@ -186,12 +196,20 @@ export class GeminiProvider implements Provider {
 
     for await (const chunk of response) {
       const chunkParts = chunk?.candidates?.[0]?.content?.parts ?? [];
+      let chunkText = '';
       for (const part of chunkParts) {
         allRawParts.push(JSON.parse(JSON.stringify(part)));
+        if (typeof part?.text === 'string') {
+          chunkText += part.text;
+        }
       }
-      if (chunk.text) {
-        fullText += chunk.text;
-        yield { type: 'text', text: chunk.text };
+      // Extracting text from parts directly (rather than reading chunk.text)
+      // avoids the Gemini SDK warning "there are non-text parts functionCall
+      // in the response, returning concatenation of all text parts" when a
+      // chunk contains both text and a function call.
+      if (chunkText) {
+        fullText += chunkText;
+        yield { type: 'text', text: chunkText };
       }
       if (chunk.functionCalls) {
         for (const call of chunk.functionCalls) {
@@ -216,6 +234,7 @@ export class GeminiProvider implements Provider {
           allRawParts.length > 0
             ? { parts: allRawParts, functionCalls: allRawCalls }
             : undefined,
+        usage: this.extractUsage(response, params.model),
       },
     };
   }
@@ -236,13 +255,44 @@ export class GeminiProvider implements Provider {
     const rawParts = response?.candidates?.[0]?.content?.parts ?? [];
     const pojoParts = rawParts.map((p: any) => JSON.parse(JSON.stringify(p)));
 
+    // Assemble text from part.text directly instead of reading response.text,
+    // which logs "there are non-text parts functionCall in the response…"
+    // every time a response mixes text and tool calls.
+    const text = rawParts
+      .filter((p: any) => typeof p?.text === 'string')
+      .map((p: any) => p.text)
+      .join('');
+
     return {
-      text: response.text ?? null,
+      text: text || null,
       toolCalls,
       raw:
         pojoParts.length > 0
           ? { parts: pojoParts, functionCalls: rawCalls }
           : undefined,
+      usage: this.extractUsage(response, 'unknown'),
+    };
+  }
+
+  /**
+   * Extract token usage from a Gemini response's usageMetadata.
+   * The model param is a fallback — streaming responses carry it on the object.
+   */
+  private extractUsage(response: any, fallbackModel: string): UsageData | null {
+    const meta = response?.usageMetadata;
+    if (!meta) return null;
+    const input = meta.promptTokenCount ?? 0;
+    const output = meta.candidatesTokenCount ?? 0;
+    const thinking = meta.thoughtsTokenCount ?? 0;
+    const cached = meta.cachedContentTokenCount ?? 0;
+    return {
+      inputTokens: input,
+      outputTokens: output,
+      thinkingTokens: thinking,
+      cachedTokens: cached,
+      totalTokens: input + output + thinking,
+      model: fallbackModel,
+      provider: 'gemini',
     };
   }
 

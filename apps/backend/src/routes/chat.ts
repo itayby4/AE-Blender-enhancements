@@ -1,5 +1,6 @@
 import type { Router } from '../router.js';
-import type { Agent } from '@pipefx/ai';
+import type { Agent, AggregatedUsage } from '@pipefx/ai';
+import type { UsageData } from '@pipefx/providers';
 import type { ConnectorRegistry } from '@pipefx/mcp';
 import type {
   AgentSessionStore,
@@ -20,6 +21,11 @@ import {
 } from '../services/memory/chat-sessions.js';
 import { config } from '../config.js';
 import { composeSystemPrompt } from '../prompts/index.js';
+import {
+  calculateCost,
+  createUsageEvent,
+} from '@pipefx/usage';
+import type { UsageStore } from '@pipefx/usage';
 
 export interface ChatRouteDeps {
   getAgent: () => Agent;
@@ -31,6 +37,7 @@ export interface ChatRouteDeps {
   };
   agentSessions?: AgentSessionStore;
   planBroker?: PlanApprovalBroker;
+  usageStore?: UsageStore;
 }
 
 /**
@@ -382,6 +389,52 @@ export function registerChatRoutes(router: Router, deps: ChatRouteDeps) {
               ? deps.agentSessions.get(resolvedSessionId)
               : null;
           return buildPostRoundReminder(ctx, selfCheck, session);
+        },
+        onRoundUsage: (usage: UsageData, roundNumber: number) => {
+          // Emit per-round usage to the SSE stream for real-time cost display
+          const cost = calculateCost(usage);
+          sseWrite(res, {
+            type: 'usage_round',
+            roundNumber,
+            usage: {
+              inputTokens: usage.inputTokens,
+              outputTokens: usage.outputTokens,
+              thinkingTokens: usage.thinkingTokens,
+              cachedTokens: usage.cachedTokens,
+              model: usage.model,
+              provider: usage.provider,
+            },
+            cost: {
+              costUsd: cost.costUsd,
+              credits: cost.credits,
+            },
+          });
+
+          // Record to SQLite
+          if (deps.usageStore) {
+            const event = createUsageEvent({
+              userId: 'local-user',
+              sessionId: resolvedSessionId!,
+              requestId: resolvedTaskId,
+              roundIndex: roundNumber,
+              usage,
+              cost,
+              isByok: true,
+            });
+            deps.usageStore.record(event);
+          }
+        },
+        onUsage: (aggregated: AggregatedUsage) => {
+          // Emit aggregated usage in the SSE stream
+          sseWrite(res, {
+            type: 'usage_total',
+            totalInputTokens: aggregated.totalInputTokens,
+            totalOutputTokens: aggregated.totalOutputTokens,
+            totalThinkingTokens: aggregated.totalThinkingTokens,
+            totalCachedTokens: aggregated.totalCachedTokens,
+            toolCallRounds: aggregated.toolCallRounds,
+            rounds: aggregated.rounds.length,
+          });
         },
       });
 

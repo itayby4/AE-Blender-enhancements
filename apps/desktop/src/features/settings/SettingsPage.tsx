@@ -14,6 +14,9 @@ import {
   Mail,
   Lock,
   Check,
+  Cloud,
+  Zap,
+  CreditCard,
 } from 'lucide-react';
 import { PipeFxLogo } from '../../components/brand/PipeFxLogo.js';
 import { Button } from '../../components/ui/button.js';
@@ -251,66 +254,20 @@ export function SettingsPage({
           {/* ── API Keys ── */}
           {activeTab === 'api-keys' && (
             <div className="max-w-lg space-y-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="text-sm font-semibold mb-1">AI Provider Keys</h3>
-                  <p className="text-xs text-muted-foreground">
-                    Keys are stored locally and never sent to third parties.
-                  </p>
-                </div>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-8 gap-1.5 text-muted-foreground"
-                  onClick={() => setShowKeys(!showKeys)}
-                >
-                  {showKeys ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
-                  {showKeys ? 'Hide' : 'Show'}
-                </Button>
-              </div>
-
-              <div className="space-y-4">
-                <ApiKeyField
-                  id="gemini"
-                  label="Google Gemini"
-                  value={geminiApiKey}
-                  onChange={setGeminiApiKey}
-                  show={showKeys}
-                  placeholder="AIzaSy..."
-                  hint="Required for AI chat. Get it at aistudio.google.com"
-                />
-                <ApiKeyField
-                  id="openai"
-                  label="OpenAI"
-                  value={openaiApiKey}
-                  onChange={setOpenaiApiKey}
-                  show={showKeys}
-                  placeholder="sk-..."
-                  hint="Optional. For GPT-4 model access."
-                />
-                <ApiKeyField
-                  id="anthropic"
-                  label="Anthropic"
-                  value={anthropicApiKey}
-                  onChange={setAnthropicApiKey}
-                  show={showKeys}
-                  placeholder="sk-ant-..."
-                  hint="Optional. For Claude model access."
-                />
-              </div>
-
-              <div className="flex items-center gap-3 pt-2">
-                <Button onClick={handleSaveKeys} disabled={isSaving} className="gap-2">
-                  <Save className="w-4 h-4" />
-                  {isSaving ? 'Saving...' : 'Save Keys'}
-                </Button>
-                {saveStatus === 'saved' && (
-                  <span className="text-sm text-success font-medium">Saved</span>
-                )}
-                {saveStatus === 'error' && (
-                  <span className="text-sm text-destructive font-medium">Save failed. Is the backend running?</span>
-                )}
-              </div>
+              {/* ── API Mode Toggle ── */}
+              <ApiModeSection
+                geminiApiKey={geminiApiKey}
+                openaiApiKey={openaiApiKey}
+                anthropicApiKey={anthropicApiKey}
+                showKeys={showKeys}
+                onGeminiChange={setGeminiApiKey}
+                onOpenaiChange={setOpenaiApiKey}
+                onAnthropicChange={setAnthropicApiKey}
+                onToggleShow={() => setShowKeys(!showKeys)}
+                onSave={handleSaveKeys}
+                isSaving={isSaving}
+                saveStatus={saveStatus}
+              />
             </div>
           )}
 
@@ -628,5 +585,260 @@ function AccountTab() {
         </p>
       </div>
     </div>
+  );
+}
+
+// ──────────────────────────────────────────────
+
+function ApiModeSection({
+  geminiApiKey, openaiApiKey, anthropicApiKey,
+  showKeys, onGeminiChange, onOpenaiChange, onAnthropicChange,
+  onToggleShow, onSave, isSaving, saveStatus,
+}: {
+  geminiApiKey: string;
+  openaiApiKey: string;
+  anthropicApiKey: string;
+  showKeys: boolean;
+  onGeminiChange: (v: string) => void;
+  onOpenaiChange: (v: string) => void;
+  onAnthropicChange: (v: string) => void;
+  onToggleShow: () => void;
+  onSave: () => void;
+  isSaving: boolean;
+  saveStatus: 'idle' | 'saved' | 'error';
+}) {
+  const [apiMode, setApiMode] = useState<'byok' | 'cloud'>('byok');
+  const [deviceToken, setDeviceToken] = useState('');
+  const [cloudApiUrl, setCloudApiUrl] = useState('https://cloud.pipefx.app');
+  const [balance, setBalance] = useState<{ available: number; held: number } | null>(null);
+  const [isSavingMode, setIsSavingMode] = useState(false);
+  const [modeStatus, setModeStatus] = useState<'idle' | 'saved' | 'error'>('idle');
+
+  // Load saved API mode settings
+  useEffect(() => {
+    fetchSettings()
+      .then((data: any) => {
+        if (data.apiMode === 'cloud') setApiMode('cloud');
+        if (data.deviceToken) setDeviceToken(data.deviceToken);
+        if (data.cloudApiUrl) setCloudApiUrl(data.cloudApiUrl);
+      })
+      .catch(console.error);
+  }, []);
+
+  // Fetch credit balance when in cloud mode
+  useEffect(() => {
+    if (apiMode !== 'cloud' || !deviceToken || !cloudApiUrl) {
+      setBalance(null);
+      return;
+    }
+    fetch(`${cloudApiUrl}/balance`, {
+      headers: { Authorization: `Bearer ${deviceToken}` },
+    })
+      .then((r) => r.ok ? r.json() : null)
+      .then((data) => {
+        if (data) setBalance({ available: data.available, held: data.held });
+      })
+      .catch(() => setBalance(null));
+  }, [apiMode, deviceToken, cloudApiUrl]);
+
+  const handleSaveMode = async () => {
+    setIsSavingMode(true);
+    try {
+      await updateSettings({ apiMode, deviceToken, cloudApiUrl });
+      setModeStatus('saved');
+      setTimeout(() => setModeStatus('idle'), 2000);
+    } catch {
+      setModeStatus('error');
+      setTimeout(() => setModeStatus('idle'), 3000);
+    } finally {
+      setIsSavingMode(false);
+    }
+  };
+
+  return (
+    <>
+      {/* ── Mode Toggle ── */}
+      <div>
+        <h3 className="text-sm font-semibold mb-1">API Mode</h3>
+        <p className="text-xs text-muted-foreground mb-3">
+          Choose how PipeFX connects to AI providers.
+        </p>
+        <div className="grid grid-cols-2 gap-3">
+          <button
+            type="button"
+            onClick={() => setApiMode('byok')}
+            className={cn(
+              'group relative flex flex-col items-start gap-2 rounded-lg border p-4 text-left transition-all',
+              apiMode === 'byok'
+                ? 'border-primary bg-primary/5 ring-2 ring-primary/30'
+                : 'border-border bg-card hover:border-primary/40 hover:bg-muted/40'
+            )}
+          >
+            <div className={cn(
+              'flex h-9 w-9 items-center justify-center rounded-md transition-colors',
+              apiMode === 'byok'
+                ? 'bg-primary text-primary-foreground'
+                : 'bg-muted text-muted-foreground group-hover:bg-primary/10 group-hover:text-primary'
+            )}>
+              <Key className="h-5 w-5" strokeWidth={1.75} />
+            </div>
+            <div>
+              <div className="text-sm font-semibold">Your API Keys</div>
+              <div className="text-xs text-muted-foreground">Use your own provider keys. No usage limits.</div>
+            </div>
+            {apiMode === 'byok' && <div className="absolute right-2.5 top-2.5 h-2 w-2 rounded-full bg-primary" />}
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setApiMode('cloud')}
+            className={cn(
+              'group relative flex flex-col items-start gap-2 rounded-lg border p-4 text-left transition-all',
+              apiMode === 'cloud'
+                ? 'border-primary bg-primary/5 ring-2 ring-primary/30'
+                : 'border-border bg-card hover:border-primary/40 hover:bg-muted/40'
+            )}
+          >
+            <div className={cn(
+              'flex h-9 w-9 items-center justify-center rounded-md transition-colors',
+              apiMode === 'cloud'
+                ? 'bg-primary text-primary-foreground'
+                : 'bg-muted text-muted-foreground group-hover:bg-primary/10 group-hover:text-primary'
+            )}>
+              <Cloud className="h-5 w-5" strokeWidth={1.75} />
+            </div>
+            <div>
+              <div className="text-sm font-semibold">PipeFX Cloud</div>
+              <div className="text-xs text-muted-foreground">Pay with credits. No keys needed.</div>
+            </div>
+            {apiMode === 'cloud' && <div className="absolute right-2.5 top-2.5 h-2 w-2 rounded-full bg-primary" />}
+          </button>
+        </div>
+      </div>
+
+      {/* ── Cloud Mode Settings ── */}
+      {apiMode === 'cloud' && (
+        <div className="space-y-4 rounded-lg border border-border bg-muted/10 p-4">
+          <div className="flex items-center gap-2">
+            <Zap className="w-4 h-4 text-primary" />
+            <h3 className="text-sm font-semibold">Cloud Settings</h3>
+          </div>
+
+          {/* Credit Balance */}
+          {balance && (
+            <div className="flex items-center gap-3 rounded-lg border border-border bg-card p-3">
+              <CreditCard className="w-5 h-5 text-primary" />
+              <div className="flex-1">
+                <div className="text-xs text-muted-foreground">Available Credits</div>
+                <div className="text-lg font-bold font-mono">
+                  {balance.available.toLocaleString()}
+                  {balance.held > 0 && (
+                    <span className="text-xs text-muted-foreground ml-2">
+                      ({balance.held.toLocaleString()} held)
+                    </span>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          <div className="space-y-1.5">
+            <Label htmlFor="device-token" className="text-sm font-medium">
+              Device Token
+            </Label>
+            <Input
+              id="device-token"
+              type="password"
+              value={deviceToken}
+              onChange={(e) => setDeviceToken(e.target.value)}
+              placeholder="ptk_..."
+              className="font-mono text-sm bg-muted/40 border-border/50"
+            />
+            <p className="text-xs text-muted-foreground">
+              Generate a device token from your PipeFX account dashboard.
+            </p>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <Button onClick={handleSaveMode} disabled={isSavingMode || !deviceToken} className="gap-2">
+              <Save className="w-4 h-4" />
+              {isSavingMode ? 'Saving...' : 'Save Cloud Settings'}
+            </Button>
+            {modeStatus === 'saved' && (
+              <span className="text-sm text-success font-medium">Saved ✓</span>
+            )}
+            {modeStatus === 'error' && (
+              <span className="text-sm text-destructive font-medium">Save failed</span>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ── BYOK Mode Settings ── */}
+      {apiMode === 'byok' && (
+        <>
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-sm font-semibold mb-1">AI Provider Keys</h3>
+              <p className="text-xs text-muted-foreground">
+                Keys are stored locally and never sent to third parties.
+              </p>
+            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-8 gap-1.5 text-muted-foreground"
+              onClick={onToggleShow}
+            >
+              {showKeys ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+              {showKeys ? 'Hide' : 'Show'}
+            </Button>
+          </div>
+
+          <div className="space-y-4">
+            <ApiKeyField
+              id="gemini"
+              label="Google Gemini"
+              value={geminiApiKey}
+              onChange={onGeminiChange}
+              show={showKeys}
+              placeholder="AIzaSy..."
+              hint="Required for AI chat. Get it at aistudio.google.com"
+            />
+            <ApiKeyField
+              id="openai"
+              label="OpenAI"
+              value={openaiApiKey}
+              onChange={onOpenaiChange}
+              show={showKeys}
+              placeholder="sk-..."
+              hint="Optional. For GPT-4 model access."
+            />
+            <ApiKeyField
+              id="anthropic"
+              label="Anthropic"
+              value={anthropicApiKey}
+              onChange={onAnthropicChange}
+              show={showKeys}
+              placeholder="sk-ant-..."
+              hint="Optional. For Claude model access."
+            />
+          </div>
+
+          <div className="flex items-center gap-3 pt-2">
+            <Button onClick={onSave} disabled={isSaving} className="gap-2">
+              <Save className="w-4 h-4" />
+              {isSaving ? 'Saving...' : 'Save Keys'}
+            </Button>
+            {saveStatus === 'saved' && (
+              <span className="text-sm text-success font-medium">Saved</span>
+            )}
+            {saveStatus === 'error' && (
+              <span className="text-sm text-destructive font-medium">Save failed. Is the backend running?</span>
+            )}
+          </div>
+        </>
+      )}
+    </>
   );
 }
