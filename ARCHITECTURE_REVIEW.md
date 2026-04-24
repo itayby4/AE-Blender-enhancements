@@ -39,7 +39,8 @@
         ├── @pipefx/ai        (scope:ai)         ──┐
         ├── @pipefx/providers (scope:providers)    │── ← גם backend משתמש ישירות בשלושתם
         ├── @pipefx/tasks     (scope:tasks)        │
-        ├── @pipefx/mcp       (scope:mcp) ────────┘
+        ├── @pipefx/connectors (scope:feature, feature:connectors) ┘
+        │       └── @pipefx/mcp-transport (scope:mcp)
         │                            │
         │                            └── @pipefx/async (scope:async)
         │
@@ -116,7 +117,7 @@ CLAUDE.md (שורה 207): *"The backend is a thin wiring layer."*
 **בעיה 2:** חלק מהדברים (`pipeline_actions`, `skills`) לוגיים מקום אחר (UI/frontend) — backend לא אמור להכיר את זה.
 **בעיה 3:** אין טסטים ל-prompt. שינוי מילה בודדת יכול לשבור התנהגות של הסוכן בלי שאף אחד ישים לב.
 
-#### 🟢 `@pipefx/mcp` — עיצוב נקי ותקין
+#### 🟢 `@pipefx/connectors` (+ `@pipefx/connectors-contracts` / `@pipefx/mcp-transport`) — עיצוב נקי ותקין
 
 interface ה-`Connector`/`ConnectorRegistry` נקי, discriminated union של `TransportConfig` עובד כראוי. יש בעיות ביישום (ראה סעיף 2.3) אבל ה-shape נכון.
 
@@ -132,7 +133,7 @@ interface ה-`Connector`/`ConnectorRegistry` נקי, discriminated union של `T
 - `packages/colors` (המרות צבע)
 
 **אין טסטים כלל** ב-:
-- `@pipefx/mcp` — כל הלוגיקה של ConnectorRegistry, routing, reconnect
+- `@pipefx/connectors` — כל הלוגיקה של ConnectorRegistry, routing, reconnect (✅ נוסף ב-Phase 5.7: `registry.events.spec.ts`)
 - `@pipefx/ai` — כל הלופ של ה-agent, compaction, tool execution
 - `apps/backend` — כל ה-routes, memory, workflows
 - `apps/mcp-davinci` — כל הכלים ב-Python
@@ -245,7 +246,7 @@ function estimateMessageTokens(msg: ProviderMessage): number {
 
 `apps/backend/src/main.ts:45-50` רושם את כל חמשת הקונקטורים (`resolve`, `premiere`, `aftereffects`, `blender`, `ableton`) גם אם הקונפיגורציה שלהם כוללת `venv` שלא קיים (לא לכל user יש את כל האפליקציות מותקנות). `switchActiveConnector('resolve')` מנסה רק resolve, אבל ה-registry עדיין מחזיק 5 connectors שבעת `getAllTools()` יעברו עליהם (אפילו אם לא-מחוברים זה פשוט `continue`, אז OK ביצועית — אבל לא נקי).
 
-בנוסף, `resolveVenvPython()` (מ-`@pipefx/mcp`) רץ בזמן import — אם venv של `mcp-aftereffects` לא קיים (סביר מאוד, הוא scaffolded), ה-backend אולי בכלל לא עולה. חייב לוודא שזה lazy.
+בנוסף, `resolveVenvPython()` (מ-`@pipefx/mcp-transport`) רץ בזמן import — אם venv של `mcp-aftereffects` לא קיים (סביר מאוד, הוא scaffolded), ה-backend אולי בכלל לא עולה. חייב לוודא שזה lazy.
 
 #### 🟡 Local tools ו-connector tools באותו `toolIndex`
 
@@ -298,7 +299,7 @@ async getAllTools(): Promise<Tool[]> {
 **H3. להוציא את ה-system prompt מ-`config.ts`.**
 להעביר ל-`apps/backend/src/prompts/system.md`, לטעון בזמן boot. לפצל ל-sections (core / memory / pipeline_actions / skills) כדי שאפשר להרכיב דינמית. להוסיף unit test קצר שבודק שה-prompt לא ריק ושיש בו את placeholders קריטיים.
 
-**H4. להוסיף טסטים ל-`@pipefx/mcp` ו-`@pipefx/ai`.**
+**H4. להוסיף טסטים ל-`@pipefx/connectors` ו-`@pipefx/brain-*`.** _(connectors: ✅ Phase 5.7 `registry.events.spec.ts`)_
 מינימום: `registry.spec.ts` (concurrency, routing, local-vs-connector collision), `connector.spec.ts` (timeout, reconnect, mock Client), `agent.spec.ts` (tool loop, compaction trigger, streaming events). אלה הכי חשובים בפירמידה.
 
 ### 🟡 עדיפות בינונית (שבוע)

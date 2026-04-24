@@ -59,8 +59,10 @@ pipefx/
     mcp-davinci/       -> (Python)          MCP server for DaVinci Resolve
 
   packages/
-    mcp/               -> @pipefx/mcp              Connector interface, registry, transport
-    agent-loop-kernel/ -> @pipefx/agent-loop-kernel Low-level agent loop + compaction
+    connectors/          -> @pipefx/connectors           Registry, lifecycle, capability map, backend + UI surfaces
+    connectors-contracts/-> @pipefx/connectors-contracts Frozen types + event bus events for the connector surface
+    mcp-transport/       -> @pipefx/mcp-transport        Stdio/SSE transport factory + resolveVenvPython
+    agent-loop-kernel/   -> @pipefx/agent-loop-kernel    Low-level agent loop + compaction
     llm-providers/     -> @pipefx/llm-providers    Gemini/OpenAI/Anthropic/Cloud adapters
     brain-contracts/   -> @pipefx/brain-contracts  Frozen types + events for the brain surface
     brain-loop/        -> @pipefx/brain-loop       Agent loop glue + system prompts
@@ -106,7 +108,9 @@ Three tag axes, declared in `eslint.config.mjs`:
       │       └── @pipefx/brain-contracts (scope:platform) ←───┘
       ├── @pipefx/llm-providers    (scope:platform)
       ├── @pipefx/agent-loop-kernel (scope:platform)
-      ├── @pipefx/mcp              (scope:mcp)
+      ├── @pipefx/connectors        (scope:feature, feature:connectors)
+      │       ├── @pipefx/connectors-contracts (scope:platform, layer:contracts)
+      │       └── @pipefx/mcp-transport        (scope:mcp)
       └── @pipefx/tasks, @pipefx/usage, @pipefx/auth, …
 
   @pipefx/async, @pipefx/strings, @pipefx/colors, @pipefx/utils  (scope:shared)
@@ -177,7 +181,7 @@ The `"@pipefx/source"` export condition enables direct source imports during dev
 ### Import style
 
 - Always use `.js` extensions in relative imports (`./lib/types.js`, not `./lib/types`).
-- Import workspace packages by name (`@pipefx/mcp`), never by relative path.
+- Import workspace packages by name (`@pipefx/connectors`), never by relative path.
 - Use `import type { ... }` for type-only imports.
 
 ### Creating a new package
@@ -191,16 +195,22 @@ The `"@pipefx/source"` export condition enables direct source imports during dev
 
 ---
 
-## Connector Architecture (`@pipefx/mcp`)
+## Connector Architecture (`@pipefx/connectors` + `@pipefx/connectors-contracts` + `@pipefx/mcp-transport`)
 
 The connector system abstracts connections to external applications via the Model Context Protocol. It is the central extensibility point.
+
+Post-Phase-5 the surface is split across three packages:
+
+- `@pipefx/connectors-contracts` (scope:platform, layer:contracts) — frozen types (`Connector`, `ConnectorConfig`, `ToolDescriptor`, `ToolCallResult`, `ConnectorCapabilityManifest`, `ConnectorSnapshot`, `ConnectorsApi`) and the `McpEvent` / `McpEventMap` event-bus shapes.
+- `@pipefx/connectors` (scope:feature, feature:connectors) — `ConnectorRegistry`, `createConnector()` lifecycle state machine, `deriveCapabilities()`, `mountConnectorRoutes()` (subpath `./backend`), `ConnectorStatus` widget (subpath `./ui`).
+- `@pipefx/mcp-transport` (scope:mcp) — `createTransport()` factory + `resolveVenvPython()`.
 
 ### Key types
 
 - **`ConnectorConfig`** -- declares _what_ to connect to (id, name, transport).
 - **`TransportConfig`** -- discriminated union: `StdioTransportConfig | SseTransportConfig`.
 - **`Connector`** -- a live connection wrapping an MCP `Client`. Has `connect()`, `disconnect()`, `listTools()`, `callTool()`.
-- **`ConnectorRegistry`** -- manages multiple connectors. Aggregates tools from all connectors and routes `callTool()` to the correct one.
+- **`ConnectorRegistry`** -- manages multiple connectors. Aggregates tools from all connectors and routes `callTool()` to the correct one. Publishes `mcp.connector.connected/disconnected`, `mcp.tools.changed`, `mcp.tool.called` on an injected `@pipefx/event-bus`.
 
 ### Adding a new connector
 
@@ -211,7 +221,7 @@ To support a new application (e.g., Adobe Premiere Pro):
 3. **Register in `main.ts`:** `registry.register(config.connectors.premiere);`
 4. That is it. The AI agent automatically discovers all tools from all connectors.
 
-Do NOT put connector-specific logic in `@pipefx/mcp` or in any brain-* package. Those packages are application-agnostic.
+Do NOT put connector-specific logic in `@pipefx/connectors`, `@pipefx/connectors-contracts`, `@pipefx/mcp-transport`, or in any brain-* package. Those packages are application-agnostic.
 
 ---
 
@@ -246,7 +256,7 @@ It must NOT contain:
 - Business logic (belongs in packages).
 - Agent-loop / model interaction code (belongs in `@pipefx/brain-loop` + `@pipefx/agent-loop-kernel` + `@pipefx/llm-providers`).
 - Brain runtime state, task/session logic, planning, sub-agent orchestration (belongs in the relevant `@pipefx/brain-*` package).
-- MCP client/transport code (belongs in `@pipefx/mcp`).
+- MCP client/transport code (belongs in `@pipefx/connectors` + `@pipefx/mcp-transport`).
 
 ---
 

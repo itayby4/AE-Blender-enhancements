@@ -40,7 +40,7 @@ This is NOT a prompting problem — the model is doing the right thing given wha
 1. **Fix the bridge async contract.** `run-script` (and `create-*` / `setLayer*` / `apply-effect*`) must not return until AE has produced a terminal result (or a real timeout fires). Either poll internally or make the tool wait on the result-file mtime for the specific command.
    - Bridge file paths: `C:\Users\PC\Documents\ae-mcp-bridge\ae_command.json` (in), `ae_mcp_result.json` (out).
    - `bridge-health` already does a blocking wait pattern — look there for prior art.
-   - Check the async-policy wrapper in `@pipefx/mcp` `registry.ts` (search for `asyncPolicy`, `skipTools`) — there may already be a polling layer that just isn't configured for these tools.
+   - Check the async-policy wrapper in `@pipefx/connectors` `packages/connectors/src/lib/domain/registry.ts` (search for `asyncPolicy`, `skipTools`) — there may already be a polling layer that just isn't configured for these tools.
 
 2. **Port the cached prompt-sections architecture** from the reference repo (`src/constants/systemPromptSections.ts`, `prompts.ts`, `system.ts`). Key functions: `systemPromptSection()`, `resolveSystemPromptSections()`, `clearSystemPromptSections()`. Gives clean seams to compose `<base-agent>` + `<planning-discipline>` + `<activeApp=aftereffects>` per turn with per-section caching.
 

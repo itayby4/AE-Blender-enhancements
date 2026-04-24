@@ -59,8 +59,12 @@ pipefx/
     mcp-davinci/       -> (Python)          MCP server for DaVinci Resolve
 
   packages/
-    mcp/               -> @pipefx/mcp       Connector interface, registry, transport
-    ai/                -> @pipefx/ai        Gemini agent loop, tool mapper
+    connectors/          -> @pipefx/connectors           Registry, lifecycle, capability map, backend + UI surfaces
+    connectors-contracts/-> @pipefx/connectors-contracts Frozen connector types + event-bus events
+    mcp-transport/       -> @pipefx/mcp-transport        Stdio/SSE transport factory + resolveVenvPython
+    brain-contracts/     -> @pipefx/brain-contracts      Frozen brain types + events
+    brain-loop/ brain-tasks/ brain-memory/ brain-planning/ brain-subagents/
+                         -> @pipefx/brain-*             Post-Phase-4 brain split (see CLAUDE.md)
     async/             -> @pipefx/async     Retry with exponential backoff
     strings/           -> @pipefx/strings   String utilities
     colors/            -> @pipefx/colors    Color conversion utilities
@@ -79,7 +83,9 @@ Dependencies flow **downward only**. This is enforced by `@nx/enforce-module-bou
       |      \
   @pipefx/ai  (scope:ai)
       |
-  @pipefx/mcp (scope:mcp)
+  @pipefx/connectors (scope:feature, feature:connectors)
+      |
+  @pipefx/mcp-transport (scope:mcp)
       |
   @pipefx/async (scope:async)   @pipefx/strings (scope:strings)
       \                              |
@@ -153,7 +159,7 @@ The `"@pipefx/source"` export condition enables direct source imports during dev
 ### Import style
 
 - Always use `.js` extensions in relative imports (`./lib/types.js`, not `./lib/types`).
-- Import workspace packages by name (`@pipefx/mcp`), never by relative path.
+- Import workspace packages by name (`@pipefx/connectors`), never by relative path.
 - Use `import type { ... }` for type-only imports.
 
 ### Creating a new package
@@ -167,7 +173,7 @@ The `"@pipefx/source"` export condition enables direct source imports during dev
 
 ---
 
-## Connector Architecture (`@pipefx/mcp`)
+## Connector Architecture (`@pipefx/connectors` + `@pipefx/connectors-contracts` + `@pipefx/mcp-transport`)
 
 The connector system abstracts connections to external applications via the Model Context Protocol. It is the central extensibility point.
 
@@ -201,7 +207,7 @@ To support a new application (e.g., Adobe Premiere Pro):
 3. **Register in `main.ts`:** `registry.register(config.connectors.premiere);`
 4. That is it. The AI agent automatically discovers all tools from all connectors.
 
-Do NOT put connector-specific logic in `@pipefx/mcp` or `@pipefx/ai`. Those packages are application-agnostic.
+Do NOT put connector-specific logic in `@pipefx/connectors`, `@pipefx/connectors-contracts`, `@pipefx/mcp-transport`, or any `@pipefx/brain-*` package. Those packages are application-agnostic.
 
 ---
 
@@ -227,7 +233,7 @@ It must NOT contain:
 
 - Business logic (belongs in packages).
 - AI model interaction code (belongs in `@pipefx/ai`).
-- MCP client/transport code (belongs in `@pipefx/mcp`).
+- MCP client/transport code (belongs in `@pipefx/connectors` + `@pipefx/mcp-transport`).
 
 ---
 
