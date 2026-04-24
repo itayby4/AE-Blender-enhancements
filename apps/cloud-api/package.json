@@ -53,6 +53,7 @@
     }
   },
   "dependencies": {
+    "@pipefx/auth-tokens": "workspace:*",
     "@pipefx/providers": "workspace:*",
     "@pipefx/usage": "workspace:*",
     "@supabase/supabase-js": "^2.103.3",

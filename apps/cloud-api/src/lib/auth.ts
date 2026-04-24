@@ -9,20 +9,15 @@
  * to the user once at creation and never stored.
  */
 
-import { createHash } from 'crypto';
+import { hashToken } from '@pipefx/auth-tokens';
 import { supabase } from './supabase.js';
+
+export { hashToken };
 
 export interface DeviceAuthResult {
   userId: string;
   tokenId: string;
   tokenName: string;
-}
-
-/**
- * Hash a plaintext device token to its stored form.
- */
-export function hashToken(plaintext: string): string {
-  return createHash('sha256').update(plaintext).digest('hex');
 }
 
 /**

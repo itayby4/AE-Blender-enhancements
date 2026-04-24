@@ -147,6 +147,9 @@ importers:
 
   apps/cloud-api:
     dependencies:
+      '@pipefx/auth-tokens':
+        specifier: workspace:*
+        version: link:../../packages/auth-tokens
       '@pipefx/providers':
         specifier: workspace:*
         version: link:../../packages/providers
@@ -349,6 +352,12 @@ importers:
         version: 2.8.1
 
   packages/async:
+    dependencies:
+      tslib:
+        specifier: ^2.3.0
+        version: 2.8.1
+
+  packages/auth-tokens:
     dependencies:
       tslib:
         specifier: ^2.3.0

@@ -217,6 +217,7 @@ export default [
               sourceTag: 'scope:cloud-api',
               onlyDependOnLibsWithTags: [
                 'scope:shared',
+                'scope:platform',
                 'scope:providers',
                 'scope:usage',
               ],
