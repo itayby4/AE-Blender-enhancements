@@ -1,0 +1,7 @@
+{
+  "name": "@pipefx/mcp-aftereffects",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "projectType": "application",
+  "sourceRoot": "apps/mcp-aftereffects/src",
+  "tags": ["type:app", "scope:mcp"]
+}

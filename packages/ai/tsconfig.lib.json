@@ -19,6 +19,9 @@
     },
     {
       "path": "../llm-providers/tsconfig.lib.json"
+    },
+    {
+      "path": "../agent-loop-kernel/tsconfig.lib.json"
     }
   ],
   "exclude": [

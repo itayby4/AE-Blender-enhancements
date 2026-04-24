@@ -10,9 +10,6 @@
     "start": "node build/index.js",
     "install-bridge": "node install-bridge.js"
   },
-  "nx": {
-    "tags": ["scope:mcp-aftereffects"]
-  },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.28.0",
     "node-fetch": "^3.3.2",
