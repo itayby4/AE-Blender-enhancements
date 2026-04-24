@@ -110,6 +110,9 @@ importers:
       '@pipefx/auth':
         specifier: workspace:*
         version: link:../../packages/auth
+      '@pipefx/brain-memory':
+        specifier: workspace:*
+        version: link:../../packages/brain-memory
       '@pipefx/mcp':
         specifier: workspace:*
         version: link:../../packages/mcp
@@ -323,6 +326,15 @@ importers:
       '@pipefx/ai':
         specifier: workspace:*
         version: link:../ai
+      '@pipefx/brain-contracts':
+        specifier: workspace:*
+        version: link:../brain-contracts
+      '@pipefx/brain-memory':
+        specifier: workspace:*
+        version: link:../brain-memory
+      '@pipefx/brain-tasks':
+        specifier: workspace:*
+        version: link:../brain-tasks
       '@pipefx/mcp':
         specifier: workspace:*
         version: link:../mcp
@@ -381,6 +393,40 @@ importers:
 
   packages/auth-tokens:
     dependencies:
+      tslib:
+        specifier: ^2.3.0
+        version: 2.8.1
+
+  packages/brain-contracts:
+    dependencies:
+      tslib:
+        specifier: ^2.3.0
+        version: 2.8.1
+
+  packages/brain-memory:
+    dependencies:
+      '@pipefx/brain-contracts':
+        specifier: workspace:*
+        version: link:../brain-contracts
+      '@pipefx/tasks':
+        specifier: workspace:*
+        version: link:../tasks
+      better-sqlite3:
+        specifier: ^12.9.0
+        version: 12.9.0
+      tslib:
+        specifier: ^2.3.0
+        version: 2.8.1
+    devDependencies:
+      '@types/better-sqlite3':
+        specifier: ^7.6.13
+        version: 7.6.13
+
+  packages/brain-tasks:
+    dependencies:
+      '@pipefx/brain-contracts':
+        specifier: workspace:*
+        version: link:../brain-contracts
       tslib:
         specifier: ^2.3.0
         version: 2.8.1

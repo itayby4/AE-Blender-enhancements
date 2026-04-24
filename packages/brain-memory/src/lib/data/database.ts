@@ -1,22 +1,45 @@
 /**
- * PipeFX AI Brain ΓÇö SQLite database initialization & schema management.
+ * PipeFX AI Brain — SQLite database initialization & schema management.
  *
  * Single `.db` file holds all persistent state for the AI cognitive architecture.
  * Uses WAL mode for crash safety and concurrent read performance.
+ *
+ * Callers must invoke `configureMemoryStore({ workspaceRoot })` before any
+ * memory function. The workspaceRoot is injected by the host (apps/backend)
+ * so brain-memory does not import from apps.
  */
 
 import Database from 'better-sqlite3';
-import * as path from 'path';
-import * as fs from 'fs';
-import { config } from '../../config.js';
+import * as path from 'node:path';
+import * as fs from 'node:fs';
 
 let db: Database.Database | null = null;
+let workspaceRoot: string | null = null;
 
 const SCHEMA_VERSION = 3;
 
+export interface MemoryStoreConfig {
+  workspaceRoot: string;
+}
+
+/** One-time configuration — must be called before `getDatabase()`. */
+export function configureMemoryStore(cfg: MemoryStoreConfig): void {
+  workspaceRoot = cfg.workspaceRoot;
+}
+
+/** Resolve workspaceRoot (for callers that need it — e.g. migrate.ts). */
+export function getWorkspaceRoot(): string {
+  if (!workspaceRoot) {
+    throw new Error(
+      '[Memory] configureMemoryStore({ workspaceRoot }) must be called before any memory function.'
+    );
+  }
+  return workspaceRoot;
+}
+
 /** Get the path to the SQLite database file. */
 function getDbPath(): string {
-  const dataDir = path.join(config.workspaceRoot, 'data');
+  const dataDir = path.join(getWorkspaceRoot(), 'data');
   if (!fs.existsSync(dataDir)) {
     fs.mkdirSync(dataDir, { recursive: true });
   }
@@ -203,7 +226,7 @@ function createSchema(database: Database.Database): void {
       );
     `);
   } catch {
-    // Table already exists ΓÇö that's fine
+    // Table already exists — that's fine
   }
 
   // Set schema version
@@ -237,7 +260,7 @@ function createFtsTriggers(database: Database.Database): void {
 /** Migrate an existing database from one schema version to the next. */
 function migrateSchema(database: Database.Database, fromVersion: number): void {
   if (fromVersion < 2) {
-    console.log('[Memory] Migration v1 ΓåÆ v2: Adding task_events table and thoughts column');
+    console.log('[Memory] Migration v1 → v2: Adding task_events table and thoughts column');
     database.exec(`
       CREATE TABLE IF NOT EXISTS task_events (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -257,7 +280,7 @@ function migrateSchema(database: Database.Database, fromVersion: number): void {
     try {
       database.exec(`ALTER TABLE tasks ADD COLUMN thoughts TEXT`);
     } catch {
-      // Column already exists ΓÇö fine
+      // Column already exists — fine
     }
 
     database.prepare(
@@ -266,7 +289,7 @@ function migrateSchema(database: Database.Database, fromVersion: number): void {
   }
 
   if (fromVersion < 3) {
-    console.log('[Memory] Migration v2 ΓåÆ v3: Adding chat persistence tables');
+    console.log('[Memory] Migration v2 → v3: Adding chat persistence tables');
     database.exec(`
       CREATE TABLE IF NOT EXISTS chat_sessions (
         id TEXT PRIMARY KEY,
@@ -333,7 +356,7 @@ export function getDatabase(): Database.Database {
       .get() as { value: string } | undefined;
 
     if (!versionRow) {
-      // Pre-versioning DB or corrupted ΓÇö recreate
+      // Pre-versioning DB or corrupted — recreate
       console.log('[Memory] No schema version found, initializing schema...');
       createSchema(db);
       createFtsTriggers(db);

@@ -1,25 +1,15 @@
-/**
- * PipeFX AI Brain ΓÇö Memory engine barrel exports.
- *
- * Single import point for all memory services:
- *   import { getDatabase, createProject, addKnowledge, ... } from './services/memory/index.js';
- */
-
-// Database
-export { getDatabase, closeDatabase } from './database.js';
-
-// Projects
+// ── Transitional barrel — memory engine moved to @pipefx/brain-memory ──
+// Keeps existing backend/workflows imports stable until Phase 4.7 rewire.
 export {
+  configureMemoryStore,
+  getDatabase,
+  closeDatabase,
   ensureProject,
   listProjects,
   getProject,
   createProject,
   updateProject,
   deleteProject,
-} from './projects.js';
-
-// Knowledge (semantic memory)
-export {
   addKnowledge,
   getKnowledgeById,
   listKnowledge,
@@ -29,10 +19,6 @@ export {
   addProjectMemory,
   getProjectMemories,
   deleteProjectMemoryByIndex,
-} from './knowledge.js';
-
-// Sessions (episodic memory)
-export {
   startSession,
   getSession,
   endSession,
@@ -40,27 +26,14 @@ export {
   getRecentSessions,
   getLastSessionSummary,
   addInteraction,
-} from './sessions.js';
-
-// Tasks (procedural memory)
-export { MemoryTaskManager, memoryTaskManager } from './tasks.js';
-
-// User profile
-export {
+  MemoryTaskManager,
+  memoryTaskManager,
   setUserPreference,
   getUserPreference,
   getUserPreferences,
   deleteUserPreference,
-} from './user-profile.js';
-
-// Context assembly
-export {
   assembleProjectContext,
   assembleLegacyContext,
-} from './context.js';
-
-// Chat session persistence
-export {
   createChatSession,
   appendChatMessage,
   getChatSession,
@@ -70,14 +43,11 @@ export {
   updateChatSessionTitle,
   getLatestChatSession,
   chatSessionExists,
-} from './chat-sessions.js';
-export type { ChatSessionDTO, ChatMessageDTO } from './chat-sessions.js';
-
-// Migration
-export { migrateJsonProjects } from './migrate.js';
-
-// Types
+  migrateJsonProjects,
+} from '@pipefx/brain-memory';
 export type {
+  ChatSessionDTO,
+  ChatMessageDTO,
   ProjectDTO,
   KnowledgeDTO,
   KnowledgeInsert,
@@ -90,4 +60,4 @@ export type {
   TaskEvent,
   TaskRow,
   AssembledContext,
-} from './types.js';
+} from '@pipefx/brain-memory';

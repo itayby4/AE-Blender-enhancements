@@ -5,10 +5,9 @@
  * into the new SQLite database. Run once during the transition.
  */
 
-import * as fs from 'fs';
-import * as path from 'path';
-import { config } from '../../config.js';
-import { getDatabase } from './database.js';
+import * as fs from 'node:fs';
+import * as path from 'node:path';
+import { getDatabase, getWorkspaceRoot } from './database.js';
 import { addKnowledge } from './knowledge.js';
 
 interface LegacyProject {
@@ -32,7 +31,7 @@ interface LegacyProject {
  * Safe to call multiple times — skips projects that already exist.
  */
 export function migrateJsonProjects(): { migrated: number; skipped: number } {
-  const projectsDir = path.join(config.workspaceRoot, 'data', 'projects');
+  const projectsDir = path.join(getWorkspaceRoot(), 'data', 'projects');
   if (!fs.existsSync(projectsDir)) {
     return { migrated: 0, skipped: 0 };
   }

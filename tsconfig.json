@@ -70,6 +70,9 @@
       "path": "./packages/brain-tasks"
     },
     {
+      "path": "./packages/brain-memory"
+    },
+    {
       "path": "./apps/cloud-api"
     }
   ]

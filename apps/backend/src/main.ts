@@ -29,8 +29,9 @@ import { OpenAI } from 'openai';
 import { createSqliteUsageStore } from '@pipefx/usage';
 import type { UsageStore } from '@pipefx/usage';
 
-// ΓöÇΓöÇ AI Brain (SQLite-backed memory engine) ΓöÇΓöÇ
+// ── AI Brain (SQLite-backed memory engine) ──
 import {
+  configureMemoryStore,
   getDatabase,
   migrateJsonProjects,
   memoryTaskManager,
@@ -41,20 +42,19 @@ import {
   listKnowledge,
   getProject,
   addProjectMemory,
-} from './services/memory/index.js';
-import type { KnowledgeCategory } from './services/memory/index.js';
+} from '@pipefx/brain-memory';
+import type { KnowledgeCategory } from '@pipefx/brain-memory';
 
 // ΓöÇΓöÇ Router & Routes ΓöÇΓöÇ
 import { Router } from './router.js';
 import { registerChatRoutes } from './routes/chat.js';
 import { registerAgentRoutes } from './routes/agents.js';
-import { registerTaskRoutes } from './routes/tasks.js';
 import { registerProjectRoutes } from './routes/projects.js';
-import { registerMemoryRoutes } from './routes/memory.js';
 import { registerSkillRoutes } from './routes/skills.js';
 import { registerSessionRoutes } from './routes/sessions.js';
 import { registerUsageRoutes } from './routes/usage.js';
 import { registerMiscRoutes } from './routes/misc.js';
+import { mountMemoryRoutes } from '@pipefx/brain-memory';
 import { createAuthMiddleware } from '@pipefx/auth/backend';
 
 async function main() {
@@ -83,7 +83,8 @@ async function main() {
     openaiApiKey: config.openaiApiKey,
   });
 
-  // ΓöÇΓöÇ Database init ΓöÇΓöÇ
+  // ── Database init ──
+  configureMemoryStore({ workspaceRoot: config.workspaceRoot });
   getDatabase();
   const migrationResult = migrateJsonProjects();
   if (migrationResult.migrated > 0) {
@@ -259,9 +260,8 @@ async function main() {
     agentSessions,
     taskOutput,
   });
-  registerTaskRoutes(router);
+  mountMemoryRoutes(router);
   registerProjectRoutes(router, { registry });
-  registerMemoryRoutes(router);
   registerSkillRoutes(router);
   registerSessionRoutes(router);
   registerUsageRoutes(router, {

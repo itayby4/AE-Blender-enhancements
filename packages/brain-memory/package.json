@@ -1,5 +1,5 @@
 {
-  "name": "@pipefx/agents",
+  "name": "@pipefx/brain-memory",
   "version": "0.0.1",
   "type": "module",
   "main": "./dist/index.js",
@@ -19,16 +19,18 @@
     "!**/*.tsbuildinfo"
   ],
   "dependencies": {
-    "@pipefx/ai": "workspace:*",
     "@pipefx/brain-contracts": "workspace:*",
-    "@pipefx/brain-memory": "workspace:*",
-    "@pipefx/brain-tasks": "workspace:*",
-    "@pipefx/mcp": "workspace:*",
+    "@pipefx/tasks": "workspace:*",
+    "better-sqlite3": "^12.9.0",
     "tslib": "^2.3.0"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.13"
   },
   "nx": {
     "tags": [
-      "scope:agents"
+      "scope:feature",
+      "feature:brain"
     ]
   }
 }

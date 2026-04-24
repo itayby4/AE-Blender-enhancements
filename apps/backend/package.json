@@ -127,6 +127,7 @@
     "@pipefx/agents": "workspace:*",
     "@pipefx/ai": "workspace:*",
     "@pipefx/auth": "workspace:*",
+    "@pipefx/brain-memory": "workspace:*",
     "@pipefx/mcp": "workspace:*",
     "@pipefx/providers": "workspace:*",
     "@pipefx/tasks": "workspace:*",
