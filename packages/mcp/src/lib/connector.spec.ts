@@ -44,7 +44,7 @@ vi.mock('@modelcontextprotocol/sdk/client/index.js', () => {
   return { Client: FakeClient };
 });
 
-vi.mock('./transport.js', () => ({
+vi.mock('@pipefx/mcp-transport', () => ({
   createTransport: () => ({ close: async () => undefined }),
 }));
 

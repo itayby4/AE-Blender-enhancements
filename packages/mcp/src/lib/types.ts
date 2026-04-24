@@ -1,18 +1,10 @@
-export interface StdioTransportConfig {
-  type: 'stdio';
-  command: string;
-  args?: string[];
-  env?: Record<string, string>;
-  cwd?: string;
-}
+export type {
+  StdioTransportConfig,
+  SseTransportConfig,
+  TransportConfig,
+} from '@pipefx/mcp-transport';
 
-export interface SseTransportConfig {
-  type: 'sse';
-  url: string;
-  headers?: Record<string, string>;
-}
-
-export type TransportConfig = StdioTransportConfig | SseTransportConfig;
+import type { TransportConfig } from '@pipefx/mcp-transport';
 
 /**
  * Structured error attached to a ToolResult when the executor can classify

@@ -1,6 +1,6 @@
 export { createConnector } from './lib/connector.js';
 export { ConnectorRegistry } from './lib/registry.js';
-export { createTransport, resolveVenvPython } from './lib/transport.js';
+export { createTransport, resolveVenvPython } from '@pipefx/mcp-transport';
 export type {
   Connector,
   ConnectorConfig,

@@ -25,6 +25,9 @@
       "path": "./packages/mcp"
     },
     {
+      "path": "./packages/mcp-transport"
+    },
+    {
       "path": "./packages/ai"
     },
     {

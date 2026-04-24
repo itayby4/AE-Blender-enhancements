@@ -1,5 +1,5 @@
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
-import { createTransport } from './transport.js';
+import { createTransport } from '@pipefx/mcp-transport';
 import type { Connector, ConnectorConfig, Tool, ToolResult } from './types.js';
 
 export function createConnector(config: ConnectorConfig): Connector {
