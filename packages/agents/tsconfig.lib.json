@@ -18,6 +18,12 @@
       "path": "../brain-tasks/tsconfig.lib.json"
     },
     {
+      "path": "../brain-planning/tsconfig.lib.json"
+    },
+    {
+      "path": "../brain-memory/tsconfig.lib.json"
+    },
+    {
       "path": "../brain-contracts/tsconfig.lib.json"
     },
     {

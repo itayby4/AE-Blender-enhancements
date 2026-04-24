@@ -128,6 +128,7 @@
     "@pipefx/ai": "workspace:*",
     "@pipefx/auth": "workspace:*",
     "@pipefx/brain-memory": "workspace:*",
+    "@pipefx/brain-planning": "workspace:*",
     "@pipefx/mcp": "workspace:*",
     "@pipefx/providers": "workspace:*",
     "@pipefx/tasks": "workspace:*",

@@ -5,7 +5,6 @@ import {
   AgentSessionStore,
   createTaskOutputStore,
   createSubAgentRuntime,
-  createInMemoryPlanApprovalBroker,
   registerAgentTools,
   agentsLog,
   loadAgentsDir,
@@ -16,6 +15,10 @@ import {
   type TodoItem,
   type AgentProfile,
 } from '@pipefx/agents';
+import {
+  createInMemoryPlanApprovalBroker,
+  mountPlanningRoutes,
+} from '@pipefx/brain-planning';
 import { AsyncLocalStorage } from 'node:async_hooks';
 import * as os from 'node:os';
 import * as path from 'node:path';
@@ -255,8 +258,11 @@ async function main() {
     planBroker,
     usageStore,
   });
-  registerAgentRoutes(router, {
+  mountPlanningRoutes(router, {
     planBroker,
+    agentSessions,
+  });
+  registerAgentRoutes(router, {
     agentSessions,
     taskOutput,
   });

@@ -2,15 +2,13 @@ import type { Router } from '../router.js';
 import type { Agent, AggregatedUsage } from '@pipefx/ai';
 import type { UsageData } from '@pipefx/providers';
 import type { ConnectorRegistry } from '@pipefx/mcp';
-import type {
-  AgentSessionStore,
-  PlanApprovalBroker,
-} from '@pipefx/agents';
+import type { AgentSessionStore } from '@pipefx/agents';
+import { agentsLog } from '@pipefx/agents';
+import type { PlanApprovalBroker } from '@pipefx/brain-planning';
 import {
-  agentsLog,
   freshSelfCheckState,
   buildPostRoundReminder,
-} from '@pipefx/agents';
+} from '@pipefx/brain-planning';
 import type { AsyncLocalStorage } from 'node:async_hooks';
 import { readBody, jsonResponse, jsonError } from '../router.js';
 import { memoryTaskManager, assembleProjectContext } from '../services/memory/index.js';

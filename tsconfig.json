@@ -73,6 +73,9 @@
       "path": "./packages/brain-memory"
     },
     {
+      "path": "./packages/brain-planning"
+    },
+    {
       "path": "./apps/cloud-api"
     }
   ]

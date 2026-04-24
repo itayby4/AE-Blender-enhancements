@@ -1,5 +1,5 @@
 {
-  "name": "@pipefx/agents",
+  "name": "@pipefx/brain-planning",
   "version": "0.0.1",
   "type": "module",
   "main": "./dist/index.js",
@@ -19,17 +19,15 @@
     "!**/*.tsbuildinfo"
   ],
   "dependencies": {
-    "@pipefx/ai": "workspace:*",
     "@pipefx/brain-contracts": "workspace:*",
-    "@pipefx/brain-memory": "workspace:*",
-    "@pipefx/brain-planning": "workspace:*",
-    "@pipefx/brain-tasks": "workspace:*",
     "@pipefx/mcp": "workspace:*",
+    "@pipefx/agent-loop-kernel": "workspace:*",
     "tslib": "^2.3.0"
   },
   "nx": {
     "tags": [
-      "scope:agents"
+      "scope:feature",
+      "feature:brain"
     ]
   }
 }
