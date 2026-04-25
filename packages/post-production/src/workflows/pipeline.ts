@@ -1,4 +1,4 @@
-import type { WorkflowContext } from './types.js';
+import type { LocalToolContext } from './types.js';
 import * as fs from 'fs';
 import * as path from 'path';
 import { execSync } from 'child_process';
@@ -46,7 +46,7 @@ function extractToolResultText(content: unknown): string {
  * Returns the final array of SubtitleSegments.
  */
 export async function runTranscriptionPipeline(
-  context: WorkflowContext,
+  context: LocalToolContext,
   options: PipelineOptions
 ): Promise<SubtitleSegment[]> {
   const { registry, ai, openai } = context;

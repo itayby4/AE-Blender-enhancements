@@ -1,6 +1,6 @@
 import type { IncomingMessage, ServerResponse } from 'http';
-import type { WorkflowContext } from '../workflows/types.js';
-import { syncExternalAudioWorkflow } from '../workflows/audio-sync.js';
+import type { LocalToolContext } from '../../workflows/types.js';
+import { syncExternalAudioWorkflow } from '../../workflows/audio-sync.js';
 
 /**
  * Handler for POST /api/audio-sync/run
@@ -8,7 +8,7 @@ import { syncExternalAudioWorkflow } from '../workflows/audio-sync.js';
  * Directly invokes the audio sync pipeline (export ΓåÆ discover ΓåÆ correlate ΓåÆ inject ΓåÆ import)
  * without going through the AI agent loop.
  */
-export function createAudioSyncHandler(context: WorkflowContext) {
+export function createAudioSyncHandler(context: LocalToolContext) {
   return async function handleAudioSync(
     req: IncomingMessage,
     res: ServerResponse

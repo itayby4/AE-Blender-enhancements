@@ -1,7 +1,7 @@
-import type { WorkflowDefinition } from './types.js';
+import type { LocalToolWorkflow } from './types.js';
 import { runTranscriptionPipeline } from './pipeline.js';
 
-export const timelineTranscriptWorkflow: WorkflowDefinition = {
+export const timelineTranscriptWorkflow: LocalToolWorkflow = {
   name: 'get_transcript_from_timeline_audio',
   description:
     'Extracts audio from DaVinci Resolve, transcribes via Whisper, and translates to the target language via Gemini (defaults to Hebrew). Returns the JSON array of subtitle segments directly back to you.',

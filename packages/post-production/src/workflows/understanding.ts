@@ -10,15 +10,19 @@
  *   6. Store results  → SQLite knowledge DB
  */
 
-import type { WorkflowDefinition, WorkflowContext } from './types.js';
+import type { LocalToolWorkflow, LocalToolContext } from './types.js';
 import * as fs from 'fs';
+// Phase 9.3: this workflow used to reach into apps/backend/src/services/
+// memory which was a transitional barrel re-exporting @pipefx/brain-memory.
+// Now that the workflow lives in its own package we import the real
+// source directly.
 import {
   addKnowledge,
   searchKnowledge,
   listKnowledge,
   forgetKnowledge,
-} from '../services/memory/knowledge.js';
-import type { KnowledgeCategory } from '../services/memory/types.js';
+  type KnowledgeCategory,
+} from '@pipefx/brain-memory';
 
 /**
  * Extracts the text content from a tool result, handling both array and
@@ -40,7 +44,7 @@ function extractToolResultText(content: unknown): string {
  * 'premiere_scan_timeline').
  */
 async function pickToolName(
-  context: WorkflowContext,
+  context: LocalToolContext,
   preferredNames: string[]
 ): Promise<string | null> {
   const tools = await context.registry.getAllTools();
@@ -51,7 +55,7 @@ async function pickToolName(
   return null;
 }
 
-export const analyzeProjectWorkflow: WorkflowDefinition = {
+export const analyzeProjectWorkflow: LocalToolWorkflow = {
   name: 'analyze_project',
   description:
     'Perform a comprehensive analysis of the currently open project timeline. ' +
@@ -507,7 +511,7 @@ export const analyzeProjectWorkflow: WorkflowDefinition = {
  * project understanding, then store it as a knowledge item.
  */
 async function synthesizeAndStore(
-  context: WorkflowContext,
+  context: LocalToolContext,
   projectId: string,
   scanData: any,
   transcriptText: string,

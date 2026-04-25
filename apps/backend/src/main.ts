@@ -44,10 +44,15 @@ import * as path from 'node:path';
 import { createServer } from 'http';
 import { config, updateConfig } from './config.js';
 import { loadSettings } from './utils/settings.js';
-import { registerLocalWorkflows } from './workflows/index.js';
-import { createSubtitleHandler } from './api/subtitles.js';
-import { GoogleGenAI } from '@google/genai';
-import { OpenAI } from 'openai';
+// Phase 9.3: workflows + their HTTP routes moved into @pipefx/post-production.
+// We import the registration helper for the brain-side tool surface and the
+// `mountWorkflowRoutes` mount for the desktop-direct HTTP endpoints.
+import {
+  registerLocalWorkflows,
+  createLocalToolContext,
+  type LocalToolContext,
+} from '@pipefx/post-production/workflows';
+import { mountWorkflowRoutes } from '@pipefx/post-production/backend';
 import { calculateCost, createSqliteUsageStore, createUsageEvent } from '@pipefx/usage';
 import type { UsageStore } from '@pipefx/usage';
 import { composeSystemPrompt } from './prompts/index.js';
@@ -267,16 +272,15 @@ async function main() {
   }
 
   // ΓöÇΓöÇ Mutable state ΓöÇΓöÇ
-  let workflowContext = {
-    registry,
-    ai: new GoogleGenAI({ apiKey: config.geminiApiKey }),
-    openai: new OpenAI({ apiKey: config.openaiApiKey }),
-  };
-
-  let handleSubtitleGenerate = createSubtitleHandler(
-    registry,
-    workflowContext
-  );
+  // Phase 9.3: workflow context construction moved into the package's
+  // `createLocalToolContext` helper. Kept as a `let` because the cloud
+  // mode toggle below replaces the agent in place; the workflow context
+  // doesn't actually mutate today, but the `let` makes the future hot-
+  // swap (when API keys can rotate at runtime) cheap.
+  let workflowContext: LocalToolContext = createLocalToolContext(registry, {
+    geminiApiKey: config.geminiApiKey,
+    openaiApiKey: config.openaiApiKey,
+  });
 
   let agent: Agent = createAgent(baseAgentConfig);
 
@@ -391,8 +395,15 @@ async function main() {
     setAgent: (a) => { agent = a; },
     getWorkflowContext: () => workflowContext,
     setWorkflowContext: (ctx) => { workflowContext = ctx; },
-    getSubtitleHandler: () => handleSubtitleGenerate as any,
-    setSubtitleHandler: (h: any) => { handleSubtitleGenerate = h; },
+  });
+
+  // Phase 9.3: workflow HTTP routes (subtitles/audio-sync/autopod) moved
+  // out of misc.ts and into the post-production package's mount. Closure
+  // over `workflowContext` so settings-driven swaps still take effect
+  // for in-flight requests.
+  mountWorkflowRoutes(router, {
+    registry,
+    getContext: () => workflowContext,
   });
 
   // ΓöÇΓöÇ HTTP Server ΓöÇΓöÇ

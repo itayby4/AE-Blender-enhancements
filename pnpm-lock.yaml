@@ -643,6 +643,21 @@ importers:
 
   packages/post-production:
     dependencies:
+      '@google/genai':
+        specifier: ^1.46.0
+        version: 1.46.0(@modelcontextprotocol/sdk@1.29.0(zod@3.25.76))
+      '@pipefx/brain-memory':
+        specifier: workspace:*
+        version: link:../brain-memory
+      '@pipefx/connectors':
+        specifier: workspace:*
+        version: link:../connectors
+      '@pipefx/video-kit':
+        specifier: workspace:*
+        version: link:../video-kit
+      openai:
+        specifier: ^6.32.0
+        version: 6.32.0(ws@8.19.0)(zod@3.25.76)
       tslib:
         specifier: ^2.3.0
         version: 2.8.1

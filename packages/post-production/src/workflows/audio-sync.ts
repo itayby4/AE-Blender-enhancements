@@ -1,4 +1,4 @@
-import type { WorkflowDefinition } from './types.js';
+import type { LocalToolWorkflow } from './types.js';
 import * as path from 'path';
 import * as os from 'os';
 import * as fs from 'fs';
@@ -7,7 +7,7 @@ import { VIDEO_KIT_PY_SRC } from '@pipefx/video-kit';
 import {
   resolvePythonEngineDir,
   resolvePythonEngineScript,
-} from '@pipefx/post-production';
+} from '../python-engines.js';
 
 /**
  * Resolves the workspace root by walking up from cwd looking for nx.json.
@@ -34,7 +34,7 @@ function findWorkspaceRoot(): string {
  *   4. Inject synced audio into the XML via xml_inject_sync.py
  *   5. Import the result back as a new timeline
  */
-export const syncExternalAudioWorkflow: WorkflowDefinition = {
+export const syncExternalAudioWorkflow: LocalToolWorkflow = {
   name: 'sync_external_audio',
   description:
     'Syncs external audio recordings (boom mic, Zoom recorder, etc.) to the current timeline. Uses FFT cross-correlation to find the exact offset, then creates a new timeline with the synced audio placed under each video clip.',

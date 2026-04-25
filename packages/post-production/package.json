@@ -18,6 +18,18 @@
       "types": "./dist/contracts/index.d.ts",
       "import": "./dist/contracts/index.js",
       "default": "./dist/contracts/index.js"
+    },
+    "./workflows": {
+      "@pipefx/source": "./src/workflows/index.ts",
+      "types": "./dist/workflows/index.d.ts",
+      "import": "./dist/workflows/index.js",
+      "default": "./dist/workflows/index.js"
+    },
+    "./backend": {
+      "@pipefx/source": "./src/backend/index.ts",
+      "types": "./dist/backend/index.d.ts",
+      "import": "./dist/backend/index.js",
+      "default": "./dist/backend/index.js"
     }
   },
   "files": [
@@ -25,6 +37,11 @@
     "!**/*.tsbuildinfo"
   ],
   "dependencies": {
+    "@google/genai": "^1.46.0",
+    "@pipefx/brain-memory": "workspace:*",
+    "@pipefx/connectors": "workspace:*",
+    "@pipefx/video-kit": "workspace:*",
+    "openai": "^6.32.0",
     "tslib": "^2.3.0"
   },
   "nx": {

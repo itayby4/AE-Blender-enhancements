@@ -12,5 +12,15 @@
     "types": ["node"]
   },
   "include": ["src/**/*.ts", "src/**/*.tsx"],
-  "references": []
+  "references": [
+    {
+      "path": "../video-kit/tsconfig.lib.json"
+    },
+    {
+      "path": "../connectors/tsconfig.lib.json"
+    },
+    {
+      "path": "../brain-memory/tsconfig.lib.json"
+    }
+  ]
 }

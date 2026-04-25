@@ -1,10 +1,10 @@
-import type { WorkflowContext } from './types.js';
+import type { LocalToolContext } from './types.js';
 import * as path from 'path';
 import * as os from 'os';
 import * as fs from 'fs';
 import { execSync } from 'child_process';
 import { VIDEO_KIT_PY_SRC } from '@pipefx/video-kit';
-import { resolvePythonEngineScript } from '@pipefx/post-production';
+import { resolvePythonEngineScript } from '../python-engines.js';
 
 /**
  * Resolves the workspace root by walking up from cwd looking for nx.json.
@@ -41,7 +41,7 @@ export const getTimelineInfoWorkflow = {
   },
   execute: async (
     args: { app_target?: string },
-    context: WorkflowContext
+    context: LocalToolContext
   ): Promise<string> => {
     const { registry } = context;
     const appTarget = args.app_target || 'premiere';
@@ -132,7 +132,7 @@ export const autopodWorkflow = {
       fallback?: string;
       use_generative?: boolean;
     },
-    context: WorkflowContext
+    context: LocalToolContext
   ): Promise<string> => {
     const { registry } = context;
     const appTarget = args.app_target || 'premiere';

@@ -1,7 +1,7 @@
 import type { IncomingMessage, ServerResponse } from 'http';
 import type { ConnectorRegistry } from '@pipefx/connectors';
-import type { WorkflowContext } from '../workflows/types.js';
-import { runTranscriptionPipeline } from '../workflows/pipeline.js';
+import type { LocalToolContext } from '../../workflows/types.js';
+import { runTranscriptionPipeline } from '../../workflows/pipeline.js';
 
 /**
  * Handler for POST /api/subtitles/generate
@@ -11,7 +11,7 @@ import { runTranscriptionPipeline } from '../workflows/pipeline.js';
  */
 export function createSubtitleHandler(
   registry: ConnectorRegistry,
-  context: WorkflowContext
+  context: LocalToolContext
 ) {
   return async function handleSubtitleGenerate(
     req: IncomingMessage,

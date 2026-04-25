@@ -1,7 +1,7 @@
-import type { WorkflowDefinition } from './types.js';
+import type { LocalToolWorkflow } from './types.js';
 import { runTranscriptionPipeline } from './pipeline.js';
 
-export const autoSubtitlesWorkflow: WorkflowDefinition = {
+export const autoSubtitlesWorkflow: LocalToolWorkflow = {
   name: 'auto_generate_subtitles',
   description:
     'Automatically extracts audio from DaVinci Resolve, transcribes it via Whisper, translates it to the target language via Gemini, and inserts the subtitles back into the timeline. Call this if the user asks for subtitles.',
