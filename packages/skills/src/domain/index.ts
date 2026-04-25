@@ -25,3 +25,14 @@ export {
   type CapabilityMatcherConfig,
   type CapabilityMatcherHandle,
 } from './capability-matcher.js';
+
+export {
+  canonicalPayloadBytes,
+  fingerprintPublicKey,
+  generateSkillKeyPair,
+  signSkill,
+  verifySkill,
+  type SignablePayload,
+  type SignableResource,
+  type SkillKeyPair,
+} from './signing.js';
