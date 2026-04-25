@@ -43,11 +43,8 @@ import { ProjectBrain } from '../features/project-brain/ProjectBrain.js';
 import { VideoGenDashboard } from '../features/video-gen/VideoGenDashboard.js';
 import { ImageGenDashboard } from '../features/image-gen/ImageGenDashboard.js';
 import { NodeSystemDashboard } from '../features/node-system/NodeSystemDashboard.js';
-import { SkillsPage } from '../features/skills/SkillsPage.js';
 import { SkillLibraryPage } from '../features/skills/SkillLibraryPage.js';
 import { SkillPlannerPage } from '../features/skills/SkillPlannerPage.js';
-import { SkillIframeRenderer } from '../features/skills/SkillIframeRenderer.js';
-import { SKILL_UI_REGISTRY } from '../features/skills/skill-registry.js';
 import { TaskManagerWidget } from '../features/skills/TaskManagerWidget.js';
 import { PlanApprovalModal } from '../components/PlanApprovalModal.js';
 import { SettingsPage } from '../features/settings/SettingsPage.js';
@@ -609,38 +606,13 @@ export function App() {
                 </div>
               )}
 
-              {/* New manifest-based Skill Library (Phase 7.9) */}
-              {activeView === 'skill-library' && (
+              {/* Manifest-based Skill Library — the single skills surface
+                  after Phase 7. The legacy markdown/script SkillsPage was
+                  retired in Phase 7.13; SkillLibraryPage covers both the
+                  install/run path (Phase 7.9) and the in-app authoring
+                  flow (Phase 7.12) via its embedded SkillAuthoringPage. */}
+              {(activeView === 'skill-library' || activeView === 'skills') && (
                 <SkillLibraryPage />
-              )}
-
-              {/* Legacy markdown/script Skills Page */}
-              {activeView === 'skills' && (
-                <div className="flex-1 min-h-0 flex flex-col bg-card rounded-xl border overflow-hidden">
-                  <SkillsPage
-                    skills={filteredSkills}
-                    selectedSkillId={selectedSkillId}
-                    activeApp={activeApp}
-                    onSelectSkill={(skill) => {
-                      setSelectedSkillId(skill.id);
-                      setActiveView('chat');
-                    }}
-                    onNavigateToSkill={(skill) => setActiveView(skill.id)}
-                    onImportSkill={(skill) => setSkills((prev) => [...prev, skill])}
-                    onDeleteSkill={async (skill) => {
-                      const filename = skill.filename || `${skill.id}.md`;
-                      try {
-                        const { deleteSkill } = await import('../lib/api.js');
-                        await deleteSkill(filename);
-                        const newSkills = await loadSkills();
-                        setSkills(newSkills);
-                        if (selectedSkillId === skill.id) setSelectedSkillId('default');
-                      } catch (e) {
-                        console.error('Error deleting skill:', e);
-                      }
-                    }}
-                  />
-                </div>
               )}
 
               {/* Core feature panels */}
@@ -674,36 +646,12 @@ export function App() {
                 </div>
               )}
 
-              {/* Dynamic skill UI panels */}
-              {Object.entries(SKILL_UI_REGISTRY).map(([skillId, SkillComponent]) =>
-                activeView === skillId ? (
-                  <div key={skillId} className="flex-1 min-h-0 bg-card rounded-xl border overflow-hidden flex flex-col">
-                    <SkillComponent />
-                  </div>
-                ) : null
-              )}
-
-              {/* Iframe skills */}
-              {filteredSkills
-                .filter((s) => s.uiHtml && !SKILL_UI_REGISTRY[s.id])
-                .map((skill) =>
-                  activeView === skill.id ? (
-                    <div key={`iframe-${skill.id}`} className="flex-1 min-h-0 bg-card rounded-xl border overflow-hidden flex flex-col">
-                      <SkillIframeRenderer
-                        html={skill.uiHtml!}
-                        skillId={skill.id}
-                        onExecute={(params) => {
-                          const paramStr = JSON.stringify(params, null, 2);
-                          void chat.sendMessage(
-                            `Execute the UI action with parameters:\n\`\`\`json\n${paramStr}\n\`\`\``,
-                            skill
-                          );
-                          setActiveView('chat');
-                        }}
-                      />
-                    </div>
-                  ) : null
-                )}
+              {/* The legacy SKILL_UI_REGISTRY (per-skill bespoke React
+                  components) and SkillIframeRenderer (uiHtml embedded
+                  in legacy markdown skills) were retired in Phase 7.13.
+                  Manifest skills render through @pipefx/skills/ui's
+                  SkillRunner — a single typed form-based UX driven by
+                  the manifest's `inputs` array. */}
 
               {/* Macro pages */}
               {isMacroView && (
