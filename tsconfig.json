@@ -83,6 +83,9 @@
     },
     {
       "path": "./packages/chat"
+    },
+    {
+      "path": "./packages/skills"
     }
   ]
 }
