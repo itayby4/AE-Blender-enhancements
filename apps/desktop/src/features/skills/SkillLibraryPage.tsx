@@ -33,8 +33,11 @@ import {
   Upload,
   ShieldCheck,
   ShieldAlert,
+  Pencil,
+  Plus,
   type LucideIcon,
 } from 'lucide-react';
+import { SkillAuthoringPage } from './authoring/SkillAuthoringPage.js';
 import {
   SkillLibrary,
   SkillRunner,
@@ -81,8 +84,16 @@ export interface SkillLibraryPageProps {
   className?: string;
 }
 
+// Page mode — `library` shows the master/detail layout; `author` swaps in
+// the SkillAuthoringPage. Discriminated union so the optional `initial`
+// only exists in author mode and we can't forget to clear it on transition.
+type PageMode =
+  | { kind: 'library' }
+  | { kind: 'author'; initial?: InstalledSkill };
+
 export function SkillLibraryPage(props: SkillLibraryPageProps) {
   const { sessionId, className } = props;
+  const [mode, setMode] = useState<PageMode>({ kind: 'library' });
   const [selected, setSelected] = useState<InstalledSkill | null>(null);
   const [lastRun, setLastRun] = useState<SkillRunRecord | null>(null);
 
@@ -148,6 +159,24 @@ export function SkillLibraryPage(props: SkillLibraryPageProps) {
     }
   };
 
+  // Author mode swaps the entire page — keeping the library state alive in
+  // background means returning to it preserves selection + scroll position.
+  if (mode.kind === 'author') {
+    return (
+      <SkillAuthoringPage
+        initial={mode.initial}
+        onCancel={() => setMode({ kind: 'library' })}
+        onSaved={(installed) => {
+          setMode({ kind: 'library' });
+          setSelected(installed);
+          setLastRun(null);
+          setRefreshTick((tick) => tick + 1);
+        }}
+        className={className}
+      />
+    );
+  }
+
   return (
     <div
       className={cn(
@@ -176,6 +205,13 @@ export function SkillLibraryPage(props: SkillLibraryPageProps) {
             </p>
           </div>
           <div className="flex items-center gap-2">
+            <Button
+              size="sm"
+              onClick={() => setMode({ kind: 'author' })}
+            >
+              <Plus className="h-3.5 w-3.5 mr-1.5" />
+              New skill
+            </Button>
             <Button
               size="sm"
               variant="outline"
@@ -210,6 +246,7 @@ export function SkillLibraryPage(props: SkillLibraryPageProps) {
               emptyState={
                 <EmptyLibraryState
                   onImport={() => fileInputRef.current?.click()}
+                  onAuthor={() => setMode({ kind: 'author' })}
                 />
               }
               className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3"
@@ -222,7 +259,7 @@ export function SkillLibraryPage(props: SkillLibraryPageProps) {
       <Card className="w-[420px] shrink-0 flex flex-col overflow-hidden">
         {selected ? (
           <>
-            <div className="px-4 py-3 border-b flex items-center justify-between">
+            <div className="px-4 py-3 border-b flex items-center justify-between gap-2">
               <div className="min-w-0">
                 <h3 className="text-sm font-semibold truncate">
                   {selected.manifest.name}
@@ -231,20 +268,40 @@ export function SkillLibraryPage(props: SkillLibraryPageProps) {
                   {selected.manifest.id} · v{selected.manifest.version}
                 </p>
               </div>
-              {selected.signed ? (
-                <Badge
-                  variant="secondary"
-                  className="text-[10px] gap-1"
-                  title={selected.fingerprint ?? 'signed'}
-                >
-                  <Lock className="h-3 w-3" />
-                  signed
-                </Badge>
-              ) : (
-                <Badge variant="outline" className="text-[10px]">
-                  unsigned
-                </Badge>
-              )}
+              <div className="flex items-center gap-2 shrink-0">
+                {/* Only local-source skills are editable through the in-app
+                    editor — bundled or remotely-installed skills are owned
+                    by their author and would lose source-of-truth alignment
+                    if locally mutated. (Re-export from "New skill" remains
+                    available if the user really wants to fork one.) */}
+                {selected.source === 'local' && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() =>
+                      setMode({ kind: 'author', initial: selected })
+                    }
+                    className="gap-1"
+                  >
+                    <Pencil className="h-3 w-3" />
+                    Edit
+                  </Button>
+                )}
+                {selected.signed ? (
+                  <Badge
+                    variant="secondary"
+                    className="text-[10px] gap-1"
+                    title={selected.fingerprint ?? 'signed'}
+                  >
+                    <Lock className="h-3 w-3" />
+                    signed
+                  </Badge>
+                ) : (
+                  <Badge variant="outline" className="text-[10px]">
+                    unsigned
+                  </Badge>
+                )}
+              </div>
             </div>
             <ScrollArea className="flex-1">
               <div className="p-4">
@@ -430,7 +487,13 @@ function ImportConsentDialog(props: ImportConsentDialogProps) {
 
 // ── Empty / informational sub-views ─────────────────────────────────────
 
-function EmptyLibraryState({ onImport }: { onImport: () => void }) {
+function EmptyLibraryState({
+  onImport,
+  onAuthor,
+}: {
+  onImport: () => void;
+  onAuthor: () => void;
+}) {
   return (
     <div className="flex flex-col items-center justify-center py-12 text-center text-muted-foreground">
       <Library className="h-10 w-10 mb-3 opacity-40" />
@@ -438,16 +501,17 @@ function EmptyLibraryState({ onImport }: { onImport: () => void }) {
         No skills installed yet
       </h3>
       <p className="text-xs mt-1 max-w-sm">
-        Import a <code>.pfxskill</code> bundle to get started, or wait for
-        the upcoming authoring UI to publish your own.
+        Author one from scratch, or import a <code>.pfxskill</code> bundle
+        from someone else to get started.
       </p>
       <div className="flex gap-2 mt-4">
+        <Button size="sm" onClick={onAuthor}>
+          <Sparkles className="h-3.5 w-3.5 mr-1.5" />
+          Author new skill
+        </Button>
         <Button size="sm" variant="outline" onClick={onImport}>
           <Upload className="h-3.5 w-3.5 mr-1.5" />
           Import .pfxskill
-        </Button>
-        <Button size="sm" variant="outline" disabled>
-          Author new skill (soon)
         </Button>
       </div>
     </div>
