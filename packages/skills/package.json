@@ -24,6 +24,12 @@
       "types": "./dist/domain/index.d.ts",
       "import": "./dist/domain/index.js",
       "default": "./dist/domain/index.js"
+    },
+    "./backend": {
+      "@pipefx/source": "./src/backend/index.ts",
+      "types": "./dist/backend/index.d.ts",
+      "import": "./dist/backend/index.js",
+      "default": "./dist/backend/index.js"
     }
   },
   "files": [
