@@ -176,7 +176,7 @@ export function SkillsPage({
 
       try {
         setImportStatus('saving' as any);
-        const res = await fetch('http://localhost:3001/api/skills/create', {
+        const res = await fetch('http://localhost:3001/api/skill-files/create', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ filename: file.name, content }),

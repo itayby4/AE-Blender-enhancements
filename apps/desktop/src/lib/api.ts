@@ -119,7 +119,7 @@ export function forgetKnowledge(id: string): Promise<void> {
 // ── Skills ──
 
 export function deleteSkill(filename: string): Promise<void> {
-  return request('/api/skills/delete', {
+  return request('/api/skill-files/delete', {
     method: 'POST',
     body: JSON.stringify({ filename }),
   });

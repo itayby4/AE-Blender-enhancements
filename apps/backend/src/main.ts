@@ -1,5 +1,18 @@
 import { ConnectorRegistry } from '@pipefx/connectors';
+import type { McpEventMap } from '@pipefx/connectors';
 import { mountConnectorRoutes } from '@pipefx/connectors/backend';
+import { createEventBus } from '@pipefx/event-bus';
+import {
+  createCapabilityMatcher,
+  createSkillRunner,
+  type CapabilityMatcherHandle,
+} from '@pipefx/skills/domain';
+import {
+  createSkillRunStore,
+  createSkillStorage,
+  mountSkillRoutes,
+} from '@pipefx/skills/backend';
+import type { SkillEventMap, SkillStore } from '@pipefx/skills/contracts';
 import { createAgent } from '@pipefx/brain-loop';
 import type { Agent } from '@pipefx/agent-loop-kernel';
 import {
@@ -65,7 +78,7 @@ import type { KnowledgeCategory } from '@pipefx/brain-memory';
 // ΓöÇΓöÇ Router & Routes ΓöÇΓöÇ
 import { Router } from './router.js';
 import { registerProjectRoutes } from './routes/projects.js';
-import { registerSkillRoutes } from './routes/skills.js';
+import { registerSkillFileRoutes } from './routes/skill-files.js';
 import { registerUsageRoutes } from './routes/usage.js';
 import { registerMiscRoutes } from './routes/misc.js';
 import { mountMemoryRoutes, assembleProjectContext } from '@pipefx/brain-memory';
@@ -84,8 +97,16 @@ async function main() {
     supabaseServiceKey: config.supabaseServiceKey,
   });
 
-  // ΓöÇΓöÇ Connector Registry ΓöÇΓöÇ
-  const registry = new ConnectorRegistry();
+  // ── Shared event bus ──
+  // Carries both MCP lifecycle events (mcp.tools.changed etc.) and skills
+  // events (skills.available-changed, skills.run.*). The connector registry
+  // publishes the MCP half; the capability matcher subscribes to it and
+  // publishes the skills half. Other reactive consumers (chat composer
+  // badges, telemetry) can subscribe later without rewiring the producers.
+  const bus = createEventBus<McpEventMap & SkillEventMap>();
+
+  // ── Connector Registry ──
+  const registry = new ConnectorRegistry({ eventBus: bus });
   registry.register(config.connectors.resolve);
   if (config.connectors.premiere) registry.register(config.connectors.premiere);
   if (config.connectors.aftereffects)
@@ -257,7 +278,49 @@ async function main() {
 
   let agent: Agent = createAgent(baseAgentConfig);
 
-  // ΓöÇΓöÇ Build Router ΓöÇΓöÇ
+  // ── Skills surface (Phase 7) ──
+  // Storage is filesystem-backed under <workspaceRoot>/data/skills/v1/.
+  // The matcher is created against the underlying storage (not the wrapper)
+  // so the wrapper can capture the matcher in its closure without a
+  // forward-reference. The wrapper exists to nudge `matcher.recompute()`
+  // after install/uninstall — the matcher's own subscription only fires on
+  // `mcp.tools.changed`, so without this nudge a freshly-installed skill
+  // stays absent from the availability snapshot until the next MCP refresh.
+  const skillsStorage = createSkillStorage({
+    rootDir: path.join(config.workspaceRoot, 'data', 'skills'),
+  });
+  const skillsMatcher: CapabilityMatcherHandle = createCapabilityMatcher({
+    skillsProvider: () => skillsStorage.list().map((s) => s.manifest),
+    bus,
+  });
+  const skillStore: SkillStore = {
+    list: () => skillsStorage.list(),
+    get: (id) => skillsStorage.get(id),
+    install: (manifest, opts) => {
+      const record = skillsStorage.install(manifest, opts);
+      skillsMatcher.recompute();
+      return record;
+    },
+    uninstall: (id) => {
+      const removed = skillsStorage.uninstall(id);
+      if (removed) skillsMatcher.recompute();
+      return removed;
+    },
+  };
+  const skillsRunStore = createSkillRunStore();
+  const skillsRunner = createSkillRunner({
+    store: skillStore,
+    runs: skillsRunStore,
+    matcher: skillsMatcher,
+    // Agent.chat from @pipefx/agent-loop-kernel is a strict superset of
+    // BrainLoopApi.chat — accepts the same {sessionId, allowedTools} shape
+    // and returns Promise<string>. The cast keeps the structural match
+    // explicit without dragging extra plumbing in.
+    brain: { chat: (msg, opts) => agent.chat(msg, opts) },
+    bus,
+  });
+
+  // ── Build Router ──
   const router = new Router();
 
   mountChatRoutes(router, {
@@ -302,7 +365,13 @@ async function main() {
   mountMemoryRoutes(router);
   mountConnectorRoutes(router, { registry });
   registerProjectRoutes(router, { registry });
-  registerSkillRoutes(router);
+  registerSkillFileRoutes(router);
+  mountSkillRoutes(router, {
+    store: skillStore,
+    runs: skillsRunStore,
+    matcher: skillsMatcher,
+    runner: skillsRunner,
+  });
   registerUsageRoutes(router, {
     usageStore,
     getUserId: () => 'local-user', // BYOK: no authenticated user, hardcode local

@@ -23,7 +23,13 @@
       "path": "../../packages/providers/tsconfig.lib.json"
     },
     {
+      "path": "../../packages/skills/tsconfig.lib.json"
+    },
+    {
       "path": "../../packages/mcp-transport/tsconfig.lib.json"
+    },
+    {
+      "path": "../../packages/event-bus/tsconfig.lib.json"
     },
     {
       "path": "../../packages/connectors/tsconfig.lib.json"

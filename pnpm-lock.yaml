@@ -131,12 +131,18 @@ importers:
       '@pipefx/connectors':
         specifier: workspace:*
         version: link:../../packages/connectors
+      '@pipefx/event-bus':
+        specifier: workspace:*
+        version: link:../../packages/event-bus
       '@pipefx/mcp-transport':
         specifier: workspace:*
         version: link:../../packages/mcp-transport
       '@pipefx/providers':
         specifier: workspace:*
         version: link:../../packages/providers
+      '@pipefx/skills':
+        specifier: workspace:*
+        version: link:../../packages/skills
       '@pipefx/tasks':
         specifier: workspace:*
         version: link:../../packages/tasks

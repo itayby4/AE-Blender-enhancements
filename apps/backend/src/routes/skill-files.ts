@@ -1,3 +1,19 @@
+// ── Legacy skill-file CRUD ──────────────────────────────────────────────
+// These routes serve the desktop's pre-Phase-7 authoring flow:
+//
+//   • Markdown skill files under apps/desktop/public/skills/
+//   • Python script skills under data/scripts/
+//
+// They are file-CRUD endpoints, distinct from the manifest-installed skills
+// served by `@pipefx/skills/backend` at /api/skills/*. The two systems
+// coexist intentionally during the Phase 7 transition — once the new
+// authoring UI reaches parity with the inline markdown/script flow, these
+// routes (and the desktop pages that consume them) can be retired.
+//
+// The URL prefix was renamed from /api/skills/* to /api/skill-files/*
+// (and /api/skill-scripts/* for the Python script subset) to free the
+// /api/skills/* namespace for `@pipefx/skills/backend`.
+
 import type { Router } from '../router.js';
 import { readBody, jsonResponse, jsonError } from '../router.js';
 import { config } from '../config.js';
@@ -5,16 +21,19 @@ import fs from 'fs/promises';
 import path from 'path';
 
 /**
- * Registers skill file management HTTP routes.
+ * Registers legacy markdown + Python script file CRUD routes for the
+ * desktop's inline skill authoring UI.
  */
-export function registerSkillRoutes(router: Router) {
+export function registerSkillFileRoutes(router: Router) {
   const getSkillsDir = () =>
     path.join(config.workspaceRoot, 'apps', 'desktop', 'public', 'skills');
 
-  // GET /api/skills/:filename
-  router.get('/api/skills/', async (req, res) => {
+  // GET /api/skill-files/:filename
+  router.get('/api/skill-files/', async (req, res) => {
     const skillsDir = getSkillsDir();
-    const filename = req.url!.replace('/api/skills/', '').split('?')[0];
+    const filename = req
+      .url!.replace('/api/skill-files/', '')
+      .split('?')[0];
     const filePath = path.join(skillsDir, filename);
     try {
       const fileContent = await fs.readFile(filePath, 'utf-8');
@@ -29,8 +48,8 @@ export function registerSkillRoutes(router: Router) {
     }
   }, true); // prefix match
 
-  // POST /api/skills/create
-  router.post('/api/skills/create', async (req, res) => {
+  // POST /api/skill-files/create
+  router.post('/api/skill-files/create', async (req, res) => {
     try {
       const body = await readBody(req);
       const { filename, content } = JSON.parse(body);
@@ -74,8 +93,8 @@ export function registerSkillRoutes(router: Router) {
     }
   });
 
-  // POST /api/skills/delete
-  router.post('/api/skills/delete', async (req, res) => {
+  // POST /api/skill-files/delete
+  router.post('/api/skill-files/delete', async (req, res) => {
     try {
       const body = await readBody(req);
       const { filename } = JSON.parse(body);
@@ -114,13 +133,13 @@ export function registerSkillRoutes(router: Router) {
     }
   });
 
-  // ΓöÇΓöÇ Script Skills (Python scripts in data/scripts/) ΓöÇΓöÇ
+  // ── Script Skills (Python scripts in data/scripts/) ──
 
   const getScriptsDir = () =>
     path.join(config.workspaceRoot, 'data', 'scripts');
 
-  // GET /api/skills/scripts ΓÇö list all script skill files
-  router.get('/api/skills/scripts', async (_req, res) => {
+  // GET /api/skill-scripts — list all script skill files
+  router.get('/api/skill-scripts', async (_req, res) => {
     try {
       const scriptsDir = getScriptsDir();
       await fs.mkdir(scriptsDir, { recursive: true });
@@ -164,8 +183,8 @@ export function registerSkillRoutes(router: Router) {
     }
   });
 
-  // POST /api/skills/create-script ΓÇö create a new Python script skill
-  router.post('/api/skills/create-script', async (req, res) => {
+  // POST /api/skill-scripts/create — create a new Python script skill
+  router.post('/api/skill-scripts/create', async (req, res) => {
     try {
       const body = await readBody(req);
       const { name, description, parameters, code } = JSON.parse(body);
@@ -214,8 +233,8 @@ ${paramLines}
 def run(connector, args: dict) -> str:
     '''Execute the skill. Must return a string result.'''
     # TODO: Implement your skill logic here
-    # connector.get_project()  ΓÇö current DaVinci Resolve project
-    # connector.get_timeline() ΓÇö current timeline
+    # connector.get_project()  — current DaVinci Resolve project
+    # connector.get_timeline() — current timeline
     return "Skill '${name}' executed successfully."
 `;
 
@@ -226,8 +245,8 @@ def run(connector, args: dict) -> str:
     }
   });
 
-  // POST /api/skills/delete-script ΓÇö delete a script skill file
-  router.post('/api/skills/delete-script', async (req, res) => {
+  // POST /api/skill-scripts/delete — delete a script skill file
+  router.post('/api/skill-scripts/delete', async (req, res) => {
     try {
       const body = await readBody(req);
       const { filename } = JSON.parse(body);
