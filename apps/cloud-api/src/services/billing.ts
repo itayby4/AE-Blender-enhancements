@@ -7,7 +7,7 @@
 
 import { supabase } from '../lib/supabase.js';
 import { calculateCost, generateIdempotencyKey, CREDIT_VALUE_USD } from '@pipefx/usage';
-import type { UsageData } from '@pipefx/providers';
+import type { UsageData } from '@pipefx/llm-providers';
 import type { ModelPricing } from '@pipefx/usage';
 import { config } from '../config.js';
 

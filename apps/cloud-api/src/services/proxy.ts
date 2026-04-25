@@ -2,15 +2,15 @@
  * PipeFX Cloud-API — LLM Provider Proxy.
  *
  * Forwards requests to LLM providers using server-side API keys.
- * Reuses the same provider classes from @pipefx/providers.
+ * Reuses the same provider classes from @pipefx/llm-providers.
  */
 
 import {
   GeminiProvider,
   OpenAIProvider,
   AnthropicProvider,
-} from '@pipefx/providers';
-import type { Provider, StreamEvent, ChatParams } from '@pipefx/providers';
+} from '@pipefx/llm-providers';
+import type { Provider, StreamEvent, ChatParams } from '@pipefx/llm-providers';
 import { config } from '../config.js';
 
 /**

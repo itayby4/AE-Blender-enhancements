@@ -20,9 +20,6 @@
       "path": "../../packages/tasks/tsconfig.lib.json"
     },
     {
-      "path": "../../packages/providers/tsconfig.lib.json"
-    },
-    {
       "path": "../../packages/skills/tsconfig.lib.json"
     },
     {

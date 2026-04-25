@@ -34,9 +34,6 @@
       "path": "./packages/video-kit"
     },
     {
-      "path": "./packages/providers"
-    },
-    {
       "path": "./packages/llm-providers"
     },
     {

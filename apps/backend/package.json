@@ -136,7 +136,6 @@
     "@pipefx/media-gen": "workspace:*",
     "@pipefx/post-production": "workspace:*",
     "@pipefx/skills": "workspace:*",
-    "@pipefx/providers": "workspace:*",
     "@pipefx/tasks": "workspace:*",
     "@pipefx/usage": "workspace:*",
     "@pipefx/video-kit": "workspace:*",

@@ -10,9 +10,9 @@ import nx from '@nx/eslint-plugin';
 //            media-gen | post-production | node-system
 //
 // All rules run at WARN during the migration. Phase 11 flips to ERROR.
-// Transitional per-package scope tags (scope:ai, scope:providers, …) remain
-// so current packages keep lint-clean until Phase 1+ moves them onto the new
-// axes.
+// A few transitional per-package scope tags (scope:tasks, scope:usage,
+// scope:backend, scope:cloud-api) remain on packages that haven't migrated
+// onto the new scope/layer/feature axes yet.
 // ---------------------------------------------------------------------------
 
 export default [
@@ -197,19 +197,10 @@ export default [
               onlyDependOnLibsWithTags: ['scope:shared', 'scope:tasks'],
             },
             {
-              sourceTag: 'scope:providers',
-              onlyDependOnLibsWithTags: [
-                'scope:shared',
-                'scope:mcp',
-                'scope:platform',
-                'scope:providers',
-              ],
-            },
-            {
               sourceTag: 'scope:usage',
               onlyDependOnLibsWithTags: [
                 'scope:shared',
-                'scope:providers',
+                'scope:platform',
                 'scope:usage',
               ],
             },
@@ -218,7 +209,6 @@ export default [
               onlyDependOnLibsWithTags: [
                 'scope:shared',
                 'scope:mcp',
-                'scope:providers',
                 'scope:tasks',
                 'scope:usage',
                 'scope:platform',
@@ -230,7 +220,6 @@ export default [
               onlyDependOnLibsWithTags: [
                 'scope:shared',
                 'scope:platform',
-                'scope:providers',
                 'scope:usage',
               ],
             },

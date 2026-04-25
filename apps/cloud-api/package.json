@@ -54,7 +54,7 @@
   },
   "dependencies": {
     "@pipefx/auth-tokens": "workspace:*",
-    "@pipefx/providers": "workspace:*",
+    "@pipefx/llm-providers": "workspace:*",
     "@pipefx/usage": "workspace:*",
     "@supabase/supabase-js": "^2.103.3",
     "dotenv": "^17.3.1",

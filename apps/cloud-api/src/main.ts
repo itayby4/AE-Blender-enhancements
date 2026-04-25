@@ -32,7 +32,7 @@ import {
   maybeShowStats,
 } from './lib/tui.js';
 import type { DeviceAuthResult } from './lib/auth.js';
-import type { ChatParams } from '@pipefx/providers';
+import type { ChatParams } from '@pipefx/llm-providers';
 
 // ── Constants ────────────────────────────────────────────────
 

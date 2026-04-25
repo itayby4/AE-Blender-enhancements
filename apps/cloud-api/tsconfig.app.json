@@ -13,7 +13,7 @@
       "path": "../../packages/usage/tsconfig.lib.json"
     },
     {
-      "path": "../../packages/providers/tsconfig.lib.json"
+      "path": "../../packages/llm-providers/tsconfig.lib.json"
     },
     {
       "path": "../../packages/auth-tokens/tsconfig.lib.json"
