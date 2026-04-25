@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { createEventBus } from '@pipefx/event-bus';
 import type {
@@ -100,7 +100,13 @@ vi.mock('./lifecycle.js', () => ({
 }));
 
 // Import AFTER vi.mock so ConnectorRegistry picks up the stubbed factory.
-const { ConnectorRegistry } = await import('./registry.js');
+// Loaded in beforeAll so the spec stays free of top-level await — esbuild's
+// CJS production build for apps/backend cannot emit top-level await.
+let ConnectorRegistry: typeof import('./registry.js')['ConnectorRegistry'];
+
+beforeAll(async () => {
+  ({ ConnectorRegistry } = await import('./registry.js'));
+});
 
 /** Flush the microtask queue plus a timer tick so `void bus.publish(...)` settles. */
 async function flushEvents(): Promise<void> {

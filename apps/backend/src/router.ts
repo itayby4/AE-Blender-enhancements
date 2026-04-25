@@ -41,10 +41,13 @@ export class Router {
   async handle(req: IncomingMessage, res: ServerResponse): Promise<boolean> {
     const method = req.method ?? '';
     const url = req.url ?? '';
+    // Strip query string before matching — handlers still see the full
+    // url via req.url and parse `?` themselves.
+    const pathOnly = url.split('?', 1)[0];
 
     for (const route of this.routes) {
       if (route.method !== method) continue;
-      if (route.prefix ? url.startsWith(route.path) : url === route.path) {
+      if (route.prefix ? pathOnly.startsWith(route.path) : pathOnly === route.path) {
         await route.handler(req, res);
         return true;
       }

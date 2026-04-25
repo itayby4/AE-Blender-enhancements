@@ -104,9 +104,6 @@
         "continuous": true,
         "executor": "@nx/js:node",
         "defaultConfiguration": "development",
-        "dependsOn": [
-          "build"
-        ],
         "options": {
           "buildTarget": "@pipefx/backend:build",
           "runBuildTargetDependencies": false
