@@ -25,6 +25,12 @@
       "import": "./dist/domain/index.js",
       "default": "./dist/domain/index.js"
     },
+    "./marketplace": {
+      "@pipefx/source": "./src/marketplace/index.ts",
+      "types": "./dist/marketplace/index.d.ts",
+      "import": "./dist/marketplace/index.js",
+      "default": "./dist/marketplace/index.js"
+    },
     "./backend": {
       "@pipefx/source": "./src/backend/index.ts",
       "types": "./dist/backend/index.d.ts",
