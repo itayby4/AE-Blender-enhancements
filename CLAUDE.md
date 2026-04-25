@@ -122,8 +122,9 @@ Three tag axes, declared in `eslint.config.mjs`:
 - **feature:** `brain | chat | auth | billing | connectors | skills | media-gen | post-production | node-system`, plus brain sub-tags `feature:brain-<loop|tasks|memory|planning|subagents>`.
 
 ```
-  apps/backend  (scope:app)
-      │
+  apps/backend  (scope:app)               apps/cloud-api  (scope:cloud-api)
+      │                                       │
+      │   ── Brain (feature, 6 packages) ──   │
       ├── @pipefx/brain-subagents  (feature:brain-subagents)  ─┐  orchestrator
       │       └── brain-loop, brain-tasks, brain-planning      │  (documented
       ├── @pipefx/brain-planning   (feature:brain-planning)    │   exception)
@@ -131,12 +132,26 @@ Three tag axes, declared in `eslint.config.mjs`:
       ├── @pipefx/brain-tasks      (feature:brain-tasks)       │
       ├── @pipefx/brain-loop       (feature:brain-loop)        │
       │       └── @pipefx/brain-contracts (scope:platform) ←───┘
-      ├── @pipefx/llm-providers    (scope:platform)
-      ├── @pipefx/agent-loop-kernel (scope:platform)
+      │
+      │   ── Other vertical features ──
       ├── @pipefx/connectors        (scope:feature, feature:connectors)
       │       ├── @pipefx/connectors-contracts (scope:platform, layer:contracts)
       │       └── @pipefx/mcp-transport        (scope:mcp)
-      └── @pipefx/tasks, @pipefx/usage, @pipefx/auth, …
+      ├── @pipefx/chat              (scope:feature, feature:chat)
+      ├── @pipefx/auth              (scope:feature, feature:auth)
+      ├── @pipefx/skills            (scope:feature, feature:skills)
+      ├── @pipefx/media-gen         (scope:feature, feature:media-gen)
+      ├── @pipefx/post-production   (scope:feature, feature:post-production)
+      ├── @pipefx/node-system       (scope:feature, feature:node-system)
+      │
+      │   ── Platform ──
+      ├── @pipefx/llm-providers     (scope:platform)
+      ├── @pipefx/media-providers   (scope:platform)
+      ├── @pipefx/agent-loop-kernel (scope:platform)
+      ├── @pipefx/event-bus         (scope:platform)
+      ├── @pipefx/video-kit         (scope:platform)
+      ├── @pipefx/auth-tokens       (scope:platform)
+      └── @pipefx/tasks, @pipefx/usage   (transitional per-package scopes)
 
   @pipefx/async, @pipefx/strings, @pipefx/colors, @pipefx/utils  (scope:shared)
 ```
