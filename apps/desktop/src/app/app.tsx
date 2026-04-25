@@ -43,6 +43,9 @@ import { ProjectBrain } from '../features/project-brain/ProjectBrain.js';
 import { VideoGenDashboard } from '../features/video-gen/VideoGenDashboard.js';
 import { ImageGenDashboard } from '../features/image-gen/ImageGenDashboard.js';
 import { NodeSystemDashboard } from '../features/node-system/NodeSystemDashboard.js';
+import { SubtitlesDashboard } from '../features/subtitles/SubtitlesDashboard.js';
+import { AudioSyncDashboard } from '../features/audio-sync/AudioSyncDashboard.js';
+import { AutopodDashboard } from '../features/autopod/AutopodDashboard.js';
 import { SkillLibraryPage } from '../features/skills/SkillLibraryPage.js';
 import { SkillPlannerPage } from '../features/skills/SkillPlannerPage.js';
 import { TaskManagerWidget } from '../features/skills/TaskManagerWidget.js';
@@ -629,6 +632,30 @@ export function App() {
               {activeView === 'image-gen' && (
                 <div className="flex-1 min-h-0 bg-card rounded-xl border overflow-hidden flex flex-col">
                   <ImageGenDashboard />
+                </div>
+              )}
+
+              {/* Post-Production dashboards — backed by @pipefx/post-production
+                  HTTP endpoints (mounted in apps/backend via mountWorkflowRoutes).
+                  These are permanent app surfaces, NOT skills: they require
+                  multi-step UI (Autopod's discover→review→run mapping flow),
+                  file-picker dialogs (Audio-Sync's audio_paths array), and
+                  domain-specific controls (Subtitles' VAD slider, language
+                  picker) that the manifest-driven SkillRunner can't generate.
+                  Wired in Phase 9.4. */}
+              {activeView === 'subtitles' && (
+                <div className="flex-1 min-h-0 bg-card rounded-xl border overflow-hidden flex flex-col">
+                  <SubtitlesDashboard />
+                </div>
+              )}
+              {activeView === 'audio-sync' && (
+                <div className="flex-1 min-h-0 bg-card rounded-xl border overflow-hidden flex flex-col">
+                  <AudioSyncDashboard />
+                </div>
+              )}
+              {activeView === 'autopod' && (
+                <div className="flex-1 min-h-0 bg-card rounded-xl border overflow-hidden flex flex-col">
+                  <AutopodDashboard activeApp={activeApp} />
                 </div>
               )}
 

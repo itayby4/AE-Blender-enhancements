@@ -2,7 +2,6 @@ import { useState } from 'react';
 import {
   Subtitles,
   Languages,
-  Zap,
   Play,
   CheckCircle2,
   XCircle,

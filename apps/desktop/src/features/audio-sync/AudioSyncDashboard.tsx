@@ -6,7 +6,6 @@ import {
   CheckCircle2,
   XCircle,
   Loader2,
-  Upload,
   Trash2,
   FileAudio,
   AudioWaveform,

@@ -8,6 +8,9 @@ import {
   Bot,
   Settings,
   Library,
+  Subtitles,
+  AudioWaveform,
+  Mic,
   type LucideIcon,
 } from 'lucide-react';
 import { cn } from '../../lib/utils.js';
@@ -114,6 +117,11 @@ export function NavRail({
     { id: 'video-gen', label: 'Video Studio', icon: Video, section: 'core' },
     { id: 'image-gen', label: 'Image Studio', icon: ImageIcon, section: 'core' },
     { id: 'node-system', label: 'Node Editor', icon: Network, section: 'core' },
+    // Post-Production surfaces — wired in Phase 9.4. Permanent app
+    // dashboards backed by @pipefx/post-production HTTP endpoints.
+    { id: 'subtitles', label: 'Subtitles', icon: Subtitles, section: 'core' },
+    { id: 'audio-sync', label: 'Audio Sync', icon: AudioWaveform, section: 'core' },
+    { id: 'autopod', label: 'Autopod', icon: Mic, section: 'core' },
   ];
 
   // Dynamic skill items with UIs
