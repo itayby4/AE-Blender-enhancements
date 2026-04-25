@@ -48,6 +48,9 @@
     },
     {
       "path": "../../packages/media-gen/tsconfig.lib.json"
+    },
+    {
+      "path": "../../packages/node-system/tsconfig.lib.json"
     }
   ]
 }

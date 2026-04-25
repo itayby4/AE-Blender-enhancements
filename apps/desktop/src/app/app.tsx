@@ -42,7 +42,7 @@ import { CommandPalette } from '../features/command-palette/CommandPalette.js';
 import { ProjectBrain } from '../features/project-brain/ProjectBrain.js';
 import { VideoGenDashboard } from '../features/video-gen/VideoGenDashboard.js';
 import { ImageGenDashboard } from '../features/image-gen/ImageGenDashboard.js';
-import { NodeSystemDashboard } from '../features/node-system/NodeSystemDashboard.js';
+import { NodeSystemDashboard } from '@pipefx/node-system/ui';
 import { SubtitlesDashboard } from '../features/subtitles/SubtitlesDashboard.js';
 import { AudioSyncDashboard } from '../features/audio-sync/AudioSyncDashboard.js';
 import { AutopodDashboard } from '../features/autopod/AutopodDashboard.js';
@@ -59,7 +59,7 @@ import { TooltipProvider } from '../components/ui/tooltip.js';
 // Hooks
 import { useTaskStream } from '../hooks/useTaskStream.js';
 import { useChat, useChatHistory } from '@pipefx/chat/ui';
-import { dispatchPipelineActions } from '../lib/pipeline-actions.js';
+import { dispatchPipelineActions } from '@pipefx/node-system';
 import { parseMessageContent } from '../features/skills/ChatCard.js';
 
 // Auth

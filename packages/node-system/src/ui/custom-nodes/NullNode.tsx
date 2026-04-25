@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Handle, Position, useViewport } from '@xyflow/react';
 import { CircleDashed } from 'lucide-react';
-import { Card } from '../../../components/ui/card';
+import { Card } from '../card.js';
 
 export function NullNode({
   data,

@@ -13,8 +13,8 @@ import {
   CardHeader,
   CardTitle,
   CardFooter,
-} from '../../../components/ui/card';
-import { Button } from '../../../components/ui/button';
+} from '../card.js';
+import { Button } from '../button.js';
 
 export function DownloadNode({
   data,

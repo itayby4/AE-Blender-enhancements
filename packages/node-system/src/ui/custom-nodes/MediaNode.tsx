@@ -6,7 +6,7 @@ import {
   CardContent,
   CardHeader,
   CardTitle,
-} from '../../../components/ui/card';
+} from '../card.js';
 
 type MediaType = 'image' | 'video' | 'audio' | 'unknown';
 

@@ -48,19 +48,19 @@ import {
   AudioLines,
   Headphones,
 } from 'lucide-react';
-import { Button } from '../../components/ui/button';
-import { ModelNode } from './custom-nodes/ModelNode';
-import { TriggerNode } from './custom-nodes/TriggerNode';
-import { PromptNode } from './custom-nodes/PromptNode';
-import { MediaNode } from './custom-nodes/MediaNode';
-import { NullNode } from './custom-nodes/NullNode';
-import { DownloadNode } from './custom-nodes/DownloadNode';
-import { SoundNode } from './custom-nodes/SoundNode';
+import { Button } from './button.js';
+import { ModelNode } from './custom-nodes/ModelNode.js';
+import { TriggerNode } from './custom-nodes/TriggerNode.js';
+import { PromptNode } from './custom-nodes/PromptNode.js';
+import { MediaNode } from './custom-nodes/MediaNode.js';
+import { NullNode } from './custom-nodes/NullNode.js';
+import { DownloadNode } from './custom-nodes/DownloadNode.js';
+import { SoundNode } from './custom-nodes/SoundNode.js';
 import {
   onPipelineActions,
   type PipelineAction,
-} from '../../lib/pipeline-actions';
-import { usePipelineExecutor } from './usePipelineExecutor';
+} from '../contracts/pipeline-actions.js';
+import { usePipelineExecutor } from './usePipelineExecutor.js';
 import { save } from '@tauri-apps/plugin-dialog';
 import { writeTextFile } from '@tauri-apps/plugin-fs';
 

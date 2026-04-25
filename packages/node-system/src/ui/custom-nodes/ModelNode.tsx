@@ -24,7 +24,7 @@ import {
   CardContent,
   CardHeader,
   CardTitle,
-} from '../../../components/ui/card';
+} from '../card.js';
 
 export function ModelNode({
   data,
