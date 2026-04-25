@@ -7,6 +7,7 @@ import {
   MessageSquare,
   Bot,
   Settings,
+  Library,
   type LucideIcon,
 } from 'lucide-react';
 import { cn } from '../../lib/utils.js';
@@ -109,6 +110,7 @@ export function NavRail({
   const coreItems: NavItem[] = [
     { id: 'chat', label: 'AI Chat', icon: MessageSquare, section: 'core' },
     { id: 'skills', label: 'Skills', icon: Zap, section: 'core' },
+    { id: 'skill-library', label: 'Library', icon: Library, section: 'core' },
     { id: 'video-gen', label: 'Video Studio', icon: Video, section: 'core' },
     { id: 'image-gen', label: 'Image Studio', icon: ImageIcon, section: 'core' },
     { id: 'node-system', label: 'Node Editor', icon: Network, section: 'core' },

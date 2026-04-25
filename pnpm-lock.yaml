@@ -216,6 +216,9 @@ importers:
       '@pipefx/connectors':
         specifier: workspace:*
         version: link:../../packages/connectors
+      '@pipefx/skills':
+        specifier: workspace:*
+        version: link:../../packages/skills
       '@pipefx/tasks':
         specifier: workspace:*
         version: link:../../packages/tasks

@@ -44,6 +44,7 @@ import { VideoGenDashboard } from '../features/video-gen/VideoGenDashboard.js';
 import { ImageGenDashboard } from '../features/image-gen/ImageGenDashboard.js';
 import { NodeSystemDashboard } from '../features/node-system/NodeSystemDashboard.js';
 import { SkillsPage } from '../features/skills/SkillsPage.js';
+import { SkillLibraryPage } from '../features/skills/SkillLibraryPage.js';
 import { SkillPlannerPage } from '../features/skills/SkillPlannerPage.js';
 import { SkillIframeRenderer } from '../features/skills/SkillIframeRenderer.js';
 import { SKILL_UI_REGISTRY } from '../features/skills/skill-registry.js';
@@ -608,7 +609,12 @@ export function App() {
                 </div>
               )}
 
-              {/* Skills Page */}
+              {/* New manifest-based Skill Library (Phase 7.9) */}
+              {activeView === 'skill-library' && (
+                <SkillLibraryPage />
+              )}
+
+              {/* Legacy markdown/script Skills Page */}
               {activeView === 'skills' && (
                 <div className="flex-1 min-h-0 flex flex-col bg-card rounded-xl border overflow-hidden">
                   <SkillsPage
