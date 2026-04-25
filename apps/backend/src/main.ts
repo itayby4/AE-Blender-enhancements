@@ -12,7 +12,9 @@ import {
   createSkillStorage,
   mountSkillRoutes,
 } from '@pipefx/skills/backend';
+import { parseSkillBundle } from '@pipefx/skills/marketplace';
 import type { SkillEventMap, SkillStore } from '@pipefx/skills/contracts';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { createAgent } from '@pipefx/brain-loop';
 import type { Agent } from '@pipefx/agent-loop-kernel';
 import {
@@ -307,6 +309,14 @@ async function main() {
       return removed;
     },
   };
+  // Preinstall example .pfxskill bundles (subtitles, audio-sync, autopod)
+  // on first boot. Each bundle is keyed by its skill id; if the user has
+  // already installed it (manually via the UI or from a prior boot), the
+  // SkillStore returns a record and we skip — preinstall is idempotent.
+  // Errors during preinstall are logged but do not abort startup; a
+  // missing example skill is a worse experience than a friendly warning.
+  await preinstallExampleSkills(skillStore, config.workspaceRoot);
+
   const skillsRunStore = createSkillRunStore();
   const skillsRunner = createSkillRunner({
     store: skillStore,
@@ -418,6 +428,61 @@ async function main() {
     );
     console.log('Ready to receive commands from PipeFX Desktop!');
   });
+}
+
+// ── Example skill preinstall ──
+// Reads any .pfxskill bundle under <workspaceRoot>/data/example-skills/dist/
+// and installs it through the SkillStore if a record for the same id is
+// not already present. Idempotent: re-running on next boot is a no-op
+// because the SkillStore returns the existing record on collision.
+//
+// Bundles ship UNSIGNED on purpose (see data/example-skills/README.md).
+// Signed bundles installed through the UI go through Ed25519 verify at
+// the install route; the preinstall path bypasses that gate intentionally
+// since the bundles are repo-shipped and reviewed at PR time, not at
+// runtime — same trust model as any other code in the repo.
+async function preinstallExampleSkills(
+  store: SkillStore,
+  workspaceRoot: string
+): Promise<void> {
+  const bundleDir = path.join(workspaceRoot, 'data', 'example-skills', 'dist');
+  if (!existsSync(bundleDir)) return;
+
+  let installed = 0;
+  let skipped = 0;
+  for (const file of readdirSync(bundleDir)) {
+    if (!file.endsWith('.pfxskill')) continue;
+    const fullPath = path.join(bundleDir, file);
+    try {
+      const bytes = readFileSync(fullPath);
+      const result = parseSkillBundle(new Uint8Array(bytes.buffer, bytes.byteOffset, bytes.byteLength));
+      if (!result.ok) {
+        console.warn(`[skills] preinstall skipped ${file}: ${result.error}`);
+        continue;
+      }
+      const id = result.bundle.manifest.id;
+      if (store.get(id)) {
+        skipped += 1;
+        continue;
+      }
+      store.install(result.bundle.manifest, {
+        source: 'bundle',
+        signed: false,
+      });
+      installed += 1;
+      console.log(`[skills] preinstalled example: ${id}`);
+    } catch (err) {
+      console.warn(
+        `[skills] preinstall failed for ${file}:`,
+        err instanceof Error ? err.message : err
+      );
+    }
+  }
+  if (installed > 0 || skipped > 0) {
+    console.log(
+      `[skills] example preinstall: ${installed} installed, ${skipped} already present`
+    );
+  }
 }
 
 // ── Local Tool Registration ──

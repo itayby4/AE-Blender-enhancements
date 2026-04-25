@@ -342,6 +342,12 @@ importers:
         specifier: ^5.2.2
         version: 5.9.3
 
+  data/example-skills:
+    dependencies:
+      '@pipefx/skills':
+        specifier: workspace:*
+        version: link:../../packages/skills
+
   packages/agent-loop-kernel:
     dependencies:
       '@pipefx/connectors':

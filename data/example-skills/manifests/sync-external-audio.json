@@ -1,0 +1,35 @@
+{
+  "schemaVersion": 1,
+  "id": "pipefx.sync-external-audio",
+  "version": "1.0.0",
+  "name": "Sync External Audio",
+  "description": "Sync external audio recordings (boom mic, Zoom recorder, lav packs) to the active timeline using FFT cross-correlation. Creates a new timeline with each recording placed under the matching video clip at the exact offset.",
+  "category": "audio",
+  "icon": "audio",
+  "inputs": [
+    {
+      "name": "audio_paths",
+      "type": "string",
+      "label": "Audio file paths",
+      "description": "Absolute paths to the external audio files, separated by newlines or semicolons. Example: C:\\boom\\take01.wav; C:\\boom\\take02.wav",
+      "required": true
+    },
+    {
+      "name": "app_target",
+      "type": "enum",
+      "label": "Target NLE",
+      "description": "Which editor's timeline to sync against. Currently only DaVinci Resolve is supported.",
+      "options": ["resolve"],
+      "default": "resolve"
+    }
+  ],
+  "prompt": "Sync external audio to the active timeline.\n\nFirst, parse {{audio_paths}} into a JSON array of absolute file path strings — split on newlines and semicolons, trim whitespace, drop empty entries.\n\nThen call `sync_external_audio` with:\n\n  audio_paths: <the parsed array>\n  app_target: {{app_target}}\n\nIf the user supplied no paths, ask them to drag in the recordings before retrying. After the tool returns, report how many files were synced and the average offset in milliseconds.",
+  "requires": {
+    "capabilities": [
+      {
+        "toolName": "sync_external_audio",
+        "description": "DaVinci Resolve must be connected — this skill drives the FFT cross-correlation pipeline."
+      }
+    ]
+  }
+}

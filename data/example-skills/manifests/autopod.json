@@ -1,0 +1,42 @@
+{
+  "schemaVersion": 1,
+  "id": "pipefx.autopod",
+  "version": "1.0.0",
+  "name": "AutoPod Multicam Edit",
+  "description": "Auto-edit a multicam podcast or interview. Discovers cameras + microphones in the active timeline, optionally uses AI vision to map mic-to-camera, then cuts the edit locally with Voice Activity Detection. Produces a new timeline with the cuts applied.",
+  "category": "editing",
+  "icon": "scissors",
+  "inputs": [
+    {
+      "name": "app_target",
+      "type": "enum",
+      "label": "Target NLE",
+      "description": "Which editor to drive. AutoPod supports both Premiere Pro and DaVinci Resolve via FCP7 XML.",
+      "options": ["premiere", "resolve"],
+      "default": "resolve"
+    },
+    {
+      "name": "use_generative",
+      "type": "boolean",
+      "label": "AI mic-to-camera mapping",
+      "description": "If on, uses Gemini vision to auto-map each microphone to the camera that best frames its speaker. If off, drops in a fallback mapping you can edit later.",
+      "default": true
+    },
+    {
+      "name": "fallback_track",
+      "type": "string",
+      "label": "Fallback video track",
+      "description": "Track ID to use when no microphone is active (e.g. 'V1'). Optional.",
+      "required": false
+    }
+  ],
+  "prompt": "Run the AutoPod multicam edit on the active timeline.\n\nFirst, call `get_autopod_timeline_info` with:\n\n  app_target: {{app_target}}\n\nReview the discovered cameras + audio sources with the user in one short paragraph (camera count, mic count, total duration, FPS). If anything looks off (zero cameras, zero mics), stop and ask before proceeding.\n\nThen call `run_autopod` with:\n\n  app_target: {{app_target}}\n  use_generative: {{use_generative}}\n  fallback: {{fallback_track}}\n\nOmit `fallback` if it is empty. After the run completes, summarize how many cuts were made and the resulting timeline name in one sentence.",
+  "requires": {
+    "capabilities": [
+      {
+        "toolName": "run_autopod",
+        "description": "DaVinci Resolve or Premiere Pro must be connected — AutoPod drives the active editor."
+      }
+    ]
+  }
+}
