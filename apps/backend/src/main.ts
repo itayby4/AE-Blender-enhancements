@@ -37,6 +37,14 @@ import { calculateCost, createSqliteUsageStore, createUsageEvent } from '@pipefx
 import type { UsageStore } from '@pipefx/usage';
 import { composeSystemPrompt } from './prompts/index.js';
 import { mountChatRoutes } from '@pipefx/chat/backend';
+import {
+  createChatLogger,
+  createChatSessionStore,
+  createPostRoundReminderFactory,
+  createTaskProgressTracker,
+  createTasksApi,
+  createTranscriptStore,
+} from './chat-deps.js';
 
 // ── AI Brain (SQLite-backed memory engine) ──
 import {
@@ -257,19 +265,25 @@ async function main() {
     registry,
     sessionALS,
     sseBroker,
-    agentSessions,
+    sessions: createChatSessionStore(),
+    transcript: createTranscriptStore(),
+    taskProgress: createTaskProgressTracker(),
+    logger: createChatLogger(),
+    reminders: createPostRoundReminderFactory(),
+    tasks: createTasksApi(agentSessions),
     planBroker,
     usageStore,
     buildSystemPrompt: async (skill, activeApp, projectId) => {
-      if (skill?.systemInstruction && !activeApp) {
-        return skill.systemInstruction as string;
+      const s = skill as { systemInstruction?: string } | null | undefined;
+      if (s?.systemInstruction && !activeApp) {
+        return s.systemInstruction;
       }
       const projectContext = projectId
         ? assembleProjectContext(projectId, '') || undefined
         : undefined;
       return composeSystemPrompt({
         activeApp,
-        skillSystemInstruction: skill?.systemInstruction,
+        skillSystemInstruction: s?.systemInstruction,
         projectContext,
         legacySections: config.systemPromptLegacy,
       });

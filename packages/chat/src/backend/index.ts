@@ -15,4 +15,12 @@ export type {
   CostShape,
   UsageStoreLike,
 } from './routes/chat.js';
+export type {
+  ChatServiceDeps,
+  ChatTurnRequest,
+  ChatTurnResult,
+  ChatStreamRequest,
+  StreamEmit,
+} from './services/chat-service.js';
+export { runChatTurn, runChatStream } from './services/chat-service.js';
 export type { RouterLike, RouteHandler } from './internal/http.js';
