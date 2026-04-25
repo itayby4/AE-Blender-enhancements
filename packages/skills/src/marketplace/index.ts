@@ -25,3 +25,18 @@ export {
   type BundleEnvelopeWire,
   type BundleResourceWire,
 } from './bundle-format.js';
+
+// ── v2 (Phase 12) — zip-based .pfxskill ─────────────────────────────────
+
+export {
+  parseSkillBundleV2,
+  createSkillBundleV2,
+  SKILL_MD_FILENAME,
+  SIGNING_MANIFEST_FILENAME,
+  BUNDLE_V2_SCHEMA_VERSION,
+  type ParsedSkillBundleV2,
+  type ParsedSkillBundleResource,
+  type ParsedSkillBundleSigning,
+  type ParseSkillBundleV2Result,
+  type CreateSkillBundleV2Input,
+} from './bundle-v2.js';

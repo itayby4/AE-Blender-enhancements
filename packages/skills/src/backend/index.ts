@@ -24,3 +24,23 @@ export {
 } from './routes/runs.js';
 
 export type { RouterLike, RouteHandler } from './internal/http.js';
+
+// ── v2 (Phase 12) — SKILL.md loader + storage ───────────────────────────
+
+export {
+  loadSkillsFromDir,
+  loadSkillFromDir,
+  type LoadSkillsResult,
+  type LoadSkillError,
+  type LoadSkillFromDirOptions,
+  type LoadSkillFromDirResult,
+} from './services/skill-md-loader.js';
+
+export {
+  createSkillMdStorage,
+  type SkillMdStore,
+  type SkillMdStorageOptions,
+  type SkillMdSource,
+  type InstalledSkillMd,
+  type InstallSkillMdOptions,
+} from './services/skill-md-storage.js';

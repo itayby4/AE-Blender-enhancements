@@ -52,6 +52,7 @@
     "@pipefx/brain-contracts": "workspace:*",
     "@pipefx/connectors-contracts": "workspace:*",
     "@pipefx/event-bus": "workspace:*",
+    "fflate": "^0.8.2",
     "tslib": "^2.3.0",
     "yaml": "^2.4.5",
     "zod": "^3.22.2"
