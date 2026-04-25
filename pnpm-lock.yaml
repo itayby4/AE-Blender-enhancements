@@ -746,6 +746,9 @@ importers:
       tslib:
         specifier: ^2.3.0
         version: 2.8.1
+      yaml:
+        specifier: ^2.4.5
+        version: 2.8.2
       zod:
         specifier: ^3.22.2
         version: 3.25.76

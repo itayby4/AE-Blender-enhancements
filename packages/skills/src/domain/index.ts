@@ -37,6 +37,23 @@ export {
   type SkillKeyPair,
 } from './signing.js';
 
+// ── v2 (Phase 12) — SKILL.md frontmatter ────────────────────────────────
+
+export {
+  frontmatterSchema,
+  parseFrontmatter,
+  parseFrontmatterOrThrow,
+  type FrontmatterParseResult,
+} from './skill-md-schema.js';
+
+export {
+  parseSkillMd,
+  parseSkillMdOrThrow,
+  type ParseSkillMdOptions,
+  type SkillMdParseError,
+  type SkillMdParseResult,
+} from './skill-md-parser.js';
+
 export {
   createSkillRunner,
   deriveAllowedTools,
