@@ -631,6 +631,12 @@ importers:
 
   packages/skills:
     dependencies:
+      '@pipefx/connectors-contracts':
+        specifier: workspace:*
+        version: link:../connectors-contracts
+      '@pipefx/event-bus':
+        specifier: workspace:*
+        version: link:../event-bus
       tslib:
         specifier: ^2.3.0
         version: 2.8.1

@@ -56,14 +56,21 @@ export interface SkillRunFailedEvent {
   error: string;
 }
 
-export interface SkillEventMap {
+/**
+ * Event-bus map for the skills namespace. Declared as a type alias (not
+ * an interface) so it satisfies `EventMap extends Record<string, unknown>`
+ * in `@pipefx/event-bus` — and so it can be intersected with peer maps
+ * (`McpEventMap & SkillEventMap`) without losing the index-signature
+ * compatibility that the bus's generic constraint requires.
+ */
+export type SkillEventMap = {
   'skills.installed': SkillInstalledEvent;
   'skills.uninstalled': SkillUninstalledEvent;
   'skills.available-changed': SkillsAvailabilityChangedEvent;
   'skills.run.started': SkillRunStartedEvent;
   'skills.run.finished': SkillRunFinishedEvent;
   'skills.run.failed': SkillRunFailedEvent;
-}
+};
 
 export type SkillEvent =
   | SkillInstalledEvent

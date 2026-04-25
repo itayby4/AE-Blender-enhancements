@@ -9,5 +9,13 @@
     "forceConsistentCasingInFileNames": true,
     "types": ["node"]
   },
-  "include": ["src/**/*.ts"]
+  "include": ["src/**/*.ts"],
+  "references": [
+    {
+      "path": "../event-bus/tsconfig.lib.json"
+    },
+    {
+      "path": "../connectors-contracts/tsconfig.lib.json"
+    }
+  ]
 }

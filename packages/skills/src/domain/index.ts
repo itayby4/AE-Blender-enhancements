@@ -18,3 +18,10 @@ export {
   type SkillInputValue,
   type SkillInputValues,
 } from './template-engine.js';
+
+export {
+  computeAvailability,
+  createCapabilityMatcher,
+  type CapabilityMatcherConfig,
+  type CapabilityMatcherHandle,
+} from './capability-matcher.js';
