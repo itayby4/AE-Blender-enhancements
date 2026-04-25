@@ -54,27 +54,52 @@ Desktop (Tauri/React) --HTTP POST /chat--> Backend (Node.js)
 ```
 pipefx/
   apps/
-    desktop/           -> @pipefx/desktop   Tauri 2 + React 19 + shadcn/ui
-    backend/           -> @pipefx/backend   Thin Node.js HTTP server (wiring only)
-    mcp-davinci/       -> (Python)          MCP server for DaVinci Resolve
+    desktop/           -> @pipefx/desktop    Tauri 2 + React 19 + shadcn/ui
+    backend/           -> @pipefx/backend    Thin Node.js HTTP server (wiring only)
+    cloud-api/         -> @pipefx/cloud-api  Stateless billing gateway (BYOK ↔ Cloud)
+    mcp-davinci/       -> (Python)           MCP server for DaVinci Resolve
+    mcp-blender/       -> (placeholder)      Stub — not yet functional
+    mcp-ableton/       -> (placeholder)      Stub — not yet functional
+    mcp-aftereffects/  -> (placeholder)      Stub — not yet functional
+    mcp-premiere/      -> (placeholder)      Stub — not yet functional
 
   packages/
-    connectors/          -> @pipefx/connectors           Registry, lifecycle, capability map, backend + UI surfaces
-    connectors-contracts/-> @pipefx/connectors-contracts Frozen types + event bus events for the connector surface
-    mcp-transport/       -> @pipefx/mcp-transport        Stdio/SSE transport factory + resolveVenvPython
-    agent-loop-kernel/   -> @pipefx/agent-loop-kernel    Low-level agent loop + compaction
-    llm-providers/     -> @pipefx/llm-providers    Gemini/OpenAI/Anthropic/Cloud adapters
-    brain-contracts/   -> @pipefx/brain-contracts  Frozen types + events for the brain surface
-    brain-loop/        -> @pipefx/brain-loop       Agent loop glue + system prompts
-    brain-tasks/       -> @pipefx/brain-tasks      Task state, session store, task output
-    brain-memory/      -> @pipefx/brain-memory     KB, project context, agent memory
-    brain-planning/    -> @pipefx/brain-planning   Plan generation, approval broker
-    brain-subagents/   -> @pipefx/brain-subagents  Fork/resume runtime, AgentTool, coordinator
-    tasks/             -> @pipefx/tasks            Task-queue primitives
-    async/             -> @pipefx/async            Retry with exponential backoff
-    strings/           -> @pipefx/strings          String utilities
-    colors/            -> @pipefx/colors           Color conversion utilities
-    utils/             -> @pipefx/utils            Shared low-level helpers
+    # Connector surface
+    connectors/          -> @pipefx/connectors            Registry, lifecycle, capability map, backend + UI surfaces
+    connectors-contracts/-> @pipefx/connectors-contracts  Frozen types + event-bus events for the connector surface
+    mcp-transport/       -> @pipefx/mcp-transport         Stdio/SSE transport factory + resolveVenvPython
+
+    # LLM + media providers
+    agent-loop-kernel/   -> @pipefx/agent-loop-kernel     Low-level agent loop + compaction
+    llm-providers/       -> @pipefx/llm-providers         Gemini/OpenAI/Anthropic/Cloud adapters
+    media-providers/     -> @pipefx/media-providers       Image/video/sound generation adapters
+
+    # Brain surface (post-Phase-4 split)
+    brain-contracts/     -> @pipefx/brain-contracts       Frozen types + events for the brain surface
+    brain-loop/          -> @pipefx/brain-loop            Agent loop glue + system prompts
+    brain-tasks/         -> @pipefx/brain-tasks           Task state, session store, task output
+    brain-memory/        -> @pipefx/brain-memory          KB, project context, agent memory
+    brain-planning/      -> @pipefx/brain-planning        Plan generation, approval broker
+    brain-subagents/     -> @pipefx/brain-subagents       Fork/resume runtime, AgentTool, coordinator
+
+    # Vertical features
+    auth/                -> @pipefx/auth                  Auth UI + session machine (Phase 3 vertical slice)
+    auth-tokens/         -> @pipefx/auth-tokens           Frozen token shapes shared with cloud-api
+    chat/                -> @pipefx/chat                  Chat backend service + UI (legacy; Phase 6 retirement deferred)
+    skills/              -> @pipefx/skills                Skill discovery + registration
+    media-gen/           -> @pipefx/media-gen             Media-generation workflows (Phase 9.B)
+    post-production/     -> @pipefx/post-production       Post-production workflows + dashboards (Phase 9)
+    node-system/         -> @pipefx/node-system           Node-graph editor (Phase 10.3)
+
+    # Platform + shared utilities
+    event-bus/           -> @pipefx/event-bus             Typed pub/sub bus shared by connectors and brain
+    video-kit/           -> @pipefx/video-kit             Video-pipeline primitives
+    tasks/               -> @pipefx/tasks                 Task-queue primitives
+    usage/               -> @pipefx/usage                 Cost calculation + idempotency
+    async/               -> @pipefx/async                 Retry with exponential backoff
+    strings/             -> @pipefx/strings               String utilities
+    colors/              -> @pipefx/colors                Color conversion utilities
+    utils/               -> @pipefx/utils                 Shared low-level helpers
 ```
 
 > **Post-Phase-4 note:** `@pipefx/ai` and `@pipefx/agents` no longer exist.
