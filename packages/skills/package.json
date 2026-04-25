@@ -30,6 +30,12 @@
       "types": "./dist/backend/index.d.ts",
       "import": "./dist/backend/index.js",
       "default": "./dist/backend/index.js"
+    },
+    "./ui": {
+      "@pipefx/source": "./src/ui/index.ts",
+      "types": "./dist/ui/index.d.ts",
+      "import": "./dist/ui/index.js",
+      "default": "./dist/ui/index.js"
     }
   },
   "files": [
@@ -42,6 +48,22 @@
     "@pipefx/event-bus": "workspace:*",
     "tslib": "^2.3.0",
     "zod": "^3.22.2"
+  },
+  "peerDependencies": {
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
+  "peerDependenciesMeta": {
+    "react": {
+      "optional": true
+    },
+    "react-dom": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3"
   },
   "nx": {
     "tags": [

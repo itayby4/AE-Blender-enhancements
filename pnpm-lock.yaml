@@ -640,12 +640,25 @@ importers:
       '@pipefx/event-bus':
         specifier: workspace:*
         version: link:../event-bus
+      react:
+        specifier: ^19.0.0
+        version: 19.2.4
+      react-dom:
+        specifier: ^19.0.0
+        version: 19.2.4(react@19.2.4)
       tslib:
         specifier: ^2.3.0
         version: 2.8.1
       zod:
         specifier: ^3.22.2
         version: 3.25.76
+    devDependencies:
+      '@types/react':
+        specifier: ^19.2.14
+        version: 19.2.14
+      '@types/react-dom':
+        specifier: ^19.2.3
+        version: 19.2.3(@types/react@19.2.14)
 
   packages/strings:
     dependencies:
