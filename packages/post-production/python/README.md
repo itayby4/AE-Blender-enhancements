@@ -16,6 +16,7 @@ packages/post-production/python/
     ├── audio_sync.py         FFT cross-correlation: external mic → camera offset
     ├── autopod.py            VAD-driven multicam-cut decisions
     ├── xml_inject_sync.py    Inject synced media into FCP7 XML
+    ├── xml_tools.py          sync_fcpxml_with_external_audio (FCPXML + audio)
     └── cli.py                Standalone CLI for ad-hoc audio-sync runs
 ```
 
@@ -36,8 +37,9 @@ mixing Python under the TypeScript `src/`. We deviated for two reasons:
 
 ## Running
 
-The TypeScript orchestrators in `apps/backend/src/workflows/` invoke the
-engines via subprocess. They locate this directory via
+The TypeScript orchestrators in `packages/post-production/src/workflows/`
+invoke the engines via subprocess (post-9.3, when they moved into this
+package). They locate this directory via
 `resolvePythonEngineDir(workspaceRoot)` from `@pipefx/post-production`
 and either:
 
@@ -45,24 +47,26 @@ and either:
 - `sys.path`-inject and import: `import sys; sys.path.insert(0, '<dir>'); from audio_sync import find_audio_offset`
 
 The second pattern exists because some entry points are pure functions
-without a CLI wrapper. When the orchestrators move into the package in
-Phase 9.3, they may switch to a proper installed import (`from
-pipefx_postpro.audio_sync import find_audio_offset`) — the engines
-support both modes; nothing inside this package depends on which one
-the caller picks.
+without a CLI wrapper. The engines support both modes — installed-package
+imports (`from pipefx_postpro.audio_sync import find_audio_offset`) work
+too once the package is `pip install -e .`'d.
 
 ## Cross-package imports
 
-`autopod.py` and `cli.py` reach into `packages/video-kit/src/{vad,fcpxml}/`
-via `sys.path` injection. Video-kit's Python utilities aren't a
-distributable package — they're sibling files imported by name — so the
-relative offset is fixed:
+Only `autopod.py` reaches across packages: it imports `vad.py` from
+`packages/video-kit/src/vad/` via `sys.path` injection. Video-kit's
+Python utilities aren't a distributable package — they're sibling files
+imported by name — so the relative offset is fixed:
 
 ```
 pipefx_postpro/ → python/ → post-production/ → packages/ → repo root
 ```
 
-Four `..` segments to reach `packages/`, then down into the target.
+Four `..` segments to reach `packages/`, then down into `video-kit/src/vad/`.
+
+(Phase 9.5 moved `xml_tools.py` from `video-kit/fcpxml/` into this
+package, removing the second cross-package hop that `cli.py` previously
+needed.)
 
 ## Installing
 

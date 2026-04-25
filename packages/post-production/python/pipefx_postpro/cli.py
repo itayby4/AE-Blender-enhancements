@@ -1,28 +1,10 @@
-import os
 import sys
 import argparse
 
-# Reach across to the video-kit Python module (xml_tools.py). Same
-# rationale as autopod.py — video-kit's Python utilities aren't shipped
-# as an importable package, so we sys.path-inject from a deterministic
-# relative path:
-#   pipefx_postpro/ → python/ → post-production/ → packages/ → repo root
-_VIDEO_KIT_FCPXML_DIR = os.path.abspath(
-    os.path.join(
-        os.path.dirname(__file__),
-        '..',
-        '..',
-        '..',
-        '..',
-        'packages',
-        'video-kit',
-        'src',
-        'fcpxml',
-    )
-)
-if _VIDEO_KIT_FCPXML_DIR not in sys.path:
-    sys.path.insert(0, _VIDEO_KIT_FCPXML_DIR)
-from xml_tools import sync_fcpxml_with_external_audio  # noqa: E402
+# Phase 9.5: xml_tools.py moved into pipefx_postpro/ alongside this file,
+# so the cross-package sys.path injection that previously reached into
+# `packages/video-kit/src/fcpxml/` is gone. Plain sibling import now.
+from .xml_tools import sync_fcpxml_with_external_audio
 
 def main():
     parser = argparse.ArgumentParser(description="PipeFX Audio Sync Engine (post-production)")

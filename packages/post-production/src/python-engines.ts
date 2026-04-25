@@ -1,9 +1,10 @@
 // ── @pipefx/post-production — Python engine path resolver ────────────────
 // One-stop helper for finding the Python pipeline engine directory on
-// disk. Callers (currently `apps/backend/src/workflows/*.ts`; in 9.3 the
-// in-package orchestrators) used to hardcode `path.join(workspaceRoot,
-// 'stools')`; with the move in 9.2 they call `resolvePythonEngineDir`
-// instead, so the path is one-touch when the Python tree shifts again.
+// disk. Callers (the in-package orchestrators at
+// `packages/post-production/src/workflows/*.ts`) used to hardcode
+// `path.join(workspaceRoot, 'stools')`; with the move in 9.2 they call
+// `resolvePythonEngineDir` instead, so the path is one-touch when the
+// Python tree shifts again.
 //
 // Why pass `workspaceRoot` rather than computing it from `import.meta.url`:
 // the consumer always knows it (it's already in their config), and a

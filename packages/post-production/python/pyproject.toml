@@ -6,13 +6,12 @@
 # at the project root, not nested in another language's tree).
 #
 # Phase 9.2 ships this as a pip-installable package mainly for
-# docs / future-proofing; the current TS orchestrators (in
-# apps/backend/src/workflows/) invoke the engines via subprocess +
-# `sys.path.insert(...)` from the path returned by
+# docs / future-proofing; the in-package TS orchestrators (at
+# packages/post-production/src/workflows/) invoke the engines via
+# subprocess + `sys.path.insert(...)` from the path returned by
 # `resolvePythonEngineDir(workspaceRoot)` in @pipefx/post-production.
-# When the orchestrators move into the package in 9.3 they can
-# either keep the subprocess pattern or switch to an installed
-# import — same engines either way.
+# Installed-package imports (`from pipefx_postpro.audio_sync import …`)
+# work too once `pip install -e .` is run — same engines either way.
 
 [build-system]
 requires = ["setuptools>=68", "wheel"]

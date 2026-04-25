@@ -1,15 +1,14 @@
 import xml.etree.ElementTree as ET
 import os
-import sys
 
-# TODO(phase-9): audio_sync.py moves into video-kit once the audio engine
-# migrates out of stools/. Until then reach across the boundary via sys.path.
-_STOOLS_DIR = os.path.abspath(
-    os.path.join(os.path.dirname(__file__), '..', '..', '..', '..', 'stools')
-)
-if _STOOLS_DIR not in sys.path:
-    sys.path.insert(0, _STOOLS_DIR)
-from audio_sync import find_audio_offset  # noqa: E402
+# Phase 9.5: this file moved out of `packages/video-kit/src/fcpxml/` into
+# `pipefx_postpro/` (sibling to audio_sync.py) so the cross-package
+# sys.path injection — and the historical `stools/` reference — can be
+# dropped. `sync_fcpxml_with_external_audio` is a post-production
+# workflow operation (sync external audio into a timeline XML), not a
+# generic FCPXML primitive, so it belongs here. Generic FCPXML helpers
+# stay in video-kit (xml_multicam.py).
+from .audio_sync import find_audio_offset
 
 def sync_fcpxml_with_external_audio(xml_path: str, external_audio_path: str, out_path: str):
     """
