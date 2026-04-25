@@ -29,6 +29,37 @@ export type { SkillLibraryProps } from './components/SkillLibrary.js';
 export { SkillRunner } from './components/SkillRunner.js';
 export type { SkillRunnerProps } from './components/SkillRunner.js';
 
+// ── Authoring surface ────────────────────────────────────────────────────
+// Headless primitives for the in-app skill editor. Re-exported from the
+// `./ui` subpath so consumers don't need a separate package export.
+
+export {
+  draftToManifestInput,
+  emptyDraft,
+  emptyDraftCapability,
+  emptyDraftInput,
+  extractTemplateVariables,
+  manifestToDraft,
+  synthesizeSampleValues,
+  validateDraft,
+  useSkillDraft,
+  ManifestIdentityFields,
+  InputSchemaBuilder,
+  CapabilityPicker,
+  TemplatePreview,
+  type DraftCapability,
+  type DraftInput,
+  type DraftValidation,
+  type ExtractedVariable,
+  type SkillDraft,
+  type UseSkillDraftOptions,
+  type UseSkillDraftResult,
+  type ManifestIdentityFieldsProps,
+  type InputSchemaBuilderProps,
+  type CapabilityPickerProps,
+  type TemplatePreviewProps,
+} from './authoring/index.js';
+
 export type {
   CapabilityRequirement,
   InstalledSkill,
