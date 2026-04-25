@@ -89,6 +89,9 @@
     },
     {
       "path": "./packages/post-production"
+    },
+    {
+      "path": "./packages/media-gen"
     }
   ]
 }

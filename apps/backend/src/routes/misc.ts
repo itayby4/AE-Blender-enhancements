@@ -8,18 +8,20 @@ import {
 import { readBody, jsonResponse, jsonError } from '../router.js';
 import { config, updateConfig } from '../config.js';
 import { loadSettings, saveSettings } from '../utils/settings.js';
-import { handleAiModelRequest } from '../api/ai-models/router.js';
-import { handleSaveRenderRequest } from '../api/save-render.js';
 import { createAgent } from '@pipefx/brain-loop';
 
 /**
- * Settings + connector + AI-models + save-render routes.
+ * Settings + connector switch routes.
  *
- * Phase 9.3: the workflow HTTP routes (subtitles/audio-sync/autopod) used
- * to live here too; they moved into `mountWorkflowRoutes` from
- * `@pipefx/post-production/backend`. This file is now strictly about
- * cross-cutting backend concerns — settings reload, app switch, AI model
- * dispatch, file save — none of which are workflow-specific.
+ * Phase 9.3 took the workflow HTTP routes (subtitles/audio-sync/autopod)
+ * out of here and into `mountWorkflowRoutes` from
+ * `@pipefx/post-production/backend`. Phase 9.B did the same for the
+ * media-gen routes (`/api/ai-models`, `/api/save-render`) — they live
+ * in `@pipefx/media-gen/backend` now and are mounted from `main.ts`.
+ *
+ * What's left here is what genuinely belongs in the host app: settings
+ * reload (which has to rebuild the agent + workflow context inline) and
+ * the active-app connector switch.
  */
 export function registerMiscRoutes(
   router: Router,
@@ -92,15 +94,5 @@ export function registerMiscRoutes(
     } catch (err) {
       jsonError(res, err);
     }
-  });
-
-  // POST /api/ai-models
-  router.post('/api/ai-models', (req, res) => {
-    handleAiModelRequest(req, res);
-  });
-
-  // POST /api/save-render
-  router.post('/api/save-render', (req, res) => {
-    handleSaveRenderRequest(req, res);
   });
 }

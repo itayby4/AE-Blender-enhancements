@@ -1,4 +1,8 @@
 import { useState, type ChangeEvent } from 'react';
+import type {
+  MediaGenRequest,
+  MediaGenResponse,
+} from '@pipefx/media-gen/contracts';
 import {
   Sparkles,
   ImageIcon,
@@ -139,21 +143,25 @@ export function VideoGenDashboard() {
     // Fire off parallel requests
     newTasks.forEach(async (task) => {
       try {
+        // null → undefined: the dashboard tracks "no reference" as null
+        // for state ergonomics, but the wire contract uses optional
+        // (undefined) so JSON.stringify drops the field cleanly.
+        const body: MediaGenRequest = {
+          model: selectedModel,
+          prompt,
+          duration,
+          resolution,
+          aspectRatio,
+          imageRef: imageRef ?? undefined,
+          lastFrameRef: lastFrameRef ?? undefined,
+        };
         const response = await fetch('http://localhost:3001/api/ai-models', {
           method: 'POST',
           signal: task.abortController?.signal,
           headers: {
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify({
-            model: selectedModel,
-            prompt,
-            duration,
-            resolution,
-            aspectRatio,
-            imageRef,
-            lastFrameRef,
-          }),
+          body: JSON.stringify(body),
         });
 
         if (!response.ok) {
@@ -163,7 +171,7 @@ export function VideoGenDashboard() {
           );
         }
 
-        const data = await response.json();
+        const data = (await response.json()) as MediaGenResponse;
         setGenerations((current) =>
           current.map((c) =>
             c.id === task.id && c.status !== 'cancelled'

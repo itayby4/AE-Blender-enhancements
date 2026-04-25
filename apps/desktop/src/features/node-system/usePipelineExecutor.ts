@@ -1,6 +1,10 @@
 import { useState, useCallback } from 'react';
 import { useReactFlow, type Edge, type Node } from '@xyflow/react';
 import { getAccessToken } from '@pipefx/auth/ui';
+import type {
+  MediaGenRequest,
+  SaveRenderRequest,
+} from '@pipefx/media-gen/contracts';
 
 class Semaphore {
   private count: number;
@@ -166,24 +170,29 @@ export function usePipelineExecutor() {
           );
 
           const token = await getAccessToken();
+          // currentNode.data is `unknown` in xyflow — the legacy
+          // JSON.stringify-inline body silently coerced everything to
+          // string at serialize time. Keep the same behavior, but make
+          // the coercion explicit so the typed wire contract holds.
+          const genBody: MediaGenRequest = {
+            model: backendModel as string,
+            prompt: prompt || 'Cinematic highly-detailed scene',
+            imageRef:
+              incomingImageRefs.length > 0 ? incomingImageRefs[0] : undefined,
+            imageRefs: incomingImageRefs,
+            audioRef:
+              incomingImageRefs.length > 0 ? incomingImageRefs[0] : undefined,
+            aspectRatio: selectedRatio as string,
+            duration: selectedDuration as string,
+            resolution: selectedResolution as string,
+          };
           const response = await fetch('http://localhost:3001/api/ai-models', {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
               ...(token ? { Authorization: `Bearer ${token}` } : {}),
             },
-            body: JSON.stringify({
-              model: backendModel,
-              prompt: prompt || 'Cinematic highly-detailed scene',
-              imageRef:
-                incomingImageRefs.length > 0 ? incomingImageRefs[0] : undefined,
-              imageRefs: incomingImageRefs,
-              audioRef:
-                incomingImageRefs.length > 0 ? incomingImageRefs[0] : undefined,
-              aspectRatio: selectedRatio,
-              duration: selectedDuration,
-              resolution: selectedResolution,
-            }),
+            body: JSON.stringify(genBody),
           });
 
           if (!response.ok) {
@@ -194,18 +203,19 @@ export function usePipelineExecutor() {
           const result = await response.json();
 
           try {
+            const saveBody: SaveRenderRequest = {
+              url: result.url,
+              type: (result.type as 'image' | 'video' | undefined) ?? 'video',
+              model: backendModel as string,
+              prompt: prompt,
+            };
             await fetch('http://localhost:3001/api/save-render', {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json',
                 ...(token ? { Authorization: `Bearer ${token}` } : {}),
               },
-              body: JSON.stringify({
-                url: result.url,
-                type: result.type || 'video',
-                model: backendModel,
-                prompt: prompt,
-              }),
+              body: JSON.stringify(saveBody),
             });
           } catch {
             /* ignore */

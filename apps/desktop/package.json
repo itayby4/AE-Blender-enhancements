@@ -23,6 +23,7 @@
     "@pipefx/auth": "workspace:*",
     "@pipefx/chat": "workspace:*",
     "@pipefx/connectors": "workspace:*",
+    "@pipefx/media-gen": "workspace:*",
     "@pipefx/skills": "workspace:*",
     "@pipefx/tasks": "workspace:*",
     "@react-three/drei": "^10.7.7",

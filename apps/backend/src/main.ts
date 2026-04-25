@@ -53,6 +53,10 @@ import {
   type LocalToolContext,
 } from '@pipefx/post-production/workflows';
 import { mountWorkflowRoutes } from '@pipefx/post-production/backend';
+// Phase 9.B: image / video / sound gen lives in @pipefx/media-gen — the
+// route mount replaces the inline `/api/ai-models` + `/api/save-render`
+// handlers that used to live under apps/backend/src/api/.
+import { mountMediaGenRoutes } from '@pipefx/media-gen/backend';
 import { calculateCost, createSqliteUsageStore, createUsageEvent } from '@pipefx/usage';
 import type { UsageStore } from '@pipefx/usage';
 import { composeSystemPrompt } from './prompts/index.js';
@@ -405,6 +409,12 @@ async function main() {
     registry,
     getContext: () => workflowContext,
   });
+
+  // Phase 9.B: media-gen HTTP routes (/api/ai-models, /api/save-render)
+  // moved out of apps/backend/src/api/ into @pipefx/media-gen. The mount
+  // is parameterless today; pass `saveRender.rendersDir` here once a
+  // user-facing setting exists.
+  mountMediaGenRoutes(router);
 
   // ΓöÇΓöÇ HTTP Server ΓöÇΓöÇ
   const server = createServer(async (req, res) => {

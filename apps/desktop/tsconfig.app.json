@@ -45,6 +45,9 @@
     },
     {
       "path": "../../packages/auth/tsconfig.lib.json"
+    },
+    {
+      "path": "../../packages/media-gen/tsconfig.lib.json"
     }
   ]
 }

@@ -137,6 +137,9 @@ importers:
       '@pipefx/mcp-transport':
         specifier: workspace:*
         version: link:../../packages/mcp-transport
+      '@pipefx/media-gen':
+        specifier: workspace:*
+        version: link:../../packages/media-gen
       '@pipefx/post-production':
         specifier: workspace:*
         version: link:../../packages/post-production
@@ -222,6 +225,9 @@ importers:
       '@pipefx/connectors':
         specifier: workspace:*
         version: link:../../packages/connectors
+      '@pipefx/media-gen':
+        specifier: workspace:*
+        version: link:../../packages/media-gen
       '@pipefx/skills':
         specifier: workspace:*
         version: link:../../packages/skills
@@ -615,6 +621,15 @@ importers:
       '@modelcontextprotocol/sdk':
         specifier: ^1.27.1
         version: 1.29.0(zod@3.25.76)
+      tslib:
+        specifier: ^2.3.0
+        version: 2.8.1
+
+  packages/media-gen:
+    dependencies:
+      '@pipefx/media-providers':
+        specifier: workspace:*
+        version: link:../media-providers
       tslib:
         specifier: ^2.3.0
         version: 2.8.1

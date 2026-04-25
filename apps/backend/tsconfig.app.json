@@ -29,6 +29,9 @@
       "path": "../../packages/post-production/tsconfig.lib.json"
     },
     {
+      "path": "../../packages/media-gen/tsconfig.lib.json"
+    },
+    {
       "path": "../../packages/mcp-transport/tsconfig.lib.json"
     },
     {

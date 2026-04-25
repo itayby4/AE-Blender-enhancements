@@ -1,4 +1,8 @@
 import { useState, useEffect, type ChangeEvent } from 'react';
+import type {
+  MediaGenRequest,
+  MediaGenResponse,
+} from '@pipefx/media-gen/contracts';
 import { Textarea } from '../../components/ui/textarea';
 import {
   Sparkles,
@@ -74,18 +78,23 @@ export function ImageGenDashboard() {
     setErrorMsg(null);
 
     try {
-      // Route the generation request back through your backend Gemini provider
+      // Route the generation request back through @pipefx/media-gen.
+      // Body is typed against MediaGenRequest so any provider option
+      // drift surfaces here (and in the route mount) at compile time.
+      const body: MediaGenRequest = {
+        model: selectedModel,
+        prompt,
+        imageRef: imageRef ?? undefined,
+      };
       const response = await fetch('http://localhost:3001/api/ai-models', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          model: selectedModel,
-          prompt,
-          imageRef,
-        }),
+        body: JSON.stringify(body),
       });
 
-      const data = await response.json();
+      const data = (await response.json()) as MediaGenResponse & {
+        error?: string;
+      };
       if (!response.ok)
         throw new Error(
           data.error || 'API request failed with status ' + response.status
