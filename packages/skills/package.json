@@ -18,6 +18,12 @@
       "types": "./dist/contracts/index.d.ts",
       "import": "./dist/contracts/index.js",
       "default": "./dist/contracts/index.js"
+    },
+    "./domain": {
+      "@pipefx/source": "./src/domain/index.ts",
+      "types": "./dist/domain/index.d.ts",
+      "import": "./dist/domain/index.js",
+      "default": "./dist/domain/index.js"
     }
   },
   "files": [
@@ -25,7 +31,8 @@
     "!**/*.tsbuildinfo"
   ],
   "dependencies": {
-    "tslib": "^2.3.0"
+    "tslib": "^2.3.0",
+    "zod": "^3.22.2"
   },
   "nx": {
     "tags": [
