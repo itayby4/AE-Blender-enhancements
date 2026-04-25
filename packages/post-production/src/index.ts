@@ -45,3 +45,12 @@ export {
   WorkflowQuotaError,
   WorkflowEngineError,
 } from './contracts/index.js';
+
+// Python engine path resolution — used by the TS workflow orchestrators
+// to locate `packages/post-production/python/pipefx_postpro/*.py` for
+// subprocess invocations. See ./python-engines.ts for rationale.
+export {
+  resolvePythonEngineDir,
+  resolvePythonEngineScript,
+  resolvePythonProjectRoot,
+} from './python-engines.js';

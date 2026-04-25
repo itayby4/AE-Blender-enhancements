@@ -137,6 +137,9 @@ importers:
       '@pipefx/mcp-transport':
         specifier: workspace:*
         version: link:../../packages/mcp-transport
+      '@pipefx/post-production':
+        specifier: workspace:*
+        version: link:../../packages/post-production
       '@pipefx/providers':
         specifier: workspace:*
         version: link:../../packages/providers

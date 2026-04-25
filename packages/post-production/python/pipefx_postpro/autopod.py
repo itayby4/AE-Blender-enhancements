@@ -3,12 +3,18 @@ import argparse
 import os
 import sys
 
-# TODO(phase-9): autopod.py moves into video-kit once the pipeline engines
-# migrate out of stools/. Until then reach across the boundary via sys.path
-# to the relocated vad.py.
+# Reach across to the video-kit Python module (vad.py). Uses sys.path
+# injection rather than a proper import because video-kit doesn't ship a
+# Python package wrapper — its Python files are sibling utilities imported
+# directly by name. The relative offset is fixed because both packages
+# live under packages/ with deterministic depth:
+#   pipefx_postpro/ → python/ → post-production/ → packages/ → repo root
 _VIDEO_KIT_VAD_DIR = os.path.abspath(
     os.path.join(
         os.path.dirname(__file__),
+        '..',
+        '..',
+        '..',
         '..',
         'packages',
         'video-kit',

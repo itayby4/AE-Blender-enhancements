@@ -2,12 +2,17 @@ import os
 import sys
 import argparse
 
-# TODO(phase-9): main.py moves into video-kit once the pipeline engines
-# migrate out of stools/. Until then reach across the boundary via sys.path
-# to the relocated xml_tools.py.
+# Reach across to the video-kit Python module (xml_tools.py). Same
+# rationale as autopod.py — video-kit's Python utilities aren't shipped
+# as an importable package, so we sys.path-inject from a deterministic
+# relative path:
+#   pipefx_postpro/ → python/ → post-production/ → packages/ → repo root
 _VIDEO_KIT_FCPXML_DIR = os.path.abspath(
     os.path.join(
         os.path.dirname(__file__),
+        '..',
+        '..',
+        '..',
         '..',
         'packages',
         'video-kit',
@@ -20,7 +25,7 @@ if _VIDEO_KIT_FCPXML_DIR not in sys.path:
 from xml_tools import sync_fcpxml_with_external_audio  # noqa: E402
 
 def main():
-    parser = argparse.ArgumentParser(description="PipeFX Audio Sync Engine (STOOLS)")
+    parser = argparse.ArgumentParser(description="PipeFX Audio Sync Engine (post-production)")
     parser.add_argument("timeline_xml", help="Path to the exported FCPXML from DaVinci Resolve.")
     parser.add_argument("external_audio", help="Path to the external high-quality audio file (.wav/.mp3) to sync.")
     parser.add_argument("-o", "--output", help="Optional path for the destination synced XML output.", default=None)

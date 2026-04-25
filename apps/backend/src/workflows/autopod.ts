@@ -4,6 +4,7 @@ import * as os from 'os';
 import * as fs from 'fs';
 import { execSync } from 'child_process';
 import { VIDEO_KIT_PY_SRC } from '@pipefx/video-kit';
+import { resolvePythonEngineScript } from '@pipefx/post-production';
 
 /**
  * Resolves the workspace root by walking up from cwd looking for nx.json.
@@ -143,7 +144,10 @@ export const autopodWorkflow = {
 
     try {
       const workspaceRoot = findWorkspaceRoot();
-      const stoolsDir = path.join(workspaceRoot, 'stools');
+      // Phase 9.2: Python engines moved from stools/ to packages/
+      // post-production/python/. Per-script paths resolve via the
+      // helper; this workflow only invokes scripts (no sys.path-inject
+      // for inline imports), so we don't need the engine dir directly.
 
       const runId = Date.now();
       const tempDir = os.tmpdir();
@@ -321,7 +325,7 @@ export const autopodWorkflow = {
       console.log(
         `[AUTOPOD] Step 5/6: Running local VAD analysis (fps=${fps}, duration=${duration_sec.toFixed(1)}s)...`
       );
-      const autopodScript = path.join(stoolsDir, 'autopod.py');
+      const autopodScript = resolvePythonEngineScript(workspaceRoot, 'autopod');
       const escapedMapping = resolvedMapping.replace(/"/g, '\\"');
       const vadCmd = `"${pythonExe}" ${pyFlag} "${autopodScript}" --mapping "${escapedMapping}" --fallback "${resolvedFallback}" --fps ${fps} --duration ${duration_sec} --out "${cutListPath}"`;
       execSync(vadCmd, { stdio: 'inherit' });
@@ -353,8 +357,16 @@ export const autopodWorkflow = {
         `[AUTOPOD] Sliced XML generated: ${modifiedXmlPath} (${(xmlSize / 1024).toFixed(1)} KB)`
       );
 
-      // Copy output XML to workspace stools dir as a backup
-      const savedXmlPath = path.join(stoolsDir, `autopod_output.xml`);
+      // Copy output XML under data/ (gitignored). Was previously in
+      // stools/ which polluted the source tree. See Phase 9.2 commit.
+      const backupDir = path.join(
+        workspaceRoot,
+        'data',
+        'post-production',
+        'autopod'
+      );
+      fs.mkdirSync(backupDir, { recursive: true });
+      const savedXmlPath = path.join(backupDir, `autopod_output.xml`);
       try {
         fs.copyFileSync(modifiedXmlPath, savedXmlPath);
         console.log(`[AUTOPOD] Output XML saved to: ${savedXmlPath}`);

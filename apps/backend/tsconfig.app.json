@@ -26,6 +26,9 @@
       "path": "../../packages/skills/tsconfig.lib.json"
     },
     {
+      "path": "../../packages/post-production/tsconfig.lib.json"
+    },
+    {
       "path": "../../packages/mcp-transport/tsconfig.lib.json"
     },
     {

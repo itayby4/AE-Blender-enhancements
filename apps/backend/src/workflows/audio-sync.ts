@@ -4,6 +4,10 @@ import * as os from 'os';
 import * as fs from 'fs';
 import { execSync } from 'child_process';
 import { VIDEO_KIT_PY_SRC } from '@pipefx/video-kit';
+import {
+  resolvePythonEngineDir,
+  resolvePythonEngineScript,
+} from '@pipefx/post-production';
 
 /**
  * Resolves the workspace root by walking up from cwd looking for nx.json.
@@ -85,7 +89,12 @@ export const syncExternalAudioWorkflow: WorkflowDefinition = {
 
     try {
       const workspaceRoot = findWorkspaceRoot();
-      const stoolsDir = path.join(workspaceRoot, 'stools');
+      // Phase 9.2: Python engines moved from `<root>/stools/` to
+      // `<root>/packages/post-production/python/pipefx_postpro/`.
+      // Resolved via the helper so this stays one-touch if the path
+      // shifts again. `engineDir` keeps the legacy variable role
+      // (sys.path injection); per-script paths use the script resolver.
+      const engineDir = resolvePythonEngineDir(workspaceRoot);
 
       // Ensure the tool index is populated (required before callTool)
       await registry.getAllTools();
@@ -204,8 +213,10 @@ export const syncExternalAudioWorkflow: WorkflowDefinition = {
 
           try {
             // Run audio_sync.find_audio_offset via a Python one-liner
-            // that imports from stools
-            const correlateCmd = `"${pythonExe}" ${pyFlag} -c "import sys; sys.path.insert(0, '${stoolsDir.replace(/\\/g, '/')}'); from audio_sync import find_audio_offset; offset = find_audio_offset('${videoPath.replace(/\\/g, '/')}', '${audioPath.replace(/\\/g, '/')}'); print(f'{offset:.6f}')"`;
+            // that sys.path-injects the engine package directory and
+            // imports `audio_sync` by name. The engine doesn't expose a
+            // CLI for this entry point, hence the inline -c.
+            const correlateCmd = `"${pythonExe}" ${pyFlag} -c "import sys; sys.path.insert(0, '${engineDir.replace(/\\/g, '/')}'); from audio_sync import find_audio_offset; offset = find_audio_offset('${videoPath.replace(/\\/g, '/')}', '${audioPath.replace(/\\/g, '/')}'); print(f'{offset:.6f}')"`;
 
             const stdout = execSync(correlateCmd, {
               timeout: 120000,
@@ -266,7 +277,7 @@ export const syncExternalAudioWorkflow: WorkflowDefinition = {
       console.log(
         `[AUDIO-SYNC] Step 4/5: Injecting synced audio into XML...`
       );
-      const injectScript = path.join(stoolsDir, 'xml_inject_sync.py');
+      const injectScript = resolvePythonEngineScript(workspaceRoot, 'xml_inject_sync');
       execSync(
         `"${pythonExe}" ${pyFlag} "${injectScript}" --xml "${originalXmlPath}" --sync-map "${syncMapPath}" --out "${outputXmlPath}"`,
         { stdio: 'inherit', env: pyEnv }
@@ -283,8 +294,17 @@ export const syncExternalAudioWorkflow: WorkflowDefinition = {
         `[AUDIO-SYNC] Synced XML generated: ${outputXmlPath} (${(xmlSize / 1024).toFixed(1)} KB)`
       );
 
-      // Save a backup copy to stools
-      const savedXmlPath = path.join(stoolsDir, 'audiosync_output.xml');
+      // Save a backup copy under data/ (gitignored). Prior to Phase 9.2
+      // this lived inside stools/, which polluted the source tree and
+      // dirtied git diffs every run.
+      const backupDir = path.join(
+        workspaceRoot,
+        'data',
+        'post-production',
+        'audio-sync'
+      );
+      fs.mkdirSync(backupDir, { recursive: true });
+      const savedXmlPath = path.join(backupDir, 'audiosync_output.xml');
       try {
         fs.copyFileSync(outputXmlPath, savedXmlPath);
         console.log(`[AUDIO-SYNC] Backup saved to: ${savedXmlPath}`);

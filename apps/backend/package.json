@@ -133,6 +133,7 @@
     "@pipefx/connectors": "workspace:*",
     "@pipefx/event-bus": "workspace:*",
     "@pipefx/mcp-transport": "workspace:*",
+    "@pipefx/post-production": "workspace:*",
     "@pipefx/skills": "workspace:*",
     "@pipefx/providers": "workspace:*",
     "@pipefx/tasks": "workspace:*",
