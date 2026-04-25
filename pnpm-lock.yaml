@@ -638,6 +638,12 @@ importers:
         specifier: ^9.0.10
         version: 9.0.10
 
+  packages/post-production:
+    dependencies:
+      tslib:
+        specifier: ^2.3.0
+        version: 2.8.1
+
   packages/providers:
     dependencies:
       '@pipefx/llm-providers':

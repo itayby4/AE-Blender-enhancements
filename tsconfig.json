@@ -86,6 +86,9 @@
     },
     {
       "path": "./packages/skills"
+    },
+    {
+      "path": "./packages/post-production"
     }
   ]
 }
