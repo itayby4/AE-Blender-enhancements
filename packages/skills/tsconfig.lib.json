@@ -16,6 +16,9 @@
     },
     {
       "path": "../connectors-contracts/tsconfig.lib.json"
+    },
+    {
+      "path": "../brain-contracts/tsconfig.lib.json"
     }
   ]
 }

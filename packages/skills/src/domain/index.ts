@@ -36,3 +36,15 @@ export {
   type SignableResource,
   type SkillKeyPair,
 } from './signing.js';
+
+export {
+  createSkillRunner,
+  deriveAllowedTools,
+  SkillNotFoundError,
+  SkillRunQuotaError,
+  SkillUnavailableError,
+  type QuotaChecker,
+  type QuotaDecision,
+  type SkillRunner,
+  type SkillRunnerConfig,
+} from './runner.js';
