@@ -5,8 +5,7 @@
  * backend stdout for the whole sub-agent lifecycle (AgentTool invocations,
  * worker spawn/resume/fork, stream chunks, HTTP routes).
  *
- * Level-gated by `PIPEFX_AGENTS_LOG` (shared knob with the legacy
- * `@pipefx/agents` logger, so toggling one toggles both consistently):
+ * Level-gated by `PIPEFX_AGENTS_LOG`:
  *
  *   unset or "info" (default) → info + warn + error
  *   "debug"                    → all four levels

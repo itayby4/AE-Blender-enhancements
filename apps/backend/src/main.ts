@@ -509,7 +509,7 @@ async function preinstallExampleSkills(
 // ── Local Tool Registration ──
 // NOTE: `registerTaskTools` (create_task_plan / update_task_step / finish_task)
 // was replaced by the OpenClaude-style TodoWrite + Task* suite provided by
-// `@pipefx/agents` and wired above via `registerAgentTools`.
+// `@pipefx/brain-subagents` and wired above via `registerAgentTools`.
 // `memoryTaskManager` is retained for UI progress-bar integration only.
 
 function registerMemoryTools(registry: ConnectorRegistry) {

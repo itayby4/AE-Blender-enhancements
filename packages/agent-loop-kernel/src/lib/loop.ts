@@ -21,7 +21,7 @@ import {
 //    Agent / Task*) the model can see
 //  - every tool call name + args preview
 //  - tool result preview (truncated)
-// Goes to stdout so it interleaves with the [Agents] logs from @pipefx/agents.
+// Goes to stdout so it interleaves with sub-agent logs from @pipefx/brain-subagents.
 //
 // Resolved at call time (not module-load) so dotenv loaded by the host app
 // after this module is imported still takes effect.

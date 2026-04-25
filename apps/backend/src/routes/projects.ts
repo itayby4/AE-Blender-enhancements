@@ -7,7 +7,7 @@ import {
   getProjectMemories,
   addProjectMemory,
   deleteProjectMemoryByIndex,
-} from '../services/memory/index.js';
+} from '@pipefx/brain-memory';
 import type { ConnectorRegistry } from '@pipefx/connectors';
 
 /**
