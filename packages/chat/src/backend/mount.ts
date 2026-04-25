@@ -7,13 +7,15 @@ import type { RouterLike } from './internal/http.js';
  * routes (`POST /chat`, `POST /chat/stream`) and the session-history
  * REST routes onto the provided router.
  *
- * `ChatMountDeps` currently matches `ChatRouteDeps` one-for-one; 6.5 will
- * narrow this surface further once the brain-contracts-only chat-service
- * lands.
+ * Both surfaces share the `ChatSessionStore` + `TranscriptStore` ports
+ * already on `ChatRouteDeps`, so callers pass a single deps object.
  */
 export type ChatMountDeps = ChatRouteDeps;
 
 export function mountChatRoutes(router: RouterLike, deps: ChatMountDeps) {
   registerChatRoutes(router, deps);
-  registerSessionRoutes(router);
+  registerSessionRoutes(router, {
+    sessions: deps.sessions,
+    transcript: deps.transcript,
+  });
 }

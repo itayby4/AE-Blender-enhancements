@@ -1,14 +1,19 @@
+// ── @pipefx/chat/backend/routes/sessions ────────────────────────────────
+// REST shell over the ChatSessionStore + TranscriptStore ports. Keeps the
+// chat package free of brain-memory imports — the concrete adapter is
+// wired by apps/backend.
+
 import { readBody, jsonResponse, jsonError } from '../internal/http.js';
 import type { RouterLike } from '../internal/http.js';
-import {
-  createChatSession,
-  listChatSessions,
-  getChatSession,
-  getChatMessages,
-  deleteChatSession,
-  updateChatSessionTitle,
-  getLatestChatSession,
-} from '@pipefx/brain-memory';
+import type {
+  ChatSessionStore,
+  TranscriptStore,
+} from '../../contracts/index.js';
+
+export interface SessionRouteDeps {
+  sessions: ChatSessionStore;
+  transcript: TranscriptStore;
+}
 
 /**
  * Registers REST endpoints for chat session persistence.
@@ -21,15 +26,20 @@ import {
  * POST /api/sessions/:id/title    → update session title
  * DELETE /api/sessions/:id        → delete session
  */
-export function registerSessionRoutes(router: RouterLike) {
+export function registerSessionRoutes(
+  router: RouterLike,
+  deps: SessionRouteDeps
+) {
+  const { sessions, transcript } = deps;
+
   // GET /api/sessions — list all sessions
   router.get('/api/sessions', async (req, res) => {
     try {
       const url = new URL(req.url!, `http://localhost`);
       const projectId = url.searchParams.get('projectId') || undefined;
       const limit = parseInt(url.searchParams.get('limit') || '50', 10);
-      const sessions = listChatSessions(projectId, limit);
-      jsonResponse(res, sessions);
+      const list = sessions.list(projectId, limit);
+      jsonResponse(res, list);
     } catch (err) {
       jsonError(res, err);
     }
@@ -40,7 +50,7 @@ export function registerSessionRoutes(router: RouterLike) {
     try {
       const url = new URL(req.url!, `http://localhost`);
       const projectId = url.searchParams.get('projectId') || undefined;
-      const session = getLatestChatSession(projectId);
+      const session = sessions.latest(projectId);
       jsonResponse(res, session);
     } catch (err) {
       jsonError(res, err);
@@ -70,11 +80,11 @@ export function registerSessionRoutes(router: RouterLike) {
         const offset = url.searchParams.get('offset')
           ? parseInt(url.searchParams.get('offset')!, 10)
           : undefined;
-        const messages = getChatMessages(sessionId, limit, offset);
+        const messages = transcript.list(sessionId, { limit, offset });
         jsonResponse(res, messages);
       } else {
         // GET /api/sessions/:id
-        const session = getChatSession(sessionId);
+        const session = sessions.get(sessionId);
         if (!session) {
           jsonResponse(res, { error: 'Session not found' }, 404);
           return;
@@ -92,7 +102,7 @@ export function registerSessionRoutes(router: RouterLike) {
       const body = await readBody(req);
       const { id, projectId, model } = JSON.parse(body);
       const sessionId = id || `session-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-      const session = createChatSession(sessionId, projectId, model);
+      const session = sessions.create(sessionId, projectId, model);
       jsonResponse(res, session, 201);
     } catch (err) {
       jsonError(res, err);
@@ -119,7 +129,7 @@ export function registerSessionRoutes(router: RouterLike) {
         return;
       }
 
-      updateChatSessionTitle(sessionId, title);
+      sessions.rename(sessionId, title);
       jsonResponse(res, { success: true });
     } catch (err) {
       jsonError(res, err);
@@ -134,7 +144,7 @@ export function registerSessionRoutes(router: RouterLike) {
         jsonResponse(res, { error: 'Session ID required' }, 400);
         return;
       }
-      const deleted = deleteChatSession(sessionId);
+      const deleted = sessions.delete(sessionId);
       jsonResponse(res, { success: deleted });
     } catch (err) {
       jsonError(res, err);

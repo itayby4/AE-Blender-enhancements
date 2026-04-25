@@ -481,18 +481,6 @@ importers:
       '@pipefx/brain-contracts':
         specifier: workspace:*
         version: link:../brain-contracts
-      '@pipefx/brain-memory':
-        specifier: workspace:*
-        version: link:../brain-memory
-      '@pipefx/brain-planning':
-        specifier: workspace:*
-        version: link:../brain-planning
-      '@pipefx/brain-subagents':
-        specifier: workspace:*
-        version: link:../brain-subagents
-      '@pipefx/brain-tasks':
-        specifier: workspace:*
-        version: link:../brain-tasks
       '@pipefx/connectors':
         specifier: workspace:*
         version: link:../connectors
