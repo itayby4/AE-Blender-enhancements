@@ -1,0 +1,32 @@
+{
+  "name": "@pipefx/connectors-contracts",
+  "version": "1.0.0",
+  "type": "module",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    "./package.json": "./package.json",
+    ".": {
+      "@pipefx/source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "!**/*.tsbuildinfo"
+  ],
+  "dependencies": {
+    "@pipefx/event-bus": "workspace:*",
+    "@pipefx/mcp-transport": "workspace:*",
+    "tslib": "^2.3.0"
+  },
+  "nx": {
+    "tags": [
+      "scope:platform",
+      "platform:connectors-contracts"
+    ]
+  }
+}

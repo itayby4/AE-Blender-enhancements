@@ -1,0 +1,23 @@
+{
+  "name": "@pipefx/mcp-davinci",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "projectType": "application",
+  "sourceRoot": "apps/mcp-davinci/src",
+  "tags": ["type:app", "scope:mcp"],
+  "targets": {
+    "serve": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": ".\\venv\\Scripts\\python.exe -m mcp_davinci.server",
+        "cwd": "apps/mcp-davinci"
+      }
+    },
+    "test": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": ".\\venv\\Scripts\\python.exe -c \"import mcp_davinci.server; print('smoke ok')\"",
+        "cwd": "apps/mcp-davinci"
+      }
+    }
+  }
+}

@@ -6,7 +6,7 @@
  * via the Authorization: Bearer header.
  */
 
-import { getAccessToken } from './auth-context.js';
+import { getAccessToken } from '@pipefx/auth/ui';
 
 const API_BASE = 'http://localhost:3001';
 
@@ -119,7 +119,7 @@ export function forgetKnowledge(id: string): Promise<void> {
 // ── Skills ──
 
 export function deleteSkill(filename: string): Promise<void> {
-  return request('/api/skills/delete', {
+  return request('/api/skill-files/delete', {
     method: 'POST',
     body: JSON.stringify({ filename }),
   });

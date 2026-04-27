@@ -29,8 +29,7 @@ import { applyPalette } from '../../lib/palette-runtime.js';
 import type { CustomPalette } from '../../lib/palette-runtime.js';
 import type { CornerMode } from '../../lib/corners-runtime.js';
 import { fetchSettings, updateSettings } from '../../lib/api.js';
-import { useAuth } from '../../lib/auth-context.js';
-import { supabase } from '../../lib/supabase.js';
+import { useAuth, supabase } from '@pipefx/auth/ui';
 import { toast } from 'sonner';
 
 interface SettingsPageProps {

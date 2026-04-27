@@ -1,0 +1,23 @@
+{
+  "name": "@pipefx/mcp-premiere",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "projectType": "application",
+  "sourceRoot": "apps/mcp-premiere/src",
+  "tags": ["type:app", "scope:mcp"],
+  "targets": {
+    "serve": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": ".\\venv\\Scripts\\python.exe -m mcp_premiere.server",
+        "cwd": "apps/mcp-premiere"
+      }
+    },
+    "test": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": ".\\venv\\Scripts\\python.exe -c \"import mcp_premiere.server; print('smoke ok')\"",
+        "cwd": "apps/mcp-premiere"
+      }
+    }
+  }
+}

@@ -4,11 +4,15 @@
     "outDir": "dist",
     "types": ["node"],
     "rootDir": "src",
-    "tsBuildInfoFile": "dist/tsconfig.app.tsbuildinfo"
+    "tsBuildInfoFile": "dist/tsconfig.app.tsbuildinfo",
+    "declaration": true
   },
   "include": ["src/**/*.ts"],
   "exclude": [],
   "references": [
+    {
+      "path": "../../packages/video-kit/tsconfig.lib.json"
+    },
     {
       "path": "../../packages/usage/tsconfig.lib.json"
     },
@@ -16,16 +20,49 @@
       "path": "../../packages/tasks/tsconfig.lib.json"
     },
     {
-      "path": "../../packages/providers/tsconfig.lib.json"
+      "path": "../../packages/skills/tsconfig.lib.json"
     },
     {
-      "path": "../../packages/mcp/tsconfig.lib.json"
+      "path": "../../packages/post-production/tsconfig.lib.json"
     },
     {
-      "path": "../../packages/ai/tsconfig.lib.json"
+      "path": "../../packages/media-gen/tsconfig.lib.json"
     },
     {
-      "path": "../../packages/agents/tsconfig.lib.json"
+      "path": "../../packages/mcp-transport/tsconfig.lib.json"
+    },
+    {
+      "path": "../../packages/event-bus/tsconfig.lib.json"
+    },
+    {
+      "path": "../../packages/connectors/tsconfig.lib.json"
+    },
+    {
+      "path": "../../packages/chat/tsconfig.lib.json"
+    },
+    {
+      "path": "../../packages/brain-tasks/tsconfig.lib.json"
+    },
+    {
+      "path": "../../packages/brain-subagents/tsconfig.lib.json"
+    },
+    {
+      "path": "../../packages/brain-planning/tsconfig.lib.json"
+    },
+    {
+      "path": "../../packages/brain-memory/tsconfig.lib.json"
+    },
+    {
+      "path": "../../packages/brain-loop/tsconfig.lib.json"
+    },
+    {
+      "path": "../../packages/brain-contracts/tsconfig.lib.json"
+    },
+    {
+      "path": "../../packages/auth/tsconfig.lib.json"
+    },
+    {
+      "path": "../../packages/agent-loop-kernel/tsconfig.lib.json"
     }
   ]
 }

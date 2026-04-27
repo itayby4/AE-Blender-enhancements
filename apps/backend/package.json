@@ -28,12 +28,23 @@
               "input": "apps/backend/src/prompts",
               "glob": "*.md",
               "output": "prompts"
+            },
+            {
+              "input": "packages/video-kit/src",
+              "glob": "**/*.py",
+              "output": "packages/video-kit/src"
             }
           ],
           "esbuildOptions": {
             "sourcemap": true,
             "outExtension": {
               ".js": ".js"
+            },
+            "banner": {
+              "js": "var __pipefxImportMetaUrl=require('url').pathToFileURL(__filename).href;"
+            },
+            "define": {
+              "import.meta.url": "__pipefxImportMetaUrl"
             }
           }
         },
@@ -44,6 +55,12 @@
               "sourcemap": false,
               "outExtension": {
                 ".js": ".js"
+              },
+              "banner": {
+                "js": "var __pipefxImportMetaUrl=require('url').pathToFileURL(__filename).href;"
+              },
+              "define": {
+                "import.meta.url": "__pipefxImportMetaUrl"
               }
             }
           }
@@ -87,9 +104,6 @@
         "continuous": true,
         "executor": "@nx/js:node",
         "defaultConfiguration": "development",
-        "dependsOn": [
-          "build"
-        ],
         "options": {
           "buildTarget": "@pipefx/backend:build",
           "runBuildTargetDependencies": false
@@ -107,13 +121,24 @@
   },
   "dependencies": {
     "@google/genai": "^1.46.0",
-    "@pipefx/agents": "workspace:*",
-    "@pipefx/ai": "workspace:*",
-    "@pipefx/mcp": "workspace:*",
-    "@pipefx/providers": "workspace:*",
+    "@pipefx/agent-loop-kernel": "workspace:*",
+    "@pipefx/auth": "workspace:*",
+    "@pipefx/brain-contracts": "workspace:*",
+    "@pipefx/brain-loop": "workspace:*",
+    "@pipefx/brain-memory": "workspace:*",
+    "@pipefx/brain-planning": "workspace:*",
+    "@pipefx/brain-subagents": "workspace:*",
+    "@pipefx/brain-tasks": "workspace:*",
+    "@pipefx/chat": "workspace:*",
+    "@pipefx/connectors": "workspace:*",
+    "@pipefx/event-bus": "workspace:*",
+    "@pipefx/mcp-transport": "workspace:*",
+    "@pipefx/media-gen": "workspace:*",
+    "@pipefx/post-production": "workspace:*",
+    "@pipefx/skills": "workspace:*",
     "@pipefx/tasks": "workspace:*",
     "@pipefx/usage": "workspace:*",
-    "@supabase/supabase-js": "^2.103.3",
+    "@pipefx/video-kit": "workspace:*",
     "better-sqlite3": "^12.9.0",
     "dotenv": "^17.3.1",
     "jsonwebtoken": "^9.0.3",

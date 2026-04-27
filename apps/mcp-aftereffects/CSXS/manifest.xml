@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  CEP manifest for the PipeFX MCP panel.
+
+  CEP (Common Extensibility Platform) hosts a Chromium webview + Node.js
+  inside After Effects. This panel boots an HTTP/SSE MCP server on
+  127.0.0.1:7891; the PipeFX backend connects to it as an SSE client.
+
+  Why CEP and not UXP: AE 26's UXP runtime supports `type: "command"` only,
+  not dockable panels. CEP supports dockable panels and full Node, which
+  is what we need for the long-running SSE server.
+-->
+<ExtensionManifest Version="11.0" ExtensionBundleId="com.pipefx.mcp-aftereffects"
+                   ExtensionBundleVersion="0.2.0"
+                   ExtensionBundleName="PipeFX MCP"
+                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+  <ExtensionList>
+    <Extension Id="com.pipefx.mcp-aftereffects.panel" Version="0.2.0" />
+  </ExtensionList>
+  <ExecutionEnvironment>
+    <HostList>
+      <!-- AEFT = After Effects. Min 24.0 (CC 2024). -->
+      <Host Name="AEFT" Version="[24.0,99.9]" />
+    </HostList>
+    <LocaleList>
+      <Locale Code="All" />
+    </LocaleList>
+    <RequiredRuntimeList>
+      <RequiredRuntime Name="CSXS" Version="11.0" />
+    </RequiredRuntimeList>
+  </ExecutionEnvironment>
+  <DispatchInfoList>
+    <Extension Id="com.pipefx.mcp-aftereffects.panel">
+      <DispatchInfo>
+        <Resources>
+          <MainPath>./index.html</MainPath>
+          <ScriptPath>./host.jsx</ScriptPath>
+          <CEFCommandLine>
+            <!-- Node.js access for the WebSocket/HTTP server. Without this
+                 flag, require() returns undefined inside the panel. -->
+            <Parameter>--enable-nodejs</Parameter>
+            <!-- Allow loading content from localhost (the MCP backend
+                 runs on the same machine). -->
+            <Parameter>--mixed-context</Parameter>
+          </CEFCommandLine>
+        </Resources>
+        <Lifecycle>
+          <AutoVisible>true</AutoVisible>
+        </Lifecycle>
+        <UI>
+          <Type>Panel</Type>
+          <Menu>PipeFX MCP</Menu>
+          <Geometry>
+            <Size>
+              <Height>200</Height>
+              <Width>320</Width>
+            </Size>
+            <MinSize>
+              <Height>140</Height>
+              <Width>240</Width>
+            </MinSize>
+          </Geometry>
+          <Icons />
+        </UI>
+      </DispatchInfo>
+    </Extension>
+  </DispatchInfoList>
+</ExtensionManifest>

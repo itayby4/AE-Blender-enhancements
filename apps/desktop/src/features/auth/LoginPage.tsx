@@ -7,7 +7,7 @@
  */
 
 import { useState, useCallback, type FormEvent } from 'react';
-import { useAuth } from '../../lib/auth-context.js';
+import { useAuth } from '@pipefx/auth/ui';
 import { PipeFxLogo } from '../../components/brand/PipeFxLogo.js';
 import { cn } from '../../lib/utils.js';
 import { toast } from 'sonner';

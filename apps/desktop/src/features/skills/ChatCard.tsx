@@ -27,12 +27,23 @@ type ParsedPart = string | ParsedCard | ParsedSkill | ParsedPlan;
 
 /**
  * Parse AI responses into structured data blocks for rendering.
- * Extracts :::card blocks and ```md skill definition blocks.
+ *
+ * Extracts:
+ *   • `:::card` blocks (assistant action cards with [label](action:foo) buttons)
+ *   • Fenced markdown blocks containing YAML frontmatter — `\`\`\`md`,
+ *     `\`\`\`markdown`, or the legacy `\`\`\`plan` fence. All three flavours
+ *     route to `type: 'skill'` so the inline `SkillBuilderCard` handles
+ *     them uniformly. Phase 12.14 retired the separate `'plan'` part —
+ *     the legacy `SkillPlannerPage` worked off the v1 file-CRUD route
+ *     which the v2 skill system replaced.
+ *
+ * The order in the alternation matters: `:::card` first (most specific),
+ * then `\`\`\`md`/`\`\`\`markdown` requiring a `---…---` frontmatter
+ * preamble, then `\`\`\`plan` accepting any content (legacy fallback).
  */
 export function parseMessageContent(text: string): ParsedPart[] {
   const parts: ParsedPart[] = [];
 
-  // Regex matches a :::card block OR a markdown code block starting with frontmatter OR a ```plan block
   const regex =
     /(?::::card\s*\n([\s\S]*?)\n:::)|(?:```(?:md|markdown)?\s*\n(---[\s\S]*?\n---[\s\S]*?)\n```)|(?:```plan\s*\n([\s\S]*?)\n```)/g;
 
@@ -73,11 +84,14 @@ export function parseMessageContent(text: string): ParsedPart[] {
         .trim();
       parts.push({ type: 'card', content: cleanContent, actions });
     } else if (match[2]) {
-      // It's a skill block
+      // ```md / ```markdown fence with frontmatter → skill draft
       parts.push({ type: 'skill', content: match[2].trim() });
     } else if (match[3]) {
-      // It's a plan block
-      parts.push({ type: 'plan', content: match[3].trim() });
+      // ```plan fence (legacy) → also surface as a skill draft so the
+      // inline SkillBuilderCard handles it. The block content may or may
+      // not be valid v2 SKILL.md — the card's parser will surface a
+      // friendly error inline if not.
+      parts.push({ type: 'skill', content: match[3].trim() });
     }
 
     lastIndex = match.index + match[0].length;

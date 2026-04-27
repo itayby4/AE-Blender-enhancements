@@ -1,0 +1,17 @@
+[build-system]
+requires = ["setuptools>=64", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pipefx-video-kit"
+version = "0.0.1"
+description = "PipeFX platform utilities for video/audio (Python side of @pipefx/video-kit)"
+requires-python = ">=3.10"
+dependencies = [
+  "webrtcvad",
+  "google-genai",
+]
+
+# Scripts are invoked directly from file paths (not via `import pipefx_video_kit`),
+# so no package discovery is configured. pyproject.toml exists so the package
+# can be installed editable in the future if call-sites ever need Python imports.

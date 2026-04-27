@@ -1,0 +1,37 @@
+# pyproject for the Python pipeline engines used by
+# @pipefx/post-production. Lives at packages/post-production/python/ —
+# sibling to the TypeScript src/ rather than under it, because mixing
+# language roots inside the same src tree confuses both Nx (which
+# enumerates JS/TS only) and Python tooling (which expects pyproject
+# at the project root, not nested in another language's tree).
+#
+# Phase 9.2 ships this as a pip-installable package mainly for
+# docs / future-proofing; the in-package TS orchestrators (at
+# packages/post-production/src/workflows/) invoke the engines via
+# subprocess + `sys.path.insert(...)` from the path returned by
+# `resolvePythonEngineDir(workspaceRoot)` in @pipefx/post-production.
+# Installed-package imports (`from pipefx_postpro.audio_sync import …`)
+# work too once `pip install -e .` is run — same engines either way.
+
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pipefx-postpro"
+version = "0.1.0"
+description = "PipeFX post-production pipeline engines (autopod, audio-sync, xml-inject)."
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "numpy==2.2.3",
+    "webrtcvad",
+    "google-genai",
+]
+
+[project.scripts]
+pipefx-audio-sync = "pipefx_postpro.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["pipefx_postpro*"]

@@ -1,27 +1,24 @@
 {
   "name": "@pipefx/mcp-aftereffects",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
-  "description": "MCP server for Adobe After Effects (based on Dakkshin/after-effects-mcp).",
-  "main": "build/index.js",
+  "description": "MCP server for Adobe After Effects — runs as a CEP panel inside AE.",
   "type": "module",
-  "scripts": {
-    "build": "esbuild src/index.ts --bundle --platform=node --format=esm --outfile=build/index.js --packages=external && copyfiles -u 1 \"src/scripts/**/*\" build",
-    "start": "node build/index.js",
-    "install-bridge": "node install-bridge.js"
-  },
-  "nx": {
-    "tags": ["scope:mcp-aftereffects"]
-  },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.28.0",
-    "node-fetch": "^3.3.2",
+    "react": "^19.2.4",
+    "react-dom": "^19.2.4",
     "zod": "^3.22.2"
   },
   "devDependencies": {
     "@types/node": "^20.17.30",
-    "copyfiles": "^2.4.1",
-    "esbuild": "^0.27.4",
-    "typescript": "^5.2.2"
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^5.1.4",
+    "typescript": "^5.9.2",
+    "vite": "^7.3.1"
+  },
+  "nx": {
+    "tags": ["type:app", "scope:mcp"]
   }
 }

@@ -22,22 +22,82 @@
       "path": "./apps/backend"
     },
     {
-      "path": "./packages/mcp"
+      "path": "./packages/mcp-transport"
     },
     {
-      "path": "./packages/ai"
+      "path": "./packages/agent-loop-kernel"
     },
     {
-      "path": "./packages/providers"
+      "path": "./packages/event-bus"
+    },
+    {
+      "path": "./packages/video-kit"
+    },
+    {
+      "path": "./packages/llm-providers"
+    },
+    {
+      "path": "./packages/media-providers"
     },
     {
       "path": "./packages/tasks"
     },
     {
-      "path": "./packages/agents"
+      "path": "./packages/usage"
     },
     {
-      "path": "./packages/usage"
+      "path": "./packages/auth-tokens"
+    },
+    {
+      "path": "./packages/auth"
+    },
+    {
+      "path": "./packages/brain-contracts"
+    },
+    {
+      "path": "./packages/connectors-contracts"
+    },
+    {
+      "path": "./packages/connectors"
+    },
+    {
+      "path": "./packages/brain-tasks"
+    },
+    {
+      "path": "./packages/brain-memory"
+    },
+    {
+      "path": "./packages/brain-planning"
+    },
+    {
+      "path": "./packages/brain-loop"
+    },
+    {
+      "path": "./packages/brain-subagents"
+    },
+    {
+      "path": "./packages/chat"
+    },
+    {
+      "path": "./packages/command-palette"
+    },
+    {
+      "path": "./packages/skills"
+    },
+    {
+      "path": "./packages/skills-builtin"
+    },
+    {
+      "path": "./packages/post-production"
+    },
+    {
+      "path": "./packages/media-gen"
+    },
+    {
+      "path": "./packages/node-system"
+    },
+    {
+      "path": "./apps/mcp-aftereffects"
     }
   ]
 }

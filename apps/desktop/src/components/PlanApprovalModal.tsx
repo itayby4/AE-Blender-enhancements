@@ -12,7 +12,7 @@ import { Button } from './ui/button.js';
 import { Textarea } from './ui/textarea.js';
 import { ScrollArea } from './ui/scroll-area.js';
 import { submitPlanResponse } from '../lib/api.js';
-import type { PendingPlan } from '../hooks/useChat.js';
+import type { PendingPlan } from '@pipefx/chat/contracts';
 
 interface PlanApprovalModalProps {
   pendingPlan: PendingPlan | null;

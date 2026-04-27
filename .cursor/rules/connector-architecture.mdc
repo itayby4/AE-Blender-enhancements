@@ -1,8 +1,10 @@
 ---
 description: Enforce connector architecture patterns for MCP integration and AI agent code
 globs:
-  - packages/mcp/**/*.ts
-  - packages/ai/**/*.ts
+  - packages/connectors/**/*.ts
+  - packages/connectors-contracts/**/*.ts
+  - packages/mcp-transport/**/*.ts
+  - packages/brain-*/**/*.ts
   - apps/backend/**/*.ts
 ---
 
@@ -10,39 +12,61 @@ globs:
 
 ## Core Principle
 
-All external application integrations go through the **Connector** abstraction in `@pipefx/mcp`. The AI agent in `@pipefx/ai` and the backend in `apps/backend` are both application-agnostic -- they must NEVER contain code specific to DaVinci Resolve, Premiere Pro, or any other target application.
+All external application integrations go through the **Connector** abstraction in `@pipefx/connectors`. The brain-* packages and the backend in `apps/backend` are application-agnostic -- they must NEVER contain code specific to DaVinci Resolve, Premiere Pro, or any other target application.
 
-## `@pipefx/mcp` -- What belongs here
+## `@pipefx/connectors-contracts` -- What belongs here
 
-- `Connector` interface and `createConnector()` factory.
-- `ConnectorRegistry` for managing multiple connectors.
-- `TransportConfig` types (stdio, SSE) and `createTransport()` factory.
-- Platform-aware helpers like `resolveVenvPython()`.
+- Frozen types: `Connector`, `ConnectorConfig`, `ConnectorId`, `ConnectorStatus`,
+  `ToolDescriptor`, `ToolCallResult`, `StructuredError`, `AsyncToolPolicy`,
+  `ConnectorCapabilityManifest`, `ConnectorSnapshot`, `ConnectorsApi`.
+- Event-bus types: `McpEvent`, `McpEventMap`, `McpConnectorConnectedEvent`, etc.
+- Transitional aliases: `Tool = ToolDescriptor`, `ToolResult = ToolCallResult`.
+
+What does NOT belong here:
+- Any implementation. The contracts package is semver-frozen and dependency-free
+  except for `@pipefx/mcp-transport`.
+
+## `@pipefx/connectors` -- What belongs here
+
+- `ConnectorRegistry` for managing multiple connectors + tool aggregation.
+- `createConnector()` factory and lifecycle state machine.
+- `deriveCapabilities()` + `loadCapabilityManifest()` (capability map).
+- `mountConnectorRoutes()` (under `./backend` subpath).
+- `ConnectorStatus` UI widget (under `./ui` subpath).
 
 What does NOT belong here:
 - Anything DaVinci Resolve-specific (paths, API calls, tool definitions).
-- Anything Gemini/AI-specific (prompt templates, model configuration).
+- Anything Gemini/LLM-specific (prompt templates, model configuration).
 
-## `@pipefx/ai` -- What belongs here
+## `@pipefx/mcp-transport` -- What belongs here
 
-- `createAgent()` factory and the `Agent` interface.
-- The Gemini tool-call loop (send message -> handle functionCalls -> send functionResponse -> repeat).
-- `mapToolsToGemini()` -- converts MCP Tool schemas to Gemini function declarations.
+- `TransportConfig` / `StdioTransportConfig` / `SseTransportConfig` types.
+- `createTransport()` factory.
+- Platform-aware helpers like `resolveVenvPython()`.
+
+## `@pipefx/brain-*` -- What belongs here
+
+- `createAgent()` factory + agent loop glue (brain-loop).
+- Tool registration helpers (brain-subagents, brain-planning, brain-tasks).
+- System-prompt building blocks.
+- Memory, KB, task-session stores (brain-memory, brain-tasks).
 
 What does NOT belong here:
 - Hardcoded tool names or connector IDs.
-- Application-specific system prompts (these are passed via `AgentConfig`).
-- HTTP server code or request handling.
+- Application-specific system prompts (passed via `AgentConfig`).
+- HTTP server code or request handling (mounted via `mount*Routes` helpers,
+  but the host app owns the server).
 
 ## `apps/backend` -- What belongs here
 
 - `config.ts`: environment loading, connector config declarations, port config.
 - `main.ts`: HTTP server, connector registration, agent wiring.
-- System prompt text (it is backend configuration, not AI package logic).
+- System prompt text (it is backend configuration, not brain-loop logic).
 
 What does NOT belong here:
-- MCP client/transport implementation (use `@pipefx/mcp`).
-- AI model API calls or tool mapping (use `@pipefx/ai`).
+- MCP client/transport implementation (use `@pipefx/connectors` +
+  `@pipefx/mcp-transport`).
+- Agent-loop or model API calls (use `@pipefx/brain-loop`).
 - Business logic of any kind.
 
 ## Adding a New Connector
@@ -52,4 +76,5 @@ When adding support for a new application:
 1. Create the MCP server app at `apps/mcp-<name>/`.
 2. Add a connector config entry in `apps/backend/src/config.ts`.
 3. Register it in `apps/backend/src/main.ts` via `registry.register(...)`.
-4. Do NOT modify `@pipefx/mcp` or `@pipefx/ai` -- they are application-agnostic.
+4. Do NOT modify `@pipefx/connectors`, `@pipefx/connectors-contracts`, or any
+   `@pipefx/brain-*` package -- they are application-agnostic.

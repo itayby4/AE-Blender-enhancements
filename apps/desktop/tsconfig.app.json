@@ -33,6 +33,30 @@
   "references": [
     {
       "path": "../../packages/tasks/tsconfig.lib.json"
+    },
+    {
+      "path": "../../packages/skills-builtin/tsconfig.lib.json"
+    },
+    {
+      "path": "../../packages/skills/tsconfig.lib.json"
+    },
+    {
+      "path": "../../packages/node-system/tsconfig.lib.json"
+    },
+    {
+      "path": "../../packages/media-gen/tsconfig.lib.json"
+    },
+    {
+      "path": "../../packages/connectors/tsconfig.lib.json"
+    },
+    {
+      "path": "../../packages/command-palette/tsconfig.lib.json"
+    },
+    {
+      "path": "../../packages/chat/tsconfig.lib.json"
+    },
+    {
+      "path": "../../packages/auth/tsconfig.lib.json"
     }
   ]
 }

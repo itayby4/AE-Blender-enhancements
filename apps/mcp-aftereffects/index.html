@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <title>PipeFX MCP</title>
+    <style>
+      html, body { margin: 0; padding: 0; height: 100%; font-family: system-ui, sans-serif; background: #1f1f1f; color: #d6d6d6; }
+      #root { height: 100%; }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+    <!--
+      Scripts at end-of-body so the DOM is fully parsed before main.js runs
+      (it calls document.getElementById('root') synchronously). Order:
+        1. CSInterface.js publishes the CSInterface global.
+        2. main.js (CJS bundle) requires() Node builtins via the CEP-exposed
+           `require`. No `type="module"` — must run as a classic script so
+           require() resolves to CEP's Node, not CEF's ESM module loader.
+    -->
+    <script src="./CSInterface.js"></script>
+    <script src="./main.js"></script>
+  </body>
+</html>

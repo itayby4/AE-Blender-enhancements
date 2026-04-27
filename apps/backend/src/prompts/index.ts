@@ -38,7 +38,10 @@ const REQUIRED_MARKERS: string[] = [
   'PipeFX AI',
   'analyze_project',
   'pipeline_actions',
-  '```plan',
+  // Phase 12.14: was '```plan' (the legacy v1 author block). Replaced
+  // with the new brain tool name so the boot-time sanity check fails
+  // loudly if someone deletes the skill-authoring section.
+  'create_skill',
 ];
 
 /**
@@ -129,7 +132,9 @@ export function loadLegacySections(workspaceRoot: string): string {
 
   // Only pipeline_actions / analyze_project markers are asserted here —
   // "PipeFX AI" is the composer's responsibility now (identity section).
-  const required = ['analyze_project', 'pipeline_actions', '```plan'];
+  // Phase 12.14: replaced legacy '```plan' marker with the create_skill
+  // tool name (see REQUIRED_MARKERS above).
+  const required = ['analyze_project', 'pipeline_actions', 'create_skill'];
   const missing = required.filter((m) => !joined.includes(m));
   if (missing.length > 0) {
     throw new Error(

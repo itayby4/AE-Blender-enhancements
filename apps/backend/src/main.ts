@@ -1,36 +1,78 @@
-import { ConnectorRegistry } from '@pipefx/mcp';
-import { createAgent } from '@pipefx/ai';
-import type { Agent } from '@pipefx/ai';
+import { ConnectorRegistry } from '@pipefx/connectors';
+import type { McpEventMap } from '@pipefx/connectors';
+import { mountConnectorRoutes } from '@pipefx/connectors/backend';
+import { createEventBus } from '@pipefx/event-bus';
+import {
+  createCapabilityMatcher,
+  createSkillRunner,
+  type CapabilityMatcherHandle,
+} from '@pipefx/skills/domain';
+import {
+  createScriptRunner,
+  createSkillMdStorage,
+  createSkillRunStore,
+  mountSkillRoutes,
+  registerSkillBrainTools,
+} from '@pipefx/skills/backend';
+import type { SkillEventMap } from '@pipefx/skills/contracts';
+import { createAgent } from '@pipefx/brain-loop';
+import type { Agent } from '@pipefx/agent-loop-kernel';
 import {
   AgentSessionStore,
   createTaskOutputStore,
-  createSubAgentRuntime,
-  createInMemoryPlanApprovalBroker,
-  registerAgentTools,
-  agentsLog,
-  loadAgentsDir,
-  composeProfiles,
-  BUILT_IN_AGENTS,
   getAllTaskTypes,
-  type SubAgentEvent,
-  type TodoItem,
+  mountAgentTaskRoutes,
+} from '@pipefx/brain-tasks';
+import type { TodoItem } from '@pipefx/brain-contracts';
+import {
+  BUILT_IN_AGENTS,
+  brainSubagentsLog,
+  composeProfiles,
+  createSubAgentRuntime,
+  loadAgentsDir,
+  registerAgentTools,
   type AgentProfile,
-} from '@pipefx/agents';
+  type SubAgentEvent,
+} from '@pipefx/brain-subagents';
+import {
+  createInMemoryPlanApprovalBroker,
+  mountPlanningRoutes,
+} from '@pipefx/brain-planning';
 import { AsyncLocalStorage } from 'node:async_hooks';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { createServer } from 'http';
 import { config, updateConfig } from './config.js';
 import { loadSettings } from './utils/settings.js';
-import { registerLocalWorkflows } from './workflows/index.js';
-import { createSubtitleHandler } from './api/subtitles.js';
-import { GoogleGenAI } from '@google/genai';
-import { OpenAI } from 'openai';
-import { createSqliteUsageStore } from '@pipefx/usage';
-import type { UsageStore } from '@pipefx/usage';
-
-// ΓöÇΓöÇ AI Brain (SQLite-backed memory engine) ΓöÇΓöÇ
+// Phase 9.3: workflows + their HTTP routes moved into @pipefx/post-production.
+// We import the registration helper for the brain-side tool surface and the
+// `mountWorkflowRoutes` mount for the desktop-direct HTTP endpoints.
 import {
+  registerLocalWorkflows,
+  createLocalToolContext,
+  type LocalToolContext,
+} from '@pipefx/post-production/workflows';
+import { mountWorkflowRoutes } from '@pipefx/post-production/backend';
+// Phase 9.B: image / video / sound gen lives in @pipefx/media-gen — the
+// route mount replaces the inline `/api/ai-models` + `/api/save-render`
+// handlers that used to live under apps/backend/src/api/.
+import { mountMediaGenRoutes } from '@pipefx/media-gen/backend';
+import { calculateCost, createSqliteUsageStore, createUsageEvent } from '@pipefx/usage';
+import type { UsageStore } from '@pipefx/usage';
+import { composeSystemPrompt } from './prompts/index.js';
+import { mountChatRoutes } from '@pipefx/chat/backend';
+import {
+  createChatLogger,
+  createChatSessionStore,
+  createPostRoundReminderFactory,
+  createTaskProgressTracker,
+  createTasksApi,
+  createTranscriptStore,
+} from './chat-deps.js';
+
+// ── AI Brain (SQLite-backed memory engine) ──
+import {
+  configureMemoryStore,
   getDatabase,
   migrateJsonProjects,
   memoryTaskManager,
@@ -41,21 +83,17 @@ import {
   listKnowledge,
   getProject,
   addProjectMemory,
-} from './services/memory/index.js';
-import type { KnowledgeCategory } from './services/memory/index.js';
+} from '@pipefx/brain-memory';
+import type { KnowledgeCategory } from '@pipefx/brain-memory';
 
 // ΓöÇΓöÇ Router & Routes ΓöÇΓöÇ
 import { Router } from './router.js';
-import { registerChatRoutes } from './routes/chat.js';
-import { registerAgentRoutes } from './routes/agents.js';
-import { registerTaskRoutes } from './routes/tasks.js';
 import { registerProjectRoutes } from './routes/projects.js';
-import { registerMemoryRoutes } from './routes/memory.js';
-import { registerSkillRoutes } from './routes/skills.js';
-import { registerSessionRoutes } from './routes/sessions.js';
+import { registerSkillFileRoutes } from './routes/skill-files.js';
 import { registerUsageRoutes } from './routes/usage.js';
 import { registerMiscRoutes } from './routes/misc.js';
-import { verifyAuth } from './middleware/auth.js';
+import { mountMemoryRoutes, assembleProjectContext } from '@pipefx/brain-memory';
+import { createAuthMiddleware } from '@pipefx/auth/backend';
 
 async function main() {
   console.log('Starting PipeFX AI Engine...');
@@ -63,8 +101,23 @@ async function main() {
   const loadedSettings = await loadSettings();
   updateConfig(loadedSettings);
 
-  // ΓöÇΓöÇ Connector Registry ΓöÇΓöÇ
-  const registry = new ConnectorRegistry();
+  // ── Auth gate middleware (Supabase JWT verifier) ──
+  // Built after config is finalized so it sees loaded settings.
+  const verifyAuth = createAuthMiddleware({
+    supabaseUrl: config.supabaseUrl,
+    supabaseServiceKey: config.supabaseServiceKey,
+  });
+
+  // ── Shared event bus ──
+  // Carries both MCP lifecycle events (mcp.tools.changed etc.) and skills
+  // events (skills.available-changed, skills.run.*). The connector registry
+  // publishes the MCP half; the capability matcher subscribes to it and
+  // publishes the skills half. Other reactive consumers (chat composer
+  // badges, telemetry) can subscribe later without rewiring the producers.
+  const bus = createEventBus<McpEventMap & SkillEventMap>();
+
+  // ── Connector Registry ──
+  const registry = new ConnectorRegistry({ eventBus: bus });
   registry.register(config.connectors.resolve);
   if (config.connectors.premiere) registry.register(config.connectors.premiere);
   if (config.connectors.aftereffects)
@@ -76,7 +129,8 @@ async function main() {
     openaiApiKey: config.openaiApiKey,
   });
 
-  // ΓöÇΓöÇ Database init ΓöÇΓöÇ
+  // ── Database init ──
+  configureMemoryStore({ workspaceRoot: config.workspaceRoot });
   getDatabase();
   const migrationResult = migrateJsonProjects();
   if (migrationResult.migrated > 0) {
@@ -108,22 +162,22 @@ async function main() {
   const sseBroker = {
     set(sessionId: string, emit: SessionSseEmit) {
       sseEmitters.set(sessionId, emit);
-      agentsLog.debug('sse-broker attach', { sessionId });
+      brainSubagentsLog.debug('sse-broker attach', { sessionId });
     },
     clear(sessionId: string) {
       sseEmitters.delete(sessionId);
-      agentsLog.debug('sse-broker detach', { sessionId });
+      brainSubagentsLog.debug('sse-broker detach', { sessionId });
     },
     emit(sessionId: string, ev: Record<string, unknown>) {
       const emitter = sseEmitters.get(sessionId);
       if (emitter) {
-        agentsLog.debug('sse-broker emit', {
+        brainSubagentsLog.debug('sse-broker emit', {
           sessionId,
           type: ev.type as string | undefined,
         });
         emitter(ev);
       } else {
-        agentsLog.warn('sse-broker drop (no listener)', {
+        brainSubagentsLog.warn('sse-broker drop (no listener)', {
           sessionId,
           type: ev.type as string | undefined,
         });
@@ -135,7 +189,7 @@ async function main() {
 
   // ── Register local AI tools (OpenClaude-style agents + memory) ──
   // `registerTaskTools` (old create_task_plan / update_task_step / finish_task)
-  // is replaced by the @pipefx/agents TodoWrite + Task* suite.
+  // is replaced by the @pipefx/brain-subagents TodoWrite + Task* suite.
   registerMemoryTools(registry);
 
   // Sub-agent runtime needs an AgentConfig base. Constructed after the
@@ -168,7 +222,7 @@ async function main() {
     agentProfiles: profiles,
   });
 
-  agentsLog.info('wiring agent tools', {
+  brainSubagentsLog.info('wiring agent tools', {
     tempDir: path.join(os.tmpdir(), 'pipefx-agents'),
     builtInAgents: BUILT_IN_AGENTS.length,
     userAgents: userProfiles.length,
@@ -222,41 +276,113 @@ async function main() {
   }
 
   // ΓöÇΓöÇ Mutable state ΓöÇΓöÇ
-  let workflowContext = {
-    registry,
-    ai: new GoogleGenAI({ apiKey: config.geminiApiKey }),
-    openai: new OpenAI({ apiKey: config.openaiApiKey }),
-  };
-
-  let handleSubtitleGenerate = createSubtitleHandler(
-    registry,
-    workflowContext
-  );
+  // Phase 9.3: workflow context construction moved into the package's
+  // `createLocalToolContext` helper. Kept as a `let` because the cloud
+  // mode toggle below replaces the agent in place; the workflow context
+  // doesn't actually mutate today, but the `let` makes the future hot-
+  // swap (when API keys can rotate at runtime) cheap.
+  let workflowContext: LocalToolContext = createLocalToolContext(registry, {
+    geminiApiKey: config.geminiApiKey,
+    openaiApiKey: config.openaiApiKey,
+  });
 
   let agent: Agent = createAgent(baseAgentConfig);
 
-  // ΓöÇΓöÇ Build Router ΓöÇΓöÇ
+  // ── Skills surface (Phase 12 — SKILL.md / three-mode runner) ──
+  // Two roots: a read-only `<workspaceRoot>/SKILL/` for built-ins
+  // (populated by `@pipefx/skills-builtin` in 12.9; today the directory
+  // is optional and may not exist yet), plus the writable user root at
+  // `<workspaceRoot>/data/skills/` where `.pfxskill` bundles unpack.
+  //
+  // The matcher subscribes to `mcp.tools.changed`, `skills.installed`,
+  // and `skills.uninstalled` on the shared bus and recomputes the
+  // availability snapshot on each. The install / uninstall routes are
+  // what publish the latter two — we don't need to nudge the matcher
+  // manually anymore.
+  const skillStore = createSkillMdStorage({
+    userRoot: path.join(config.workspaceRoot, 'data', 'skills'),
+    builtinRoot: path.join(config.workspaceRoot, 'SKILL'),
+  });
+  const skillsMatcher: CapabilityMatcherHandle = createCapabilityMatcher({
+    store: skillStore,
+    bus,
+  });
+
+  const skillsRunStore = createSkillRunStore();
+  const skillsScriptRunner = createScriptRunner();
+  const skillsRunner = createSkillRunner({
+    store: skillStore,
+    runStore: skillsRunStore,
+    matcher: skillsMatcher,
+    // Agent.chat from @pipefx/agent-loop-kernel is a strict superset of
+    // BrainLoopApi.chat — accepts the same {sessionId, allowedTools} shape
+    // and returns Promise<string>. The cast keeps the structural match
+    // explicit without dragging extra plumbing in.
+    brain: { chat: (msg, opts) => agent.chat(msg, opts) },
+    bus,
+    scriptRunner: skillsScriptRunner,
+  });
+
+  // ── Build Router ──
   const router = new Router();
 
-  registerChatRoutes(router, {
+  mountChatRoutes(router, {
     getAgent: () => agent,
     registry,
     sessionALS,
     sseBroker,
-    agentSessions,
+    sessions: createChatSessionStore(),
+    transcript: createTranscriptStore(),
+    taskProgress: createTaskProgressTracker(),
+    logger: createChatLogger(),
+    reminders: createPostRoundReminderFactory(),
+    tasks: createTasksApi(agentSessions),
     planBroker,
     usageStore,
+    buildSystemPrompt: async (skill, activeApp, projectId) => {
+      const s = skill as { systemInstruction?: string } | null | undefined;
+      if (s?.systemInstruction && !activeApp) {
+        return s.systemInstruction;
+      }
+      const projectContext = projectId
+        ? assembleProjectContext(projectId, '') || undefined
+        : undefined;
+      return composeSystemPrompt({
+        activeApp,
+        skillSystemInstruction: s?.systemInstruction,
+        projectContext,
+        legacySections: config.systemPromptLegacy,
+      });
+    },
+    calculateCost,
+    createUsageEvent,
   });
-  registerAgentRoutes(router, {
+  mountPlanningRoutes(router, {
     planBroker,
+    agentSessions,
+  });
+  mountAgentTaskRoutes(router, {
     agentSessions,
     taskOutput,
   });
-  registerTaskRoutes(router);
+  mountMemoryRoutes(router);
+  mountConnectorRoutes(router, { registry });
   registerProjectRoutes(router, { registry });
-  registerMemoryRoutes(router);
-  registerSkillRoutes(router);
-  registerSessionRoutes(router);
+  registerSkillFileRoutes(router);
+  mountSkillRoutes(router, {
+    store: skillStore,
+    runs: skillsRunStore,
+    matcher: skillsMatcher,
+    runner: skillsRunner,
+    bus,
+  });
+
+  // Phase 12.14: register the brain-side `create_skill` tool so the
+  // chat-driven authoring flow can persist a SKILL.md end-to-end. The
+  // connector registry is the brain's tool surface — adding a local tool
+  // here is the same pattern the memory tools use (see registerMemoryTools
+  // below).
+  registerSkillBrainTools(registry, { store: skillStore, bus });
   registerUsageRoutes(router, {
     usageStore,
     getUserId: () => 'local-user', // BYOK: no authenticated user, hardcode local
@@ -266,9 +392,22 @@ async function main() {
     setAgent: (a) => { agent = a; },
     getWorkflowContext: () => workflowContext,
     setWorkflowContext: (ctx) => { workflowContext = ctx; },
-    getSubtitleHandler: () => handleSubtitleGenerate as any,
-    setSubtitleHandler: (h: any) => { handleSubtitleGenerate = h; },
   });
+
+  // Phase 9.3: workflow HTTP routes (subtitles/audio-sync/autopod) moved
+  // out of misc.ts and into the post-production package's mount. Closure
+  // over `workflowContext` so settings-driven swaps still take effect
+  // for in-flight requests.
+  mountWorkflowRoutes(router, {
+    registry,
+    getContext: () => workflowContext,
+  });
+
+  // Phase 9.B: media-gen HTTP routes (/api/ai-models, /api/save-render)
+  // moved out of apps/backend/src/api/ into @pipefx/media-gen. The mount
+  // is parameterless today; pass `saveRender.rendersDir` here once a
+  // user-facing setting exists.
+  mountMediaGenRoutes(router);
 
   // ΓöÇΓöÇ HTTP Server ΓöÇΓöÇ
   const server = createServer(async (req, res) => {
@@ -308,7 +447,7 @@ async function main() {
 // ── Local Tool Registration ──
 // NOTE: `registerTaskTools` (create_task_plan / update_task_step / finish_task)
 // was replaced by the OpenClaude-style TodoWrite + Task* suite provided by
-// `@pipefx/agents` and wired above via `registerAgentTools`.
+// `@pipefx/brain-subagents` and wired above via `registerAgentTools`.
 // `memoryTaskManager` is retained for UI progress-bar integration only.
 
 function registerMemoryTools(registry: ConnectorRegistry) {

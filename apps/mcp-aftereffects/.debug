@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  CEP debug configuration. Lets Chrome DevTools attach to the panel at
+  http://localhost:8088 when AE is running and PlayerDebugMode is enabled
+  (HKEY_CURRENT_USER\Software\Adobe\CSXS.11\PlayerDebugMode = 1).
+-->
+<ExtensionList>
+  <Extension Id="com.pipefx.mcp-aftereffects.panel">
+    <HostList>
+      <Host Name="AEFT" Port="8088" />
+    </HostList>
+  </Extension>
+</ExtensionList>

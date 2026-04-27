@@ -88,7 +88,7 @@ function parseSkillMarkdown(raw: string): Omit<Skill, 'id'> & { id?: string } {
 export async function loadSkills(): Promise<Skill[]> {
   try {
     const ts = new Date().getTime();
-    const indexRes = await fetch(`http://localhost:3001/api/skills/index.json?_t=${ts}`);
+    const indexRes = await fetch(`http://localhost:3001/api/skill-files/index.json?_t=${ts}`);
     if (!indexRes.ok) {
       console.warn('Could not load skills/index.json, using defaults');
       return [DEFAULT_SKILL];
@@ -99,7 +99,7 @@ export async function loadSkills(): Promise<Skill[]> {
 
     for (const filename of filenames) {
       try {
-        const mdRes = await fetch(`http://localhost:3001/api/skills/${filename}?_t=${ts}`);
+        const mdRes = await fetch(`http://localhost:3001/api/skill-files/${filename}?_t=${ts}`);
         if (!mdRes.ok) {
           console.warn(`Could not load skill: ${filename}`);
           continue;

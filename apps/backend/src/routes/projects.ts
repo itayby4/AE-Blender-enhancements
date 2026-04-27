@@ -7,8 +7,8 @@ import {
   getProjectMemories,
   addProjectMemory,
   deleteProjectMemoryByIndex,
-} from '../services/memory/index.js';
-import type { ConnectorRegistry } from '@pipefx/mcp';
+} from '@pipefx/brain-memory';
+import type { ConnectorRegistry } from '@pipefx/connectors';
 
 /**
  * Registers project and active-app-state HTTP routes.

@@ -1,0 +1,91 @@
+{
+  "name": "@pipefx/skills",
+  "version": "0.0.1",
+  "type": "module",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    "./package.json": "./package.json",
+    ".": {
+      "@pipefx/source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    },
+    "./contracts": {
+      "@pipefx/source": "./src/contracts/index.ts",
+      "types": "./dist/contracts/index.d.ts",
+      "import": "./dist/contracts/index.js",
+      "default": "./dist/contracts/index.js"
+    },
+    "./domain": {
+      "@pipefx/source": "./src/domain/index.ts",
+      "types": "./dist/domain/index.d.ts",
+      "import": "./dist/domain/index.js",
+      "default": "./dist/domain/index.js"
+    },
+    "./marketplace": {
+      "@pipefx/source": "./src/marketplace/index.ts",
+      "types": "./dist/marketplace/index.d.ts",
+      "import": "./dist/marketplace/index.js",
+      "default": "./dist/marketplace/index.js"
+    },
+    "./backend": {
+      "@pipefx/source": "./src/backend/index.ts",
+      "types": "./dist/backend/index.d.ts",
+      "import": "./dist/backend/index.js",
+      "default": "./dist/backend/index.js"
+    },
+    "./ui": {
+      "@pipefx/source": "./src/ui/index.ts",
+      "types": "./dist/ui/index.d.ts",
+      "import": "./dist/ui/index.js",
+      "default": "./dist/ui/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "!**/*.tsbuildinfo"
+  ],
+  "dependencies": {
+    "@pipefx/brain-contracts": "workspace:*",
+    "@pipefx/command-palette": "workspace:*",
+    "@pipefx/connectors-contracts": "workspace:*",
+    "@pipefx/event-bus": "workspace:*",
+    "fflate": "^0.8.2",
+    "tslib": "^2.3.0",
+    "yaml": "^2.4.5",
+    "zod": "^3.22.2"
+  },
+  "peerDependencies": {
+    "@monaco-editor/react": "^4.7.0",
+    "monaco-editor": "^0.55.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
+  "peerDependenciesMeta": {
+    "@monaco-editor/react": {
+      "optional": true
+    },
+    "monaco-editor": {
+      "optional": true
+    },
+    "react": {
+      "optional": true
+    },
+    "react-dom": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3"
+  },
+  "nx": {
+    "tags": [
+      "scope:feature",
+      "feature:skills"
+    ]
+  }
+}

@@ -61,5 +61,14 @@ venv/
 # Environment
 .env
 
-# Local data
-data/
+# Local data — ignore contents, not the directory itself, so explicit
+# re-includes below can bring back source-controlled subdirs.
+data/*
+# …but feature-package data layers are source
+!packages/*/src/data/
+!packages/*/src/lib/data/
+# …and example skills are repo-shipped (manifests + built bundles + packager)
+!data/example-skills/
+# …including their dist/ since the .pfxskill bundles ship with the repo
+!data/example-skills/dist/
+!data/example-skills/dist/**

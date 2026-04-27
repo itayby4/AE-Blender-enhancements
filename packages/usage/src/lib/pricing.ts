@@ -7,7 +7,7 @@
  * with Supabase model_pricing data).
  */
 
-import type { UsageData } from '@pipefx/providers';
+import type { UsageData } from '@pipefx/llm-providers';
 import type { ModelPricing, CostResult } from './types.js';
 
 /** 1 credit = $0.0001 USD. 10,000 credits = $1. */

@@ -12,7 +12,7 @@
   "include": ["src/**/*.ts"],
   "references": [
     {
-      "path": "../providers/tsconfig.lib.json"
+      "path": "../llm-providers/tsconfig.lib.json"
     }
   ],
   "exclude": [

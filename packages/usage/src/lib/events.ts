@@ -7,7 +7,7 @@
 
 import { randomUUID } from 'node:crypto';
 import { createHash } from 'node:crypto';
-import type { UsageData } from '@pipefx/providers';
+import type { UsageData } from '@pipefx/llm-providers';
 import type { UsageEvent, CostResult } from './types.js';
 
 /**
