@@ -22,6 +22,33 @@ export type { SelfCheckState };
 /** How many rounds of history to keep when detecting duplicate calls. */
 const CALL_HISTORY_WINDOW = 8;
 
+/**
+ * After this many rounds without a TodoWrite call, re-inject the active todo
+ * list so the model can see its own plan again. Mirrors the cadence Claude
+ * Code uses to nudge itself back on track.
+ */
+const TODO_REPIN_EVERY_ROUNDS = 3;
+
+/**
+ * If the model has fired this many connector tool calls and has never called
+ * TodoWrite, push a hard plan-first reminder. Captures the failure mode where
+ * the model dives straight into execution on a multi-step request.
+ */
+const PLAN_FIRST_TOOL_THRESHOLD = 4;
+
+/**
+ * Tool names that don't count toward "real work" for plan-first nudging.
+ * Calling TodoWrite or entering plan mode is itself the plan, not execution.
+ */
+const NON_EXECUTION_TOOLS = new Set<string>([
+  'TodoWrite',
+  'EnterPlanMode',
+  'ExitPlanMode',
+  'TaskList',
+  'TaskGet',
+  'TaskOutput',
+]);
+
 export function freshSelfCheckState(): SelfCheckState {
   return { roundsSinceLastTodoWrite: 0, recentCalls: [] };
 }
@@ -93,6 +120,27 @@ export function buildPostRoundReminder(
     selfCheck.recentCalls.splice(0, selfCheck.recentCalls.length - CALL_HISTORY_WINDOW * 4);
   }
 
+  // ── Plan-first nudge (works even without a session) ──────────────────────
+  // Count execution-tool calls across the recent window. If the model has
+  // fired ≥ PLAN_FIRST_TOOL_THRESHOLD calls and has never called TodoWrite,
+  // push a hard reminder that planning is the first move.
+  const executionCalls = selfCheck.recentCalls.filter((c) => {
+    const name = c.key.split('|', 1)[0];
+    return !NON_EXECUTION_TOOLS.has(name);
+  }).length;
+  const hasEverWrittenTodos = (session?.todos.length ?? 0) > 0;
+  if (
+    !hasEverWrittenTodos &&
+    executionCalls >= PLAN_FIRST_TOOL_THRESHOLD &&
+    !ctx.toolNames.includes(TOOL_NAME_TOKENS.TODO_WRITE)
+  ) {
+    duplicateReminders.push(
+      `You have already executed ${executionCalls} tool calls without writing a plan. ` +
+        `If this request needs more than three steps, your next action MUST be ${TOOL_NAME_TOKENS.TODO_WRITE} ` +
+        `to record the remaining work. Skip this only if the request is genuinely a single step.`
+    );
+  }
+
   if (!session) {
     return duplicateReminders.length > 0 ? duplicateReminders.join('\n\n') : null;
   }
@@ -101,14 +149,29 @@ export function buildPostRoundReminder(
   const { todos, planMode } = session;
 
   // ── 1. Todo staleness nudge ───────────────────────────────────────────────
-  if (selfCheck.roundsSinceLastTodoWrite >= 3 && todos.length > 0) {
+  if (selfCheck.roundsSinceLastTodoWrite >= TODO_REPIN_EVERY_ROUNDS && todos.length > 0) {
     const pending = todos.filter((t) => t.status !== 'completed');
     if (pending.length > 0) {
+      // Re-pin the active todo list verbatim so the model can see its own plan
+      // again — under long tool-result tails, the original TodoWrite drifts
+      // out of the model's effective attention window.
+      const pinnedList = todos
+        .map((t) => {
+          const mark =
+            t.status === 'completed'
+              ? '[x]'
+              : t.status === 'in_progress'
+              ? '[~]'
+              : '[ ]';
+          const label = t.status === 'in_progress' ? t.activeForm : t.content;
+          return `  ${mark} ${label}`;
+        })
+        .join('\n');
       reminders.push(
         `You have ${pending.length} incomplete todo(s) and haven't called TodoWrite ` +
-          `in ${selfCheck.roundsSinceLastTodoWrite} rounds. ` +
-          `Update your todo list to reflect current progress — ` +
-          `mark the active item in_progress, completed items as completed.`
+          `in ${selfCheck.roundsSinceLastTodoWrite} rounds. Current plan:\n\n${pinnedList}\n\n` +
+          `Update via TodoWrite — mark the active item in_progress, anything finished as completed. ` +
+          `Verify each completion against actual tool results before marking done.`
       );
     }
   }
