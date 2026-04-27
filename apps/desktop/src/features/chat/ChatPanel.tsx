@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef, useEffect, useCallback, type ChangeEvent, type KeyboardEvent } from 'react';
+import { useState, useRef, useEffect, useCallback, type ChangeEvent, type KeyboardEvent } from 'react';
 import {
   Send,
   User,
@@ -34,9 +34,13 @@ import { Button } from '../../components/ui/button.js';
 import { ScrollArea } from '../../components/ui/scroll-area.js';
 import { Textarea } from '../../components/ui/textarea.js';
 import { cn } from '../../lib/utils.js';
+import { getAccessToken } from '@pipefx/auth/ui';
+import { SkillBuilderCard } from '@pipefx/skills/ui';
+import type { InstalledSkill } from '@pipefx/skills/contracts';
 import { parseMessageContent, ChatCard } from '../skills/ChatCard.js';
-import { SkillBuilderCard } from '../skills/SkillBuilderCard.js';
-import { SkillAutocomplete } from '../skills/SkillAutocomplete.js';
+// v1 SkillAutocomplete was retired in 12.10.5 — `SkillQuickFilter`
+// (mounted at app level) replaces it. v1 chat skills still trigger via
+// the `handleSend` regex below.
 import type { TaskDTO } from '@pipefx/tasks';
 import type { Skill } from '../../lib/load-skills.js';
 import { loadSkills } from '../../lib/load-skills.js';
@@ -65,6 +69,10 @@ interface ChatPanelProps {
   onNavigate: (view: string) => void;
   onSkillsReloaded: (skills: Skill[]) => void;
   onPlanNavigate: (content: string) => void;
+  /** Phase 12.14: fired when the inline `SkillBuilderCard` finishes
+   *  installing a fresh chat-authored skill. The host wires this to its
+   *  `useSkills().refresh()` + sets editor state so the user can iterate. */
+  onSkillCreated?: (record: InstalledSkill) => void;
   // History
   chatSessions: ChatSession[];
   onLoadSession: (sessionId: string) => void;
@@ -101,6 +109,7 @@ export function ChatPanel({
   onNavigate,
   onSkillsReloaded,
   onPlanNavigate,
+  onSkillCreated,
   chatSessions,
   onLoadSession,
   onDeleteSession,
@@ -111,8 +120,6 @@ export function ChatPanel({
 }: ChatPanelProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
-  const [isAutocompleteOpen, setIsAutocompleteOpen] = useState(false);
-  const [autocompleteQuery, setAutocompleteQuery] = useState('');
   const [expandedThoughts, setExpandedThoughts] = useState<Set<string>>(new Set());
 
   // Auto-scroll on new messages
@@ -120,10 +127,9 @@ export function ChatPanel({
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, isTyping]);
 
-  const filteredSkills = useMemo(
-    () => skills.filter((s) => !s.compatibleApps || s.compatibleApps.length === 0 || s.compatibleApps.includes(activeApp)),
-    [skills, activeApp]
-  );
+  // `filteredSkills` lived here for the v1 SkillAutocomplete (now
+  // retired). Kept the props (`skills`, `activeApp`) on the interface
+  // for callers; underscore-prefixed to silence unused-var lint.
 
   const toggleThought = (taskId: string) => {
     setExpandedThoughts((prev) => {
@@ -138,25 +144,15 @@ export function ChatPanel({
     const val = e.target.value;
     onChatInputChange(val);
 
-    if (val.startsWith('/') && val.indexOf(' ') === -1) {
-      setIsAutocompleteOpen(true);
-      setAutocompleteQuery(val.substring(1));
-    } else {
-      setIsAutocompleteOpen(false);
-    }
-
     if (selectedSkillId !== 'default' && !val.startsWith('/')) {
       onSelectSkill('default');
     }
   };
 
   const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
-    if (isAutocompleteOpen) {
-      if (['ArrowUp', 'ArrowDown', 'Enter', 'Escape'].includes(e.key)) {
-        e.preventDefault();
-        return;
-      }
-    }
+    // While the v2 SkillQuickFilter is open it intercepts Enter / Esc /
+    // arrows in the capture phase — so we don't need a guard here. A
+    // bare Enter (no Shift, popover closed) submits.
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleSend();
@@ -365,12 +361,19 @@ export function ChatPanel({
                           );
                         }
                         if (part.type === 'skill') {
+                          // Phase 12.14: chat-driven skill author. The
+                          // assistant emits a fenced ```md block with v2
+                          // SKILL.md frontmatter; SkillBuilderCard parses
+                          // it, shows id/name/mode badges + a Save button,
+                          // and POSTs `/api/skills/install-text`. Replaces
+                          // the 12.2 stub `<pre>` with the real card.
                           return (
                             <SkillBuilderCard
                               key={i}
                               content={part.content}
-                              onSkillSaved={() => {
-                                loadSkills().then(onSkillsReloaded);
+                              getToken={getAccessToken}
+                              onSaved={(record) => {
+                                onSkillCreated?.(record);
                               }}
                             />
                           );
@@ -485,26 +488,8 @@ export function ChatPanel({
       {/* Input Area — elevated glass effect */}
       <div className="px-3 py-3 @[360px]:p-4 border-t border-border/50 shrink-0" style={{ background: 'linear-gradient(to top, var(--card), transparent)' }}>
         <div className="relative chat-content-width mx-auto">
-          {isAutocompleteOpen && (
-            <SkillAutocomplete
-              skills={filteredSkills}
-              query={autocompleteQuery}
-              onSelect={(skill) => {
-                setIsAutocompleteOpen(false);
-                onSelectSkill(skill.id);
-                if (skill.hasUI) {
-                  onChatInputChange('');
-                  onNavigate(skill.id);
-                } else {
-                  onChatInputChange(`/${skill.triggerCommand || skill.id} `);
-                }
-              }}
-              onDismiss={() => {
-                setIsAutocompleteOpen(false);
-                onChatInputChange('');
-              }}
-            />
-          )}
+          {/* v1 SkillAutocomplete retired in 12.10.5 — replaced by
+              `SkillQuickFilter`, mounted at the app shell. */}
           <div className="relative flex items-end">
             <Textarea
               id="chat-input"

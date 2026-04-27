@@ -219,6 +219,9 @@ importers:
       '@pipefx/chat':
         specifier: workspace:*
         version: link:../../packages/chat
+      '@pipefx/command-palette':
+        specifier: workspace:*
+        version: link:../../packages/command-palette
       '@pipefx/connectors':
         specifier: workspace:*
         version: link:../../packages/connectors
@@ -231,6 +234,9 @@ importers:
       '@pipefx/skills':
         specifier: workspace:*
         version: link:../../packages/skills
+      '@pipefx/skills-builtin':
+        specifier: workspace:*
+        version: link:../../packages/skills-builtin
       '@pipefx/tasks':
         specifier: workspace:*
         version: link:../../packages/tasks
@@ -356,12 +362,6 @@ importers:
       typescript:
         specifier: ^5.2.2
         version: 5.9.3
-
-  data/example-skills:
-    dependencies:
-      '@pipefx/skills':
-        specifier: workspace:*
-        version: link:../../packages/skills
 
   packages/agent-loop-kernel:
     dependencies:
@@ -539,6 +539,25 @@ importers:
       tslib:
         specifier: ^2.3.0
         version: 2.8.1
+
+  packages/command-palette:
+    dependencies:
+      react:
+        specifier: ^19.0.0
+        version: 19.2.4
+      react-dom:
+        specifier: ^19.0.0
+        version: 19.2.4(react@19.2.4)
+      tslib:
+        specifier: ^2.3.0
+        version: 2.8.1
+    devDependencies:
+      '@types/react':
+        specifier: ^19.2.14
+        version: 19.2.14
+      '@types/react-dom':
+        specifier: ^19.2.3
+        version: 19.2.3(@types/react@19.2.14)
 
   packages/connectors:
     dependencies:
@@ -731,6 +750,9 @@ importers:
       '@pipefx/brain-contracts':
         specifier: workspace:*
         version: link:../brain-contracts
+      '@pipefx/command-palette':
+        specifier: workspace:*
+        version: link:../command-palette
       '@pipefx/connectors-contracts':
         specifier: workspace:*
         version: link:../connectors-contracts
@@ -755,6 +777,46 @@ importers:
       zod:
         specifier: ^3.22.2
         version: 3.25.76
+    devDependencies:
+      '@types/react':
+        specifier: ^19.2.14
+        version: 19.2.14
+      '@types/react-dom':
+        specifier: ^19.2.3
+        version: 19.2.3(@types/react@19.2.14)
+
+  packages/skills-builtin:
+    dependencies:
+      '@base-ui/react':
+        specifier: ^1.2.0
+        version: 1.2.0(@types/react@19.2.14)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
+      '@pipefx/skills':
+        specifier: workspace:*
+        version: link:../skills
+      '@tauri-apps/plugin-dialog':
+        specifier: ^2.7.0
+        version: 2.7.0
+      class-variance-authority:
+        specifier: ^0.7.1
+        version: 0.7.1
+      clsx:
+        specifier: ^2.1.1
+        version: 2.1.1
+      lucide-react:
+        specifier: ^0.575.0
+        version: 0.575.0(react@19.2.4)
+      react:
+        specifier: ^19.0.0
+        version: 19.2.4
+      react-dom:
+        specifier: ^19.0.0
+        version: 19.2.4(react@19.2.4)
+      tailwind-merge:
+        specifier: ^3.5.0
+        version: 3.5.0
+      tslib:
+        specifier: ^2.3.0
+        version: 2.8.1
     devDependencies:
       '@types/react':
         specifier: ^19.2.14

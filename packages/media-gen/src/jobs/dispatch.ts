@@ -42,6 +42,10 @@ export async function dispatchMediaGen(
     duration,
     resolution,
     aspectRatio,
+    quality,
+    background,
+    outputFormat,
+    outputCompression,
     voiceId,
     audioRef,
   } = req;
@@ -70,6 +74,10 @@ export async function dispatchMediaGen(
     return imageProvider.generate(prompt, {
       imageRefs: imageRefs ?? (imageRef ? [imageRef] : undefined),
       aspectRatio,
+      quality,
+      background,
+      outputFormat,
+      outputCompression,
     });
   }
 

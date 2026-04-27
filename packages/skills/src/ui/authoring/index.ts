@@ -1,46 +1,29 @@
-// ── @pipefx/skills/ui — authoring barrel ─────────────────────────────────
-// Public surface for the in-app skill authoring UI. Exposed under the
-// existing `./ui` subpath (no new package export — consumers already pull
-// from `@pipefx/skills/ui` for hooks + library widgets).
+// ── @pipefx/skills/ui/authoring ──────────────────────────────────────────
+// Phase 12.12 surface. Exposes the scaffold dialog + Monaco-backed editor
+// + a `CommandSource` factory the host registers with
+// `@pipefx/command-palette`.
+
+export { ScaffoldDialog, type ScaffoldDialogProps } from './ScaffoldDialog.js';
+export { SkillEditor, type SkillEditorProps } from './SkillEditor.js';
+export {
+  SkillBuilderCard,
+  type SkillBuilderCardProps,
+} from './SkillBuilderCard.js';
 
 export {
-  draftToManifestInput,
-  emptyDraft,
-  emptyDraftCapability,
-  emptyDraftInput,
-  extractTemplateVariables,
-  manifestToDraft,
-  synthesizeSampleValues,
-  validateDraft,
-  type DraftCapability,
-  type DraftInput,
-  type DraftValidation,
-  type ExtractedVariable,
-  type SkillDraft,
-} from './draft.js';
+  useScaffoldSkill,
+  type ScaffoldRequest,
+  type UseScaffoldSkillOptions,
+  type UseScaffoldSkillResult,
+} from './useScaffoldSkill.js';
 
 export {
-  useSkillDraft,
-  type UseSkillDraftOptions,
-  type UseSkillDraftResult,
-} from './use-skill-draft.js';
+  useSkillSource,
+  type UseSkillSourceOptions,
+  type UseSkillSourceResult,
+} from './useSkillSource.js';
 
 export {
-  ManifestIdentityFields,
-  type ManifestIdentityFieldsProps,
-} from './ManifestIdentityFields.js';
-
-export {
-  InputSchemaBuilder,
-  type InputSchemaBuilderProps,
-} from './InputSchemaBuilder.js';
-
-export {
-  CapabilityPicker,
-  type CapabilityPickerProps,
-} from './CapabilityPicker.js';
-
-export {
-  TemplatePreview,
-  type TemplatePreviewProps,
-} from './TemplatePreview.js';
+  createAuthoringSource,
+  type CreateAuthoringSourceOptions,
+} from './createAuthoringSource.js';

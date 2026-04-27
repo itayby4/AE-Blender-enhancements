@@ -137,4 +137,54 @@ body
       /failed to parse SKILL.md/
     );
   });
+
+  it('parses the new requires.tools[] / optional[] shape end-to-end', () => {
+    const source = `---
+id: subtitles
+name: Subtitles
+description: End-to-end requires shape.
+requires:
+  tools:
+    - render_clip
+    - name: import_subtitle_track
+      connector:
+        - resolve
+        - premiere
+  optional:
+    - burn_in_subtitles
+---
+
+Body.
+`;
+    const loaded = parseSkillMdOrThrow(source);
+    const tools = loaded.frontmatter.requires?.tools ?? [];
+    expect(tools[0]).toBe('render_clip');
+    expect(tools[1]).toEqual({
+      name: 'import_subtitle_track',
+      connector: ['resolve', 'premiere'],
+    });
+    expect(loaded.frontmatter.requires?.optional).toEqual(['burn_in_subtitles']);
+  });
+
+  it('rejects the legacy requires.capabilities[] field at the parser layer', () => {
+    const source = `---
+id: legacy
+name: Legacy
+description: Should fail.
+requires:
+  tools:
+    - render_clip
+  capabilities:
+    - resolve | premiere
+---
+
+Body.
+`;
+    const result = parseSkillMd(source);
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error.kind).toBe('invalid-frontmatter');
+      expect(result.error.message).toMatch(/capabilities/);
+    }
+  });
 });

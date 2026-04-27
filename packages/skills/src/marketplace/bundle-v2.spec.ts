@@ -9,10 +9,13 @@ import { zipSync } from 'fflate';
 import {
   createSkillBundleV2,
   parseSkillBundleV2,
+  signSkillBundle,
+  verifySkillBundle,
   SKILL_MD_FILENAME,
   SIGNING_MANIFEST_FILENAME,
   BUNDLE_V2_SCHEMA_VERSION,
 } from './bundle-v2.js';
+import { generateEd25519Keypair } from '../domain/signing.js';
 
 const minimalSkillMd = `---
 id: minimal
@@ -184,5 +187,59 @@ body
       resources: [{ path: 'x.txt', content: new TextEncoder().encode('hi') }],
     });
     expect(a).toEqual(b);
+  });
+
+  it('parseSkillBundleV2 retains the raw SKILL.md text', () => {
+    const bytes = createSkillBundleV2({ skillMd: minimalSkillMd });
+    const result = parseSkillBundleV2(bytes);
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.bundle.skillMdSource).toBe(minimalSkillMd);
+    }
+  });
+});
+
+describe('signSkillBundle / verifySkillBundle', () => {
+  it('round-trips a freshly signed bundle', async () => {
+    const { privateKey } = await generateEd25519Keypair();
+    const unsigned = createSkillBundleV2({
+      skillMd: minimalSkillMd,
+      resources: [
+        { path: 'scripts/run.py', content: new TextEncoder().encode('hi') },
+      ],
+    });
+    const signed = await signSkillBundle(unsigned, privateKey);
+    const parsed = parseSkillBundleV2(signed);
+    expect(parsed.ok).toBe(true);
+    if (!parsed.ok) return;
+    expect(parsed.bundle.signing).toBeDefined();
+    const result = await verifySkillBundle(parsed.bundle);
+    expect(result.ok).toBe(true);
+  });
+
+  it('verifySkillBundle returns "unsigned" when no sidecar is present', async () => {
+    const bytes = createSkillBundleV2({ skillMd: minimalSkillMd });
+    const parsed = parseSkillBundleV2(bytes);
+    expect(parsed.ok).toBe(true);
+    if (!parsed.ok) return;
+    const result = await verifySkillBundle(parsed.bundle);
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error).toMatch(/unsigned/);
+  });
+
+  it('verifySkillBundle rejects a bundle whose SKILL.md was tampered with after signing', async () => {
+    const { privateKey } = await generateEd25519Keypair();
+    const unsigned = createSkillBundleV2({ skillMd: minimalSkillMd });
+    const signed = await signSkillBundle(unsigned, privateKey);
+    const parsed = parseSkillBundleV2(signed);
+    expect(parsed.ok).toBe(true);
+    if (!parsed.ok) return;
+    // Swap the SKILL.md source while keeping the original signature.
+    const tamperedBundle = {
+      ...parsed.bundle,
+      skillMdSource: parsed.bundle.skillMdSource + '\nappend\n',
+    };
+    const result = await verifySkillBundle(tamperedBundle);
+    expect(result.ok).toBe(false);
   });
 });

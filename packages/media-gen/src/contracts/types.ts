@@ -54,6 +54,16 @@ export interface MediaGenRequest {
   /** Aspect ratio token (e.g. `16:9`, `9:16`, `1:1`). */
   aspectRatio?: string;
 
+  // ── Image-specific (GPT Image 2 today; safe to ignore for others) ──
+  /** Render quality. `auto` lets the provider pick. */
+  quality?: 'auto' | 'low' | 'medium' | 'high';
+  /** Background handling — `transparent` only valid with PNG/WebP output. */
+  background?: 'auto' | 'transparent' | 'opaque';
+  /** Output file format. */
+  outputFormat?: 'png' | 'jpeg' | 'webp';
+  /** JPEG / WebP compression 0–100. Ignored for PNG. */
+  outputCompression?: number;
+
   // ── Sound-specific ──
   /** ElevenLabs voice id; falls back to provider default. */
   voiceId?: string;

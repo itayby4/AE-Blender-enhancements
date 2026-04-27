@@ -2,18 +2,25 @@
 // Lifecycle records for skill executions. Mirrors the pattern used by the
 // brain-tasks task store: in-memory ring buffer keyed by skillId, capped so
 // long sessions don't unbounded-grow. Persistence to disk is intentionally
-// out of scope for v1 — run history rebuilds on backend restart, which
-// matches user expectation since the linked chat session also resets.
+// out of scope — run history rebuilds on backend restart, which matches
+// user expectation since the linked chat session also resets.
 //
-// The runner calls `start` / `finish` / `fail` synchronously; the routes
-// expose `list` for the desktop UI's recent-runs panel.
+// The store is mode-agnostic: the runner stamps `mode` (and, for the
+// `component` mode, a `mountInstruction`) when calling `start`, and the
+// store hands them back verbatim. The runner itself decides which mode a
+// run resolves to via `resolveExecutionMode(frontmatter)`.
 
-import type { SkillRunStore } from '../../contracts/api.js';
 import type {
-  SkillId,
+  SkillMountInstruction,
+  SkillRunId,
   SkillRunRecord,
   SkillRunRequest,
-} from '../../contracts/types.js';
+  SkillRunStore,
+} from '../../contracts/api.js';
+import type {
+  SkillExecutionMode,
+  SkillId,
+} from '../../contracts/skill-md.js';
 
 // ── Public types ─────────────────────────────────────────────────────────
 
@@ -59,14 +66,22 @@ export function createSkillRunStore(
   }
 
   return {
-    start(req: SkillRunRequest, sessionId: string | null): SkillRunRecord {
-      const id = generateId();
+    start(
+      req: SkillRunRequest,
+      sessionId: string | null,
+      mode: SkillExecutionMode,
+      mountInstruction?: SkillMountInstruction,
+      runId?: SkillRunId
+    ): SkillRunRecord {
+      const id = runId ?? generateId();
       const record: SkillRunRecord = {
         id,
         skillId: req.skillId,
+        mode,
         sessionId,
         status: 'running',
         startedAt: now(),
+        ...(mountInstruction ? { mountInstruction } : {}),
       };
       records.set(id, record);
       evictIfNeeded();
@@ -92,6 +107,9 @@ export function createSkillRunStore(
       };
       records.set(runId, updated);
       return updated;
+    },
+    get(runId): SkillRunRecord | null {
+      return records.get(runId) ?? null;
     },
     list(skillId?: SkillId, limit = 50): SkillRunRecord[] {
       const all = [...records.values()];

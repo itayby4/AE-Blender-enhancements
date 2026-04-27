@@ -438,8 +438,14 @@ export async function runChatStream(
       outputChars: text?.length ?? 0,
     });
 
-    deps.transcript.append(resolvedSessionId, 'assistant', text || '');
-    emitTerminal({ type: 'done', text, sessionId: resolvedSessionId });
+    const { text: cleanText, actions } = extractPipelineActions(text || '');
+    deps.transcript.append(resolvedSessionId, 'assistant', cleanText);
+    emitTerminal({
+      type: 'done',
+      text: cleanText,
+      sessionId: resolvedSessionId,
+      actions,
+    });
   } catch (agentError) {
     deps.taskProgress.finish(resolvedTaskId, 'error');
     const msg =

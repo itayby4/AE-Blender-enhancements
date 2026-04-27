@@ -87,7 +87,16 @@ export function usePipelineExecutor() {
         )
           return;
 
-        const { model, ratio, duration, resolution } = currentNode.data;
+        const {
+          model,
+          ratio,
+          duration,
+          resolution,
+          quality,
+          background,
+          outputFormat,
+          outputCompression,
+        } = currentNode.data as Record<string, unknown>;
 
         // Extract required data (prompts, references) from upstream parents
         let resolvedPrompt = currentNode.data.prompt || '';
@@ -185,6 +194,14 @@ export function usePipelineExecutor() {
             aspectRatio: selectedRatio as string,
             duration: selectedDuration as string,
             resolution: selectedResolution as string,
+            // GPT Image 2 params (other models ignore them on the backend).
+            quality: quality as MediaGenRequest['quality'],
+            background: background as MediaGenRequest['background'],
+            outputFormat: outputFormat as MediaGenRequest['outputFormat'],
+            outputCompression:
+              typeof outputCompression === 'number'
+                ? outputCompression
+                : undefined,
           };
           const response = await fetch('http://localhost:3001/api/ai-models', {
             method: 'POST',

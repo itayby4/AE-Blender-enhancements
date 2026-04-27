@@ -28,6 +28,13 @@ import { unzipSync, zipSync } from 'fflate';
 
 import type { LoadedSkill } from '../contracts/skill-md.js';
 import { parseSkillMd } from '../domain/skill-md-parser.js';
+import {
+  buildCanonicalPayload,
+  signCanonicalPayload,
+  verifyCanonicalPayload,
+  type SkillBundleSignature,
+  type VerifySignatureResult,
+} from '../domain/signing.js';
 
 // ── Wire constants ───────────────────────────────────────────────────────
 
@@ -58,6 +65,11 @@ export interface ParsedSkillBundleSigning {
 
 export interface ParsedSkillBundleV2 {
   loaded: LoadedSkill;
+  /** Raw SKILL.md UTF-8 text as it sat in the zip. Retained verbatim so
+   *  signature verification can hash the exact bytes that were signed
+   *  (the canonical re-render in `skill-md-storage.ts` is lossy for
+   *  whitespace / comments and can drift from the original). */
+  skillMdSource: string;
   /** Everything in the zip except the SKILL.md and the signing sidecar. */
   resources: ParsedSkillBundleResource[];
   signing?: ParsedSkillBundleSigning;
@@ -188,11 +200,67 @@ export function parseSkillBundleV2(
     ok: true,
     bundle: {
       loaded: parsed.loaded,
+      skillMdSource,
       resources,
       ...(signing ? { signing } : {}),
     },
   };
 }
+
+// ── Sign / verify (Phase 12.13) ──────────────────────────────────────────
+
+/**
+ * Sign an existing `.pfxskill` v2 byte stream and return a new bundle
+ * with the embedded `pfxskill.json` sidecar. Used by the build step
+ * that signs the three built-in bundles in CI and by tooling that
+ * re-signs after editing.
+ *
+ * Round-trip: `parseSkillBundleV2(signSkillBundle(bytes, key)).bundle.signing`
+ * is non-null, and `verifySkillBundle` on the same bundle returns
+ * `{ ok: true }`.
+ */
+export async function signSkillBundle(
+  bytes: Uint8Array,
+  privateKey: Uint8Array
+): Promise<Uint8Array> {
+  const parsed = parseSkillBundleV2(bytes);
+  if (!parsed.ok) {
+    throw new Error(`cannot sign invalid bundle: ${parsed.error}`);
+  }
+  const payload = await buildCanonicalPayload({
+    skillMd: parsed.bundle.skillMdSource,
+    resources: parsed.bundle.resources,
+  });
+  const signing = await signCanonicalPayload(payload, privateKey);
+  return createSkillBundleV2({
+    skillMd: parsed.bundle.skillMdSource,
+    resources: parsed.bundle.resources,
+    signing,
+  });
+}
+
+/**
+ * Verify the embedded signing sidecar against the canonical payload
+ * recomputed from the bundle's SKILL.md + resources. Returns the same
+ * discriminated result shape as `verifyCanonicalPayload`. Bundles
+ * without a sidecar return `{ ok: false, error: 'unsigned' }` — the
+ * install route uses that to decide whether `signed: true` lands in
+ * the index.
+ */
+export async function verifySkillBundle(
+  bundle: ParsedSkillBundleV2
+): Promise<VerifySignatureResult> {
+  if (!bundle.signing) {
+    return { ok: false, error: 'bundle is unsigned' };
+  }
+  const payload = await buildCanonicalPayload({
+    skillMd: bundle.skillMdSource,
+    resources: bundle.resources,
+  });
+  return verifyCanonicalPayload(payload, bundle.signing);
+}
+
+export type { SkillBundleSignature, VerifySignatureResult };
 
 /**
  * Create a `.pfxskill` v2 byte stream from a SKILL.md source + resources.

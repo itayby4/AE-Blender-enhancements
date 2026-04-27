@@ -41,8 +41,22 @@ export const gptImage2Provider: ImageProvider = {
     prompt: string,
     options?: ImageOptions
   ): Promise<{ id: string; status: string; url?: string; type?: string }> {
-    const { imageRefs, aspectRatio = '16:9' } = options || {};
+    const {
+      imageRefs,
+      aspectRatio = '16:9',
+      quality = 'auto',
+      background = 'auto',
+      outputFormat,
+      outputCompression,
+    } = options || {};
     const size = ASPECT_TO_SIZE[aspectRatio] || 'auto';
+
+    // Transparent background only meaningful with PNG/WebP — silently
+    // downgrade if the user picked transparent + JPEG.
+    const resolvedBackground =
+      background === 'transparent' && outputFormat === 'jpeg'
+        ? 'opaque'
+        : background;
 
     const apiKey = process.env.OPENAI_API_KEY;
     if (!apiKey) {
@@ -55,8 +69,34 @@ export const gptImage2Provider: ImageProvider = {
     const model = process.env.OPENAI_IMAGE_MODEL || 'gpt-image-2';
 
     console.log(
-      `[IMAGE-GEN] Calling ${model} with prompt: "${prompt}" | size: ${size}`
+      `[IMAGE-GEN] Calling ${model} with prompt: "${prompt}" | size: ${size} | quality: ${quality} | background: ${resolvedBackground} | format: ${
+        outputFormat ?? 'default'
+      }`
     );
+
+    // Build the params object once. The OpenAI SDK rejects keys whose
+    // value is `undefined` for some image-edit overloads, so we only set
+    // a key if the caller actually picked a value.
+    type ImageParams = {
+      model: string;
+      prompt: string;
+      size: typeof size;
+      quality?: 'auto' | 'low' | 'medium' | 'high';
+      background?: 'auto' | 'transparent' | 'opaque';
+      output_format?: 'png' | 'jpeg' | 'webp';
+      output_compression?: number;
+    };
+    const baseParams: ImageParams = { model, prompt, size };
+    if (quality !== 'auto') baseParams.quality = quality;
+    if (resolvedBackground !== 'auto') baseParams.background = resolvedBackground;
+    if (outputFormat) baseParams.output_format = outputFormat;
+    if (
+      outputCompression !== undefined &&
+      outputFormat &&
+      outputFormat !== 'png'
+    ) {
+      baseParams.output_compression = outputCompression;
+    }
 
     try {
       let response;
@@ -65,17 +105,11 @@ export const gptImage2Provider: ImageProvider = {
           imageRefs.map((ref, i) => refToUploadable(ref, i))
         );
         response = await client.images.edit({
-          model,
-          prompt,
+          ...baseParams,
           image: images.length === 1 ? images[0] : images,
-          size,
         });
       } else {
-        response = await client.images.generate({
-          model,
-          prompt,
-          size,
-        });
+        response = await client.images.generate(baseParams);
       }
 
       const first = response.data?.[0];
@@ -83,8 +117,9 @@ export const gptImage2Provider: ImageProvider = {
         throw new Error('GPT Image 2 returned an empty image list');
       }
 
+      const mime = `image/${outputFormat ?? 'png'}`;
       const imageUrl = first.b64_json
-        ? `data:image/png;base64,${first.b64_json}`
+        ? `data:${mime};base64,${first.b64_json}`
         : (first.url as string);
 
       console.log(`[IMAGE-GEN] GPT Image 2 generated successfully!`);

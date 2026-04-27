@@ -5,6 +5,11 @@
 @import '@fontsource-variable/jetbrains-mono';
 @plugin '@tailwindcss/typography';
 
+@source '../../../packages/node-system/src/**/*.{ts,tsx}';
+@source '../../../packages/connectors/src/**/*.{ts,tsx}';
+@source '../../../packages/skills/src/**/*.{ts,tsx}';
+@source '../../../packages/skills-builtin/src/**/*.{ts,tsx}';
+
 @custom-variant dark (&:is(.dark *));
 
 /* ═══════════════════════════════════════════════════════════════

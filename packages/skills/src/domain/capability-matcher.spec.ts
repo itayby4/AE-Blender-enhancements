@@ -1,285 +1,428 @@
-// ── @pipefx/skills/domain — capability-matcher tests ─────────────────────
-// Verifies the matching rule against the documented MCP scenarios from
-// phase-07-skills.md ("no MCPs, one MCP, multi-MCP, MCP connecting /
-// disconnecting mid-session"), plus the requirement-shape variants the
-// manifest schema admits (connectorId-only, toolName-only, both).
-
-import { describe, expect, it, vi } from 'vitest';
+// ── @pipefx/skills/domain — capability matcher tests ────────────────────
+// Two layers: pure helpers (`isToolSatisfied`, `computeAvailability`) get
+// table-driven coverage; the reactive `createCapabilityMatcher` gets
+// integration tests against a real `@pipefx/event-bus` instance and a
+// hand-rolled in-memory store. No filesystem, no fake timers — the matcher
+// has no time-based behavior of its own.
 
 import type {
   McpEventMap,
-  McpToolsChangedEvent,
   ToolDescriptor,
 } from '@pipefx/connectors-contracts';
-import { createEventBus } from '@pipefx/event-bus';
+import { createEventBus, type EventBus } from '@pipefx/event-bus';
+import { describe, it, expect } from 'vitest';
 
-import { parseManifestOrThrow } from './manifest-schema.js';
+import type {
+  InstalledSkill,
+  SkillAvailability,
+  SkillStore,
+} from '../contracts/api.js';
+import type { SkillEventMap } from '../contracts/events.js';
+import type {
+  LoadedSkill,
+  SkillFrontmatter,
+  SkillRequires,
+} from '../contracts/skill-md.js';
+
 import {
   computeAvailability,
   createCapabilityMatcher,
+  isToolSatisfied,
 } from './capability-matcher.js';
-import type { SkillEventMap } from '../contracts/events.js';
-import type { SkillManifest } from '../contracts/types.js';
 
-// ── Fixtures ─────────────────────────────────────────────────────────────
+// ── Helpers ──────────────────────────────────────────────────────────────
 
-function makeSkill(
+type Bus = EventBus<McpEventMap & SkillEventMap>;
+
+const tool = (
+  name: string,
+  connectorId: ToolDescriptor['connectorId'] = 'resolve'
+): ToolDescriptor => ({
+  name,
+  connectorId,
+  inputSchema: {},
+});
+
+function makeFrontmatter(
   id: string,
-  capabilities: SkillManifest['requires']['capabilities']
-): SkillManifest {
-  return parseManifestOrThrow({
-    schemaVersion: 1,
-    id,
-    version: '1.0.0',
-    name: id,
-    description: `${id} description`,
-    inputs: [],
-    prompt: 'Do the thing.',
-    requires: { capabilities },
-  });
-}
-
-const llmOnly = makeSkill('summarize', []);
-const cutToBeat = makeSkill('cut-to-beat', [
-  { connectorId: 'resolve', toolName: 'add_timeline_marker' },
-]);
-const anyAbletonTool = makeSkill('ableton-summary', [
-  { connectorId: 'ableton' },
-]);
-const anyConnectorWithDetect = makeSkill('detect-anywhere', [
-  { toolName: 'detect_beats' },
-]);
-
-function tool(connectorId: string, name: string): ToolDescriptor {
-  return { connectorId, name, inputSchema: {} };
-}
-
-function toolsChanged(
-  tools: ToolDescriptor[],
-  activeConnectors: string[]
-): McpToolsChangedEvent {
+  requires?: SkillRequires
+): SkillFrontmatter {
   return {
-    type: 'mcp.tools.changed',
-    tools,
-    activeConnectors,
-    timestamp: 0,
+    id,
+    name: id,
+    description: `${id} test skill`,
+    requires,
   };
 }
 
-// ── Pure helper ──────────────────────────────────────────────────────────
+function makeSkill(
+  id: string,
+  requires?: SkillRequires
+): InstalledSkill {
+  const loaded: LoadedSkill = {
+    frontmatter: makeFrontmatter(id, requires),
+    body: '',
+  };
+  return {
+    loaded,
+    source: 'local',
+    signed: false,
+    installedAt: 0,
+    installPath: `/fake/${id}`,
+  };
+}
 
-describe('computeAvailability', () => {
-  it('marks an LLM-only skill runnable with no MCPs connected', () => {
-    const result = computeAvailability([llmOnly], []);
-    expect(result).toEqual([
-      { skillId: 'summarize', runnable: true, missing: [] },
-    ]);
-  });
+/** Minimal in-memory store. The matcher only calls `list()`, but the rest
+ *  of `SkillStore` must type-check. */
+function makeStore(initial: InstalledSkill[] = []): SkillStore & {
+  set(skills: InstalledSkill[]): void;
+} {
+  let skills = [...initial];
+  return {
+    list: () => skills,
+    get: (id) => skills.find((s) => s.loaded.frontmatter.id === id) ?? null,
+    install: () => {
+      throw new Error('not used in this test');
+    },
+    uninstall: () => false,
+    set(next) {
+      skills = [...next];
+    },
+  };
+}
 
-  it('marks a connector-bound skill unavailable when its MCP is offline', () => {
-    const result = computeAvailability([cutToBeat], []);
-    expect(result[0].runnable).toBe(false);
-    expect(result[0].missing).toEqual([
-      { connectorId: 'resolve', toolName: 'add_timeline_marker' },
-    ]);
-  });
+// ── isToolSatisfied (pure) ───────────────────────────────────────────────
 
-  it('marks a connector-bound skill runnable once its tool is present', () => {
-    const result = computeAvailability(
-      [cutToBeat],
-      [tool('resolve', 'add_timeline_marker')]
+describe('isToolSatisfied', () => {
+  it('bare-string requirement matches any connector exposing the tool', () => {
+    expect(isToolSatisfied('render_clip', [tool('render_clip', 'resolve')])).toBe(
+      true
     );
-    expect(result[0].runnable).toBe(true);
-    expect(result[0].missing).toEqual([]);
+    expect(
+      isToolSatisfied('render_clip', [tool('render_clip', 'premiere')])
+    ).toBe(true);
+    expect(isToolSatisfied('render_clip', [tool('other')])).toBe(false);
+    expect(isToolSatisfied('render_clip', [])).toBe(false);
   });
 
-  it('matches a connectorId-only requirement against any tool from that connector', () => {
-    const offline = computeAvailability([anyAbletonTool], []);
-    expect(offline[0].runnable).toBe(false);
-    const online = computeAvailability(
-      [anyAbletonTool],
-      [tool('ableton', 'play_clip')]
-    );
-    expect(online[0].runnable).toBe(true);
+  it('object requirement without connector[] matches any connector', () => {
+    expect(
+      isToolSatisfied(
+        { name: 'render_clip' },
+        [tool('render_clip', 'premiere')]
+      )
+    ).toBe(true);
   });
 
-  it('matches a toolName-only requirement across connectors', () => {
-    const result = computeAvailability(
-      [anyConnectorWithDetect],
-      [tool('audio-utils', 'detect_beats')]
-    );
-    expect(result[0].runnable).toBe(true);
+  it('object requirement with empty connector[] is treated as any', () => {
+    expect(
+      isToolSatisfied(
+        { name: 'render_clip', connector: [] },
+        [tool('render_clip', 'premiere')]
+      )
+    ).toBe(true);
   });
 
-  it('keeps an unrelated connector from satisfying a connector-bound skill', () => {
-    const result = computeAvailability(
-      [cutToBeat],
-      [tool('ableton', 'add_timeline_marker')]
-    );
-    expect(result[0].runnable).toBe(false);
+  it('object requirement with connector[] only matches listed connectors', () => {
+    const req = {
+      name: 'import_subtitle_track',
+      connector: ['resolve', 'premiere'],
+    };
+    expect(
+      isToolSatisfied(req, [tool('import_subtitle_track', 'resolve')])
+    ).toBe(true);
+    expect(
+      isToolSatisfied(req, [tool('import_subtitle_track', 'premiere')])
+    ).toBe(true);
+    expect(
+      isToolSatisfied(req, [tool('import_subtitle_track', 'final-cut')])
+    ).toBe(false);
   });
 
-  it('partitions a multi-skill set across a multi-connector tool surface', () => {
-    const result = computeAvailability(
-      [llmOnly, cutToBeat, anyAbletonTool],
-      [
-        tool('resolve', 'add_timeline_marker'),
-        tool('ableton', 'play_clip'),
-      ]
-    );
-    expect(result.map((r) => [r.skillId, r.runnable])).toEqual([
-      ['summarize', true],
-      ['cut-to-beat', true],
-      ['ableton-summary', true],
-    ]);
+  it('returns false when the tool name does not match', () => {
+    expect(
+      isToolSatisfied(
+        { name: 'import_subtitle_track', connector: ['resolve'] },
+        [tool('render_clip', 'resolve')]
+      )
+    ).toBe(false);
   });
 });
 
-// ── Reactive matcher ─────────────────────────────────────────────────────
+// ── computeAvailability (pure) ───────────────────────────────────────────
+
+describe('computeAvailability', () => {
+  it('marks a skill with no requires.tools[] as runnable', () => {
+    const skills = [makeSkill('no-reqs')];
+    const result = computeAvailability(skills, []);
+    expect(result).toEqual<ReadonlyArray<SkillAvailability>>([
+      {
+        skillId: 'no-reqs',
+        runnable: true,
+        missing: [],
+        optionalPresent: [],
+      },
+    ]);
+  });
+
+  it('marks a skill runnable when every required tool is present', () => {
+    const skills = [
+      makeSkill('subs', {
+        tools: [
+          'render_clip',
+          { name: 'import_subtitle_track', connector: ['resolve'] },
+        ],
+      }),
+    ];
+    const tools = [
+      tool('render_clip', 'resolve'),
+      tool('import_subtitle_track', 'resolve'),
+    ];
+    const [snapshot] = computeAvailability(skills, tools);
+    expect(snapshot.runnable).toBe(true);
+    expect(snapshot.missing).toEqual([]);
+  });
+
+  it('reports the missing entries (not just the count) when something is absent', () => {
+    const skills = [
+      makeSkill('subs', {
+        tools: [
+          'render_clip',
+          { name: 'import_subtitle_track', connector: ['resolve'] },
+        ],
+      }),
+    ];
+    const [snapshot] = computeAvailability(skills, [
+      tool('render_clip', 'resolve'),
+    ]);
+    expect(snapshot.runnable).toBe(false);
+    expect(snapshot.missing).toEqual([
+      { name: 'import_subtitle_track', connector: ['resolve'] },
+    ]);
+  });
+
+  it('treats a connector[]-mismatch as missing', () => {
+    const skills = [
+      makeSkill('subs', {
+        tools: [{ name: 'import_subtitle_track', connector: ['resolve'] }],
+      }),
+    ];
+    // Tool exists, but on a connector the skill does not allow.
+    const [snapshot] = computeAvailability(skills, [
+      tool('import_subtitle_track', 'premiere'),
+    ]);
+    expect(snapshot.runnable).toBe(false);
+    expect(snapshot.missing).toHaveLength(1);
+  });
+
+  it('reports optionalPresent accurately and does not gate runnability on it', () => {
+    const skills = [
+      makeSkill('subs', {
+        tools: ['render_clip'],
+        optional: ['burn_in_subtitles', 'translate'],
+      }),
+    ];
+    const [snapshot] = computeAvailability(skills, [
+      tool('render_clip', 'resolve'),
+      tool('burn_in_subtitles', 'resolve'),
+      // `translate` not present.
+    ]);
+    expect(snapshot.runnable).toBe(true);
+    expect(snapshot.optionalPresent).toEqual(['burn_in_subtitles']);
+  });
+
+  it('returns one entry per skill, in input order', () => {
+    const skills = [makeSkill('a'), makeSkill('b'), makeSkill('c')];
+    const result = computeAvailability(skills, []);
+    expect(result.map((r) => r.skillId)).toEqual(['a', 'b', 'c']);
+  });
+});
+
+// ── createCapabilityMatcher (reactive) ───────────────────────────────────
 
 describe('createCapabilityMatcher', () => {
-  it('exposes the initial snapshot synchronously', () => {
-    const bus = createEventBus<McpEventMap & SkillEventMap>();
-    const matcher = createCapabilityMatcher({
-      skillsProvider: () => [llmOnly, cutToBeat],
-      bus,
-    });
-    const snap = matcher.snapshot();
-    expect(snap.map((r) => [r.skillId, r.runnable])).toEqual([
-      ['summarize', true],
-      ['cut-to-beat', false],
+  it('computes an initial snapshot eagerly from the store + initialTools', () => {
+    const store = makeStore([
+      makeSkill('subs', { tools: ['render_clip'] }),
     ]);
+    const bus: Bus = createEventBus();
+    const matcher = createCapabilityMatcher({
+      store,
+      bus,
+      initialTools: [tool('render_clip', 'resolve')],
+    });
+
+    const [snapshot] = matcher.snapshot();
+    expect(snapshot.skillId).toBe('subs');
+    expect(snapshot.runnable).toBe(true);
     matcher.dispose();
   });
 
-  it('lights up a skill when its MCP connects mid-session', async () => {
-    const bus = createEventBus<McpEventMap & SkillEventMap>();
-    const matcher = createCapabilityMatcher({
-      skillsProvider: () => [cutToBeat],
-      bus,
-    });
+  it('recomputes on `mcp.tools.changed` and notifies local listeners', async () => {
+    const store = makeStore([
+      makeSkill('subs', { tools: ['render_clip'] }),
+    ]);
+    const bus: Bus = createEventBus();
+    const matcher = createCapabilityMatcher({ store, bus });
+
     expect(matcher.snapshot()[0].runnable).toBe(false);
 
-    await bus.publish(
-      'mcp.tools.changed',
-      toolsChanged([tool('resolve', 'add_timeline_marker')], ['resolve'])
-    );
+    const seen: ReadonlyArray<SkillAvailability>[] = [];
+    matcher.subscribe((a) => seen.push(a));
 
+    await bus.publish('mcp.tools.changed', {
+      type: 'mcp.tools.changed',
+      tools: [tool('render_clip', 'resolve')],
+      activeConnectors: ['resolve'],
+      timestamp: 1,
+    });
+
+    expect(matcher.snapshot()[0].runnable).toBe(true);
+    expect(seen).toHaveLength(1);
+    expect(seen[0][0].runnable).toBe(true);
+    matcher.dispose();
+  });
+
+  it('publishes `skills.available-changed` on every recompute', async () => {
+    const store = makeStore([
+      makeSkill('subs', { tools: ['render_clip'] }),
+    ]);
+    const bus: Bus = createEventBus();
+    const events: { availability: ReadonlyArray<SkillAvailability>; changedAt: number }[] = [];
+    bus.subscribe('skills.available-changed', (e) => {
+      events.push(e);
+    });
+
+    let nowValue = 1000;
+    const matcher = createCapabilityMatcher({
+      store,
+      bus,
+      now: () => nowValue,
+    });
+
+    nowValue = 2000;
+    await bus.publish('mcp.tools.changed', {
+      type: 'mcp.tools.changed',
+      tools: [tool('render_clip', 'resolve')],
+      activeConnectors: ['resolve'],
+      timestamp: 1,
+    });
+
+    expect(events).toHaveLength(1);
+    expect(events[0].changedAt).toBe(2000);
+    expect(events[0].availability[0].runnable).toBe(true);
+    matcher.dispose();
+  });
+
+  it('recomputes on `skills.installed` (store grew between events)', async () => {
+    const store = makeStore([]);
+    const bus: Bus = createEventBus();
+    const matcher = createCapabilityMatcher({
+      store,
+      bus,
+      initialTools: [tool('render_clip', 'resolve')],
+    });
+    expect(matcher.snapshot()).toEqual([]);
+
+    store.set([makeSkill('subs', { tools: ['render_clip'] })]);
+    await bus.publish('skills.installed', {
+      skillId: 'subs',
+      source: 'local',
+      signed: false,
+      installedAt: 1,
+    });
+
+    expect(matcher.snapshot()).toHaveLength(1);
     expect(matcher.snapshot()[0].runnable).toBe(true);
     matcher.dispose();
   });
 
-  it('greys out a skill when its MCP disconnects mid-session', async () => {
-    const bus = createEventBus<McpEventMap & SkillEventMap>();
-    const matcher = createCapabilityMatcher({
-      skillsProvider: () => [cutToBeat],
-      bus,
-      initialTools: [tool('resolve', 'add_timeline_marker')],
-    });
-    expect(matcher.snapshot()[0].runnable).toBe(true);
-
-    await bus.publish('mcp.tools.changed', toolsChanged([], []));
-
-    expect(matcher.snapshot()[0].runnable).toBe(false);
-    expect(matcher.snapshot()[0].missing).toHaveLength(1);
-    matcher.dispose();
-  });
-
-  it('swaps which skills are runnable when the active connector changes', async () => {
-    const bus = createEventBus<McpEventMap & SkillEventMap>();
-    const matcher = createCapabilityMatcher({
-      skillsProvider: () => [cutToBeat, anyAbletonTool],
-      bus,
-      initialTools: [tool('resolve', 'add_timeline_marker')],
-    });
-    expect(matcher.snapshot().map((r) => r.runnable)).toEqual([true, false]);
-
-    await bus.publish(
-      'mcp.tools.changed',
-      toolsChanged([tool('ableton', 'play_clip')], ['ableton'])
-    );
-
-    expect(matcher.snapshot().map((r) => r.runnable)).toEqual([false, true]);
-    matcher.dispose();
-  });
-
-  it('notifies subscribers and republishes on the bus when availability changes', async () => {
-    const bus = createEventBus<McpEventMap & SkillEventMap>();
-    const matcher = createCapabilityMatcher({
-      skillsProvider: () => [cutToBeat],
-      bus,
-    });
-    const local = vi.fn();
-    const onBus = vi.fn();
-    matcher.subscribe(local);
-    bus.subscribe('skills.available-changed', onBus);
-
-    await bus.publish(
-      'mcp.tools.changed',
-      toolsChanged([tool('resolve', 'add_timeline_marker')], ['resolve'])
-    );
-
-    expect(local).toHaveBeenCalledTimes(1);
-    expect(local.mock.calls[0][0][0].runnable).toBe(true);
-    expect(onBus).toHaveBeenCalledTimes(1);
-    expect(onBus.mock.calls[0][0].availability[0].runnable).toBe(true);
-    matcher.dispose();
-  });
-
-  it('does not notify when the new snapshot is structurally identical', async () => {
-    const bus = createEventBus<McpEventMap & SkillEventMap>();
-    const matcher = createCapabilityMatcher({
-      skillsProvider: () => [cutToBeat],
-      bus,
-      initialTools: [tool('resolve', 'add_timeline_marker')],
-    });
-    const local = vi.fn();
-    matcher.subscribe(local);
-
-    // Same effective tool surface — different array identity, same contents.
-    await bus.publish(
-      'mcp.tools.changed',
-      toolsChanged([tool('resolve', 'add_timeline_marker')], ['resolve'])
-    );
-
-    expect(local).not.toHaveBeenCalled();
-    matcher.dispose();
-  });
-
-  it('recompute() picks up changes to the installed-skill set', () => {
-    const bus = createEventBus<McpEventMap & SkillEventMap>();
-    let installed: SkillManifest[] = [llmOnly];
-    const matcher = createCapabilityMatcher({
-      skillsProvider: () => installed,
-      bus,
-    });
+  it('recomputes on `skills.uninstalled`', async () => {
+    const store = makeStore([
+      makeSkill('subs', { tools: ['render_clip'] }),
+    ]);
+    const bus: Bus = createEventBus();
+    const matcher = createCapabilityMatcher({ store, bus });
     expect(matcher.snapshot()).toHaveLength(1);
 
-    installed = [llmOnly, cutToBeat];
-    matcher.recompute();
+    store.set([]);
+    await bus.publish('skills.uninstalled', {
+      skillId: 'subs',
+      uninstalledAt: 2,
+    });
 
-    expect(matcher.snapshot().map((r) => r.skillId)).toEqual([
-      'summarize',
-      'cut-to-beat',
-    ]);
+    expect(matcher.snapshot()).toEqual([]);
     matcher.dispose();
   });
 
-  it('dispose() unsubscribes from the bus', async () => {
-    const bus = createEventBus<McpEventMap & SkillEventMap>();
-    const matcher = createCapabilityMatcher({
-      skillsProvider: () => [cutToBeat],
-      bus,
+  it('boot ordering: skills installed before connector connects → recompute', async () => {
+    // Skills are already in the store; matcher is created BEFORE the
+    // connector publishes any tools. Snapshot starts as not-runnable;
+    // after `mcp.tools.changed` arrives it flips to runnable.
+    const store = makeStore([
+      makeSkill('subs', {
+        tools: [{ name: 'render_clip', connector: ['resolve'] }],
+      }),
+    ]);
+    const bus: Bus = createEventBus();
+    const matcher = createCapabilityMatcher({ store, bus });
+
+    expect(matcher.snapshot()[0].runnable).toBe(false);
+
+    await bus.publish('mcp.tools.changed', {
+      type: 'mcp.tools.changed',
+      tools: [tool('render_clip', 'resolve')],
+      activeConnectors: ['resolve'],
+      timestamp: 1,
     });
+
+    expect(matcher.snapshot()[0].runnable).toBe(true);
+    matcher.dispose();
+  });
+
+  it('subscribe returns an unsubscribe that prevents further notifications', async () => {
+    const store = makeStore([
+      makeSkill('subs', { tools: ['render_clip'] }),
+    ]);
+    const bus: Bus = createEventBus();
+    const matcher = createCapabilityMatcher({ store, bus });
+
+    const seen: number[] = [];
+    const unsubscribe = matcher.subscribe(() => seen.push(1));
+    await bus.publish('mcp.tools.changed', {
+      type: 'mcp.tools.changed',
+      tools: [tool('render_clip', 'resolve')],
+      activeConnectors: ['resolve'],
+      timestamp: 1,
+    });
+    expect(seen).toEqual([1]);
+
+    unsubscribe();
+    await bus.publish('mcp.tools.changed', {
+      type: 'mcp.tools.changed',
+      tools: [],
+      activeConnectors: [],
+      timestamp: 2,
+    });
+    expect(seen).toEqual([1]);
+    matcher.dispose();
+  });
+
+  it('dispose detaches all bus subscriptions', async () => {
+    const store = makeStore([
+      makeSkill('subs', { tools: ['render_clip'] }),
+    ]);
+    const bus: Bus = createEventBus();
+    const matcher = createCapabilityMatcher({ store, bus });
+
+    expect(bus.listenerCount('mcp.tools.changed')).toBe(1);
+    expect(bus.listenerCount('skills.installed')).toBe(1);
+    expect(bus.listenerCount('skills.uninstalled')).toBe(1);
+
     matcher.dispose();
 
-    await bus.publish(
-      'mcp.tools.changed',
-      toolsChanged([tool('resolve', 'add_timeline_marker')], ['resolve'])
-    );
-
-    // Snapshot stays at the pre-dispose state because the subscription
-    // is gone.
-    expect(matcher.snapshot()[0].runnable).toBe(false);
+    expect(bus.listenerCount('mcp.tools.changed')).toBe(0);
+    expect(bus.listenerCount('skills.installed')).toBe(0);
+    expect(bus.listenerCount('skills.uninstalled')).toBe(0);
   });
 });

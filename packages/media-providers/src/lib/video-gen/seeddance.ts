@@ -1,11 +1,25 @@
 import { VideoProvider, VideoOptions } from './types.js';
 import { providerRegistry } from '../registry.js';
 
-const REPLICATE_KEY =
-  process.env.REPLICATE_API_TOKEN || 'r8_9QIM5XSKQBn5MF2PEYL2CkItQPR5ulz15uPz3';
+// BytePlus ARK (ap-southeast-1) — direct ByteDance API for SeedDance.
+// Replaces the previous Replicate-proxied call.
+const ARK_API_KEY = process.env.BYTEPLUS_ARK_API_KEY || '';
+const ARK_BASE_URL =
+  process.env.BYTEPLUS_ARK_BASE_URL ||
+  'https://ark.ap-southeast.bytepluses.com/api/v3';
+
+// Model IDs are dated on BytePlus (e.g. dreamina-seedance-2-0-fast-260128).
+// Override per-deploy via env without code changes when ByteDance bumps the
+// version. Fast is what's currently activated; pro defaults to fast until
+// the user provides a Pro model id.
+const FAST_MODEL_ID =
+  process.env.BYTEPLUS_SEEDANCE_FAST_MODEL ||
+  'dreamina-seedance-2-0-fast-260128';
+const PRO_MODEL_ID =
+  process.env.BYTEPLUS_SEEDANCE_PRO_MODEL || FAST_MODEL_ID;
 
 function createSeedDanceProvider(
-  taskType: 'seedance-2.0' | 'seedance-2.0-fast',
+  modelId: string,
   name: string,
   internalId: string
 ): VideoProvider {
@@ -18,64 +32,100 @@ function createSeedDanceProvider(
       prompt: string,
       options?: VideoOptions
     ): Promise<{ id: string; status: string; url?: string }> {
-      console.log(
-        `[VIDEO-GEN] Calling Replicate SeedDance API (${taskType}) with prompt: "${prompt}"`
-      );
-
-      const { imageRef, duration = '5' } = options || {};
-
-      const inputPayload: any = {
-        prompt: prompt,
-        duration: parseInt(duration, 10) || 5,
-        seed: Math.floor(Math.random() * 1000000),
-      };
-
-      if (imageRef) {
-        inputPayload.image = imageRef;
+      if (!ARK_API_KEY) {
+        throw new Error(
+          'BYTEPLUS_ARK_API_KEY is not configured. Add it to your .env.'
+        );
       }
 
-      // 1. Create prediction
-      const response = await fetch(
-        `https://api.replicate.com/v1/models/bytedance/${taskType}/predictions`,
+      const {
+        imageRef,
+        imageTailRef,
+        duration = '5',
+        resolution = '720p',
+        aspectRatio = '16:9',
+      } = options || {};
+
+      // BytePlus expects a `content` array mixing text + image_url items
+      // with role hints (first_frame / last_frame). Single-frame callers
+      // send imageRef; head+tail callers add imageTailRef as last_frame.
+      const content: Array<Record<string, unknown>> = [
+        { type: 'text', text: prompt },
+      ];
+      if (imageRef) {
+        content.push({
+          type: 'image_url',
+          image_url: { url: imageRef },
+          role: 'first_frame',
+        });
+      }
+      if (imageTailRef) {
+        content.push({
+          type: 'image_url',
+          image_url: { url: imageTailRef },
+          role: 'last_frame',
+        });
+      }
+
+      const body = {
+        model: modelId,
+        content,
+        ratio: aspectRatio,
+        duration: parseInt(duration, 10) || 5,
+        resolution,
+        generate_audio: true,
+        watermark: false,
+      };
+
+      console.log(
+        `[VIDEO-GEN] Calling BytePlus ARK (${modelId}) with prompt: "${prompt}"`
+      );
+
+      // 1. Create task
+      const createResponse = await fetch(
+        `${ARK_BASE_URL}/contents/generations/tasks`,
         {
           method: 'POST',
           headers: {
-            Authorization: `Bearer ${REPLICATE_KEY}`,
+            Authorization: `Bearer ${ARK_API_KEY}`,
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify({ input: inputPayload }),
+          body: JSON.stringify(body),
         }
       );
 
-      if (!response.ok) {
-        const text = await response.text();
+      if (!createResponse.ok) {
+        const text = await createResponse.text();
         throw new Error(
-          `Replicate SeedDance API error (${response.status}): ${text}`
+          `BytePlus ARK API error (${createResponse.status}): ${text}`
         );
       }
 
-      const data = (await response.json()) as any;
-      if (!data.id) {
+      const createData = (await createResponse.json()) as any;
+      const taskId =
+        createData.id || createData.task_id || createData.data?.id;
+      if (!taskId) {
         throw new Error(
-          `Replicate API creation returned error: ${JSON.stringify(data)}`
+          `BytePlus ARK creation returned no task id: ${JSON.stringify(
+            createData
+          )}`
         );
       }
 
-      const taskId = data.id;
-      let status = data.status?.toLowerCase();
-      console.log(
-        `[VIDEO-GEN] Task created successfully. Task ID: ${taskId}, Initial Status: ${status}`
-      );
+      console.log(`[VIDEO-GEN] BytePlus task created: ${taskId}`);
 
-      // 2. Poll for completion
-      // Replicate states: starting, processing, succeeded, failed, canceled
-      const maxAttempts = 120; // 10 minutes max at 5s/poll
+      // 2. Poll for completion. BytePlus task statuses observed:
+      //    queued | running | succeeded | failed | cancelled
+      const maxAttempts = 120; // ~10 minutes at 5s/poll
       let attempts = 0;
+      let status = 'queued';
       let videoUrl = '';
 
       while (
         status !== 'succeeded' &&
+        status !== 'success' &&
         status !== 'failed' &&
+        status !== 'cancelled' &&
         status !== 'canceled' &&
         attempts < maxAttempts
       ) {
@@ -84,36 +134,46 @@ function createSeedDanceProvider(
 
         try {
           const pollResponse = await fetch(
-            `https://api.replicate.com/v1/predictions/${taskId}`,
+            `${ARK_BASE_URL}/contents/generations/tasks/${taskId}`,
             {
               method: 'GET',
               headers: {
-                Authorization: `Bearer ${REPLICATE_KEY}`,
+                Authorization: `Bearer ${ARK_API_KEY}`,
                 'Content-Type': 'application/json',
               },
             }
           );
 
-          if (pollResponse.ok) {
-            const pollData = (await pollResponse.json()) as any;
-            status = pollData.status?.toLowerCase();
+          if (!pollResponse.ok) continue;
 
-            if (status === 'succeeded') {
-              const output = pollData.output;
-              if (typeof output === 'string') {
-                videoUrl = output;
-              } else if (Array.isArray(output) && output.length > 0) {
-                videoUrl = output[0];
-              }
-            } else if (status === 'failed') {
-              console.error(
-                '[VIDEO-GEN] SeedDance Task Failed:',
-                pollData.error
-              );
-              throw new Error(
-                pollData.error || 'Task failed during processing'
+          const pollData = (await pollResponse.json()) as any;
+          status = String(
+            pollData.status || pollData.data?.status || ''
+          ).toLowerCase();
+
+          if (status === 'succeeded' || status === 'success') {
+            // BytePlus has shipped the URL under several keys across
+            // versions; check each known location before giving up.
+            videoUrl =
+              pollData.content?.video_url ||
+              pollData.video_url ||
+              pollData.output?.video_url ||
+              pollData.data?.content?.video_url ||
+              pollData.data?.video_url ||
+              '';
+            if (!videoUrl) {
+              console.warn(
+                '[VIDEO-GEN] BytePlus task succeeded but no video_url found in response:',
+                JSON.stringify(pollData)
               );
             }
+          } else if (status === 'failed') {
+            const errMsg =
+              pollData.error?.message ||
+              pollData.data?.error?.message ||
+              'Task failed during processing';
+            console.error('[VIDEO-GEN] BytePlus task failed:', errMsg);
+            throw new Error(errMsg);
           }
         } catch (e) {
           console.warn(
@@ -128,7 +188,8 @@ function createSeedDanceProvider(
 
       return {
         id: taskId,
-        status: status === 'succeeded' ? 'succeed' : status, // Map to frontend expected "succeed" internally
+        status:
+          status === 'succeeded' || status === 'success' ? 'succeed' : status,
         url: videoUrl,
       };
     },
@@ -136,12 +197,12 @@ function createSeedDanceProvider(
 }
 
 export const seedDanceProProvider = createSeedDanceProvider(
-  'seedance-2.0',
+  PRO_MODEL_ID,
   'SeedDance 2.0 (Pro)',
   'seedance-2'
 );
 export const seedDanceFastProvider = createSeedDanceProvider(
-  'seedance-2.0-fast',
+  FAST_MODEL_ID,
   'SeedDance 2.0 (Fast)',
   'seedance-2-fast'
 );

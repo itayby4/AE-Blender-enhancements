@@ -334,47 +334,20 @@ export function ModelNode({
           <div className="p-3 space-y-3 bg-muted/5">
             {/* Text Input for API Prompt */}
             <div className="space-y-1.5">
-              <div className="flex items-center justify-between relative z-10">
-                <label className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground/80 pl-0.5 flex cursor-pointer select-none">
-                  Generation Prompt
-                </label>
-                <div className="flex items-center gap-1.5">
-                  {[
-                    'kling',
-                    'nanobanana',
-                    'seeddance',
-                    'seedance-2',
-                    'seedance-2-fast',
-                  ].includes(data.model) && (
-                    <select
-                      className="nodrag text-[9px] bg-background border border-border/50 rounded px-1.5 py-0.5 min-w-[35px] focus:outline-none focus:border-primary text-muted-foreground uppercase font-bold tracking-wider cursor-pointer"
-                      value={data.duration || '5'}
-                      title="Video Duration (Seconds)"
-                      onChange={(e) => {
-                        if (!nodeId) return;
-                        setNodes((nds) =>
-                          nds.map((n) =>
-                            n.id === nodeId
-                              ? {
-                                  ...n,
-                                  data: { ...n.data, duration: e.target.value },
-                                }
-                              : n
-                          )
-                        );
-                      }}
-                    >
-                      {[4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15].map((s) => (
-                        <option key={s} value={String(s)}>
-                          {s}S
-                        </option>
-                      ))}
-                    </select>
-                  )}
+              <label className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground/80 pl-0.5 flex cursor-pointer select-none relative z-10">
+                Generation Prompt
+              </label>
+              <div className="flex items-center gap-1.5 flex-wrap relative z-10">
+                {[
+                  'kling',
+                  'seeddance',
+                  'seedance-2',
+                  'seedance-2-fast',
+                ].includes(data.model) && (
                   <select
-                    className="nodrag text-[9px] bg-background border border-border/50 rounded px-1.5 py-0.5 min-w-[50px] focus:outline-none focus:border-primary text-muted-foreground uppercase font-bold tracking-wider cursor-pointer"
-                    value={data.ratio || '16:9'}
-                    title="Aspect Ratio"
+                    className="nodrag text-[9px] bg-background border border-border/50 rounded px-1.5 py-0.5 min-w-[35px] focus:outline-none focus:border-primary text-muted-foreground uppercase font-bold tracking-wider cursor-pointer"
+                    value={data.duration || '5'}
+                    title="Video Duration (Seconds)"
                     onChange={(e) => {
                       if (!nodeId) return;
                       setNodes((nds) =>
@@ -382,54 +355,140 @@ export function ModelNode({
                           n.id === nodeId
                             ? {
                                 ...n,
-                                data: { ...n.data, ratio: e.target.value },
+                                data: { ...n.data, duration: e.target.value },
                               }
                             : n
                         )
                       );
                     }}
                   >
-                    <option value="16:9">16:9</option>
-                    <option value="9:16">9:16</option>
-                    <option value="1:1">1:1</option>
-                    <option value="21:9">21:9</option>
-                    <option value="4:3">4:3</option>
-                    <option value="3:4">3:4</option>
-                    <option value="auto">Auto</option>
+                    {[4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15].map((s) => (
+                      <option key={s} value={String(s)}>
+                        {s}S
+                      </option>
+                    ))}
                   </select>
-                  {[
-                    'kling',
-                    'nanobanana',
-                    'seeddance',
-                    'seedance-2',
-                    'seedance-2-fast',
-                  ].includes(data.model) && (
+                )}
+                <select
+                  className="nodrag text-[9px] bg-background border border-border/50 rounded px-1.5 py-0.5 min-w-[50px] focus:outline-none focus:border-primary text-muted-foreground uppercase font-bold tracking-wider cursor-pointer"
+                  value={data.ratio || '16:9'}
+                  title="Aspect Ratio"
+                  onChange={(e) => {
+                    if (!nodeId) return;
+                    setNodes((nds) =>
+                      nds.map((n) =>
+                        n.id === nodeId
+                          ? {
+                              ...n,
+                              data: { ...n.data, ratio: e.target.value },
+                            }
+                          : n
+                      )
+                    );
+                  }}
+                >
+                  <option value="16:9">16:9</option>
+                  <option value="9:16">9:16</option>
+                  <option value="1:1">1:1</option>
+                  <option value="21:9">21:9</option>
+                  <option value="4:3">4:3</option>
+                  <option value="3:4">3:4</option>
+                  <option value="auto">Auto</option>
+                </select>
+                {[
+                  'kling',
+                  'seeddance',
+                  'seedance-2',
+                  'seedance-2-fast',
+                ].includes(data.model) && (
+                  <select
+                    className="nodrag text-[9px] bg-background border border-border/50 rounded px-1.5 py-0.5 min-w-[50px] focus:outline-none focus:border-primary text-muted-foreground uppercase font-bold tracking-wider cursor-pointer"
+                    value={data.resolution || '720p'}
+                    title="Resolution"
+                    onChange={(e) => {
+                      if (!nodeId) return;
+                      setNodes((nds) =>
+                        nds.map((n) =>
+                          n.id === nodeId
+                            ? {
+                                ...n,
+                                data: {
+                                  ...n.data,
+                                  resolution: e.target.value,
+                                },
+                              }
+                            : n
+                        )
+                      );
+                    }}
+                  >
+                    <option value="720p">720P</option>
+                    <option value="1080p">1080P</option>
+                  </select>
+                )}
+                {/* GPT Image 2 — quality / background / format selectors. */}
+                {data.model === 'gpt-image-2' && (
+                  <>
                     <select
-                      className="nodrag text-[9px] bg-background border border-border/50 rounded px-1.5 py-0.5 min-w-[50px] focus:outline-none focus:border-primary text-muted-foreground uppercase font-bold tracking-wider cursor-pointer"
-                      value={data.resolution || '720p'}
-                      title="Resolution"
+                      className="nodrag text-[9px] bg-background border border-border/50 rounded px-1.5 py-0.5 min-w-[60px] focus:outline-none focus:border-primary text-muted-foreground uppercase font-bold tracking-wider cursor-pointer"
+                      value={data.quality || 'auto'}
+                      title="Render quality"
                       onChange={(e) => {
                         if (!nodeId) return;
                         setNodes((nds) =>
                           nds.map((n) =>
                             n.id === nodeId
-                              ? {
-                                  ...n,
-                                  data: {
-                                    ...n.data,
-                                    resolution: e.target.value,
-                                  },
-                                }
+                              ? { ...n, data: { ...n.data, quality: e.target.value } }
                               : n
                           )
                         );
                       }}
                     >
-                      <option value="720p">720P</option>
-                      <option value="1080p">1080P</option>
+                      <option value="auto">Q: Auto</option>
+                      <option value="low">Q: Low</option>
+                      <option value="medium">Q: Med</option>
+                      <option value="high">Q: High</option>
                     </select>
-                  )}
-                </div>
+                    <select
+                      className="nodrag text-[9px] bg-background border border-border/50 rounded px-1.5 py-0.5 min-w-[60px] focus:outline-none focus:border-primary text-muted-foreground uppercase font-bold tracking-wider cursor-pointer"
+                      value={data.background || 'auto'}
+                      title="Background"
+                      onChange={(e) => {
+                        if (!nodeId) return;
+                        setNodes((nds) =>
+                          nds.map((n) =>
+                            n.id === nodeId
+                              ? { ...n, data: { ...n.data, background: e.target.value } }
+                              : n
+                          )
+                        );
+                      }}
+                    >
+                      <option value="auto">BG: Auto</option>
+                      <option value="opaque">BG: Opaque</option>
+                      <option value="transparent">BG: Transparent</option>
+                    </select>
+                    <select
+                      className="nodrag text-[9px] bg-background border border-border/50 rounded px-1.5 py-0.5 min-w-[55px] focus:outline-none focus:border-primary text-muted-foreground uppercase font-bold tracking-wider cursor-pointer"
+                      value={data.outputFormat || 'png'}
+                      title="Output format"
+                      onChange={(e) => {
+                        if (!nodeId) return;
+                        setNodes((nds) =>
+                          nds.map((n) =>
+                            n.id === nodeId
+                              ? { ...n, data: { ...n.data, outputFormat: e.target.value } }
+                              : n
+                          )
+                        );
+                      }}
+                    >
+                      <option value="png">PNG</option>
+                      <option value="jpeg">JPEG</option>
+                      <option value="webp">WEBP</option>
+                    </select>
+                  </>
+                )}
               </div>
               <textarea
                 className="nodrag w-full text-xs min-h-[60px] max-h-[150px] resize-y p-2 bg-background border border-border/50 rounded-md focus:outline-none focus:ring-1 focus:ring-primary shadow-inner text-foreground placeholder-muted-foreground relative z-10 font-mono"

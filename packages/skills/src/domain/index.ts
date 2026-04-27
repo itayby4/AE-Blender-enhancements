@@ -1,43 +1,9 @@
 // ── @pipefx/skills/domain ────────────────────────────────────────────────
-// Pure domain primitives — schema validation + prompt rendering. No I/O,
-// no event-bus, no connector access. Phases 7.3+ layer reactive state on
-// top of this.
-
-export {
-  manifestSchema,
-  parseManifest,
-  parseManifestOrThrow,
-  type ManifestParseResult,
-} from './manifest-schema.js';
-
-export {
-  renderManifestPrompt,
-  renderTemplate,
-  type RenderOptions,
-  type RenderResult,
-  type SkillInputValue,
-  type SkillInputValues,
-} from './template-engine.js';
-
-export {
-  computeAvailability,
-  createCapabilityMatcher,
-  type CapabilityMatcherConfig,
-  type CapabilityMatcherHandle,
-} from './capability-matcher.js';
-
-export {
-  canonicalPayloadBytes,
-  fingerprintPublicKey,
-  generateSkillKeyPair,
-  signSkill,
-  verifySkill,
-  type SignablePayload,
-  type SignableResource,
-  type SkillKeyPair,
-} from './signing.js';
-
-// ── v2 (Phase 12) — SKILL.md frontmatter ────────────────────────────────
+// Pure domain primitives — schema validation + Markdown parsing for the
+// SKILL.md format. No I/O, no event-bus, no connector access. The
+// capability matcher (12.4), three-mode runner (12.5), and signing port
+// (12.13) layer reactive state on top of these primitives in later
+// sub-phases.
 
 export {
   frontmatterSchema,
@@ -55,13 +21,49 @@ export {
 } from './skill-md-parser.js';
 
 export {
+  computeAvailability,
+  createCapabilityMatcher,
+  isToolSatisfied,
+  type CapabilityMatcherDeps,
+  type CapabilityMatcherHandle,
+} from './capability-matcher.js';
+
+export {
+  buildMountInstruction,
   createSkillRunner,
   deriveAllowedTools,
-  SkillNotFoundError,
-  SkillRunQuotaError,
-  SkillUnavailableError,
-  type QuotaChecker,
-  type QuotaDecision,
-  type SkillRunner,
-  type SkillRunnerConfig,
-} from './runner.js';
+  renderTemplate,
+  runPromptMode,
+  runScriptMode,
+  type PromptModeRunInput,
+  type PromptModeRunResult,
+  type ScriptModeRunInput,
+  type ScriptRunInput,
+  type ScriptRunResult,
+  type ScriptRunner,
+  type SkillRunnerDeps,
+  type TemplateValues,
+} from './runner/index.js';
+
+export {
+  renderPromptTemplate,
+  renderScaffoldTemplate,
+  renderScriptTemplate,
+  type ScaffoldedSkill,
+  type SkillScaffoldMode,
+  type SkillScaffoldOptions,
+} from './scaffold-templates.js';
+
+export {
+  buildCanonicalPayload,
+  bytesToHex,
+  CANONICAL_PAYLOAD_VERSION,
+  generateEd25519Keypair,
+  hexToBytes,
+  signCanonicalPayload,
+  verifyCanonicalPayload,
+  type CanonicalPayloadInput,
+  type CanonicalPayloadResource,
+  type SkillBundleSignature,
+  type VerifySignatureResult,
+} from './signing.js';

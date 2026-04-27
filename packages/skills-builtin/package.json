@@ -1,0 +1,79 @@
+{
+  "name": "@pipefx/skills-builtin",
+  "version": "0.0.1",
+  "type": "module",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    "./package.json": "./package.json",
+    ".": {
+      "@pipefx/source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "!**/*.tsbuildinfo"
+  ],
+  "dependencies": {
+    "@base-ui/react": "^1.2.0",
+    "@pipefx/skills": "workspace:*",
+    "@tauri-apps/plugin-dialog": "^2.7.0",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "lucide-react": "^0.575.0",
+    "tailwind-merge": "^3.5.0",
+    "tslib": "^2.3.0"
+  },
+  "peerDependencies": {
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
+  "peerDependenciesMeta": {
+    "react": {
+      "optional": true
+    },
+    "react-dom": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3"
+  },
+  "nx": {
+    "tags": [
+      "scope:feature",
+      "feature:skills"
+    ],
+    "targets": {
+      "sign-bundles": {
+        "executor": "nx:run-commands",
+        "options": {
+          "command": "node packages/skills-builtin/scripts/sign-builtins.mjs sign",
+          "cwd": "{workspaceRoot}"
+        },
+        "dependsOn": [
+          "build",
+          { "projects": ["@pipefx/skills"], "target": "build" }
+        ],
+        "inputs": [
+          "{workspaceRoot}/SKILL/**/*",
+          "{workspaceRoot}/packages/skills/dist/**/*",
+          "{workspaceRoot}/packages/skills-builtin/scripts/**/*"
+        ],
+        "outputs": ["{workspaceRoot}/dist/skill-bundles"]
+      },
+      "gen-key": {
+        "executor": "nx:run-commands",
+        "options": {
+          "command": "node packages/skills-builtin/scripts/sign-builtins.mjs gen-key",
+          "cwd": "{workspaceRoot}"
+        }
+      }
+    }
+  }
+}

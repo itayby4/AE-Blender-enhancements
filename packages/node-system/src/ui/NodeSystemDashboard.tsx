@@ -1183,26 +1183,28 @@ function NodeSystemFlow() {
                   <span className="font-medium">Video Models</span>
                   <ChevronRight className="h-4 w-4 text-muted-foreground" />
                 </button>
-                <div className="absolute left-full top-0 ml-1.5 w-48 bg-card/95 backdrop-blur-md border border-border shadow-2xl p-1.5 rounded-xl hidden group-hover/video:block animate-in fade-in zoom-in-95 duration-100">
-                  {VIDEO_MODELS.map((node) => (
-                    <button
-                      key={node.model}
-                      onClick={() =>
-                        addNodeFromMenu(
-                          node.type,
-                          node.model,
-                          node.label,
-                          node.desc
-                        )
-                      }
-                      className="w-full flex items-center gap-2 px-2 py-2 text-sm hover:bg-muted rounded-md transition-colors text-left group"
-                    >
-                      <node.icon
-                        className={`h-4 w-4 ${node.color} group-hover:scale-110 transition-transform`}
-                      />
-                      <span className="font-medium">{node.label}</span>
-                    </button>
-                  ))}
+                <div className="absolute left-full top-0 pl-1.5 hidden group-hover/video:block animate-in fade-in zoom-in-95 duration-100">
+                  <div className="w-48 bg-card/95 backdrop-blur-md border border-border shadow-2xl p-1.5 rounded-xl">
+                    {VIDEO_MODELS.map((node) => (
+                      <button
+                        key={node.model}
+                        onClick={() =>
+                          addNodeFromMenu(
+                            node.type,
+                            node.model,
+                            node.label,
+                            node.desc
+                          )
+                        }
+                        className="w-full flex items-center gap-2 px-2 py-2 text-sm hover:bg-muted rounded-md transition-colors text-left group"
+                      >
+                        <node.icon
+                          className={`h-4 w-4 ${node.color} group-hover:scale-110 transition-transform`}
+                        />
+                        <span className="font-medium">{node.label}</span>
+                      </button>
+                    ))}
+                  </div>
                 </div>
               </div>
 
@@ -1212,26 +1214,28 @@ function NodeSystemFlow() {
                   <span className="font-medium">Image Models</span>
                   <ChevronRight className="h-4 w-4 text-muted-foreground" />
                 </button>
-                <div className="absolute left-full top-0 ml-1.5 w-48 bg-card/95 backdrop-blur-md border border-border shadow-2xl p-1.5 rounded-xl hidden group-hover/image:block animate-in fade-in zoom-in-95 duration-100">
-                  {IMAGE_MODELS.map((node) => (
-                    <button
-                      key={node.model}
-                      onClick={() =>
-                        addNodeFromMenu(
-                          node.type,
-                          node.model,
-                          node.label,
-                          node.desc
-                        )
-                      }
-                      className="w-full flex items-center gap-2 px-2 py-2 text-sm hover:bg-muted rounded-md transition-colors text-left group"
-                    >
-                      <node.icon
-                        className={`h-4 w-4 ${node.color} group-hover:scale-110 transition-transform`}
-                      />
-                      <span className="font-medium">{node.label}</span>
-                    </button>
-                  ))}
+                <div className="absolute left-full top-0 pl-1.5 hidden group-hover/image:block animate-in fade-in zoom-in-95 duration-100">
+                  <div className="w-48 bg-card/95 backdrop-blur-md border border-border shadow-2xl p-1.5 rounded-xl">
+                    {IMAGE_MODELS.map((node) => (
+                      <button
+                        key={node.model}
+                        onClick={() =>
+                          addNodeFromMenu(
+                            node.type,
+                            node.model,
+                            node.label,
+                            node.desc
+                          )
+                        }
+                        className="w-full flex items-center gap-2 px-2 py-2 text-sm hover:bg-muted rounded-md transition-colors text-left group"
+                      >
+                        <node.icon
+                          className={`h-4 w-4 ${node.color} group-hover:scale-110 transition-transform`}
+                        />
+                        <span className="font-medium">{node.label}</span>
+                      </button>
+                    ))}
+                  </div>
                 </div>
               </div>
 
@@ -1241,26 +1245,28 @@ function NodeSystemFlow() {
                   <span className="font-medium">LLM Models</span>
                   <ChevronRight className="h-4 w-4 text-muted-foreground" />
                 </button>
-                <div className="absolute left-full top-0 ml-1.5 w-48 bg-card/95 backdrop-blur-md border border-border shadow-2xl p-1.5 rounded-xl hidden group-hover/llm:block animate-in fade-in zoom-in-95 duration-100">
-                  {LLM_MODELS.map((node) => (
-                    <button
-                      key={node.model}
-                      onClick={() =>
-                        addNodeFromMenu(
-                          node.type,
-                          node.model,
-                          node.label,
-                          node.desc
-                        )
-                      }
-                      className="w-full flex items-center gap-2 px-2 py-2 text-sm hover:bg-muted rounded-md transition-colors text-left group"
-                    >
-                      <node.icon
-                        className={`h-4 w-4 ${node.color} group-hover:scale-110 transition-transform`}
-                      />
-                      <span className="font-medium">{node.label}</span>
-                    </button>
-                  ))}
+                <div className="absolute left-full top-0 pl-1.5 hidden group-hover/llm:block animate-in fade-in zoom-in-95 duration-100">
+                  <div className="w-48 bg-card/95 backdrop-blur-md border border-border shadow-2xl p-1.5 rounded-xl">
+                    {LLM_MODELS.map((node) => (
+                      <button
+                        key={node.model}
+                        onClick={() =>
+                          addNodeFromMenu(
+                            node.type,
+                            node.model,
+                            node.label,
+                            node.desc
+                          )
+                        }
+                        className="w-full flex items-center gap-2 px-2 py-2 text-sm hover:bg-muted rounded-md transition-colors text-left group"
+                      >
+                        <node.icon
+                          className={`h-4 w-4 ${node.color} group-hover:scale-110 transition-transform`}
+                        />
+                        <span className="font-medium">{node.label}</span>
+                      </button>
+                    ))}
+                  </div>
                 </div>
               </div>
 
@@ -1270,26 +1276,28 @@ function NodeSystemFlow() {
                   <span className="font-medium">Sound Models</span>
                   <ChevronRight className="h-4 w-4 text-muted-foreground" />
                 </button>
-                <div className="absolute left-full top-0 ml-1.5 w-48 bg-card/95 backdrop-blur-md border border-border shadow-2xl p-1.5 rounded-xl hidden group-hover/sound:block animate-in fade-in zoom-in-95 duration-100">
-                  {SOUND_MODELS.map((node) => (
-                    <button
-                      key={node.model}
-                      onClick={() =>
-                        addNodeFromMenu(
-                          node.type,
-                          node.model,
-                          node.label,
-                          node.desc
-                        )
-                      }
-                      className="w-full flex items-center gap-2 px-2 py-2 text-sm hover:bg-muted rounded-md transition-colors text-left group"
-                    >
-                      <node.icon
-                        className={`h-4 w-4 ${node.color} group-hover:scale-110 transition-transform`}
-                      />
-                      <span className="font-medium">{node.label}</span>
-                    </button>
-                  ))}
+                <div className="absolute left-full top-0 pl-1.5 hidden group-hover/sound:block animate-in fade-in zoom-in-95 duration-100">
+                  <div className="w-48 bg-card/95 backdrop-blur-md border border-border shadow-2xl p-1.5 rounded-xl">
+                    {SOUND_MODELS.map((node) => (
+                      <button
+                        key={node.model}
+                        onClick={() =>
+                          addNodeFromMenu(
+                            node.type,
+                            node.model,
+                            node.label,
+                            node.desc
+                          )
+                        }
+                        className="w-full flex items-center gap-2 px-2 py-2 text-sm hover:bg-muted rounded-md transition-colors text-left group"
+                      >
+                        <node.icon
+                          className={`h-4 w-4 ${node.color} group-hover:scale-110 transition-transform`}
+                        />
+                        <span className="font-medium">{node.label}</span>
+                      </button>
+                    ))}
+                  </div>
                 </div>
               </div>
 
@@ -1301,33 +1309,35 @@ function NodeSystemFlow() {
                   <span className="font-medium">Tools</span>
                   <ChevronRight className="h-4 w-4 text-muted-foreground" />
                 </button>
-                <div className="absolute left-full top-0 ml-1.5 w-48 bg-card/95 backdrop-blur-md border border-border shadow-2xl p-1.5 rounded-xl hidden group-hover/tools:block animate-in fade-in zoom-in-95 duration-100">
-                  {TOOLS_NODES.map((node) => (
-                    <button
-                      key={node.model}
-                      onClick={() =>
-                        addNodeFromMenu(
-                          node.type,
-                          node.model,
-                          node.label,
-                          node.desc
-                        )
-                      }
-                      className="w-full flex items-center gap-2 px-2 py-2 text-sm hover:bg-muted rounded-md transition-colors text-left group"
-                    >
-                      {node.isNull && (
-                        <div className="h-3 w-3 rounded-full border-2 border-dashed border-muted-foreground mx-0.5 group-hover:scale-110 transition-transform" />
-                      )}
-                      {!node.isNull && (
-                        <node.icon
-                          className={`h-4 w-4 ${node.color} group-hover:scale-110 transition-transform`}
-                        />
-                      )}
-                      <span className={`font-bold ${node.color}`}>
-                        {node.label}
-                      </span>
-                    </button>
-                  ))}
+                <div className="absolute left-full top-0 pl-1.5 hidden group-hover/tools:block animate-in fade-in zoom-in-95 duration-100">
+                  <div className="w-48 bg-card/95 backdrop-blur-md border border-border shadow-2xl p-1.5 rounded-xl">
+                    {TOOLS_NODES.map((node) => (
+                      <button
+                        key={node.model}
+                        onClick={() =>
+                          addNodeFromMenu(
+                            node.type,
+                            node.model,
+                            node.label,
+                            node.desc
+                          )
+                        }
+                        className="w-full flex items-center gap-2 px-2 py-2 text-sm hover:bg-muted rounded-md transition-colors text-left group"
+                      >
+                        {node.isNull && (
+                          <div className="h-3 w-3 rounded-full border-2 border-dashed border-muted-foreground mx-0.5 group-hover:scale-110 transition-transform" />
+                        )}
+                        {!node.isNull && (
+                          <node.icon
+                            className={`h-4 w-4 ${node.color} group-hover:scale-110 transition-transform`}
+                          />
+                        )}
+                        <span className={`font-bold ${node.color}`}>
+                          {node.label}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
                 </div>
               </div>
             </div>

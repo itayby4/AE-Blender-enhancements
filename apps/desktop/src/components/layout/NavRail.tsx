@@ -2,10 +2,8 @@ import {
   Video,
   ImageIcon,
   Network,
-  Scissors,
   Zap,
   MessageSquare,
-  Bot,
   Settings,
   Library,
   Subtitles,
@@ -17,16 +15,15 @@ import { cn } from '../../lib/utils.js';
 import { Tooltip, TooltipContent, TooltipTrigger } from '../ui/tooltip.js';
 import type { Skill } from '../../lib/load-skills.js';
 import type { ComponentType } from 'react';
+import { resolveSkillIcon } from './skill-icon-map.js';
 
-/** Map icon names from skill frontmatter to lucide components */
-const ICON_MAP: Record<string, ComponentType<{ className?: string }>> = {
-  bot: Bot,
-  scissors: Scissors,
-  network: Network,
-  wand2: Zap,
-  zap: Zap,
-  video: Video,
-};
+/** Pinned v2 skill descriptor — passed in from the host. */
+export interface PinnedSkillItem {
+  id: string;
+  name: string;
+  /** Lucide icon name from the frontmatter; resolved via `skill-icon-map`. */
+  icon?: string;
+}
 
 interface NavItem {
   id: string;
@@ -39,6 +36,8 @@ interface NavRailProps {
   activeView: string;
   onNavigate: (view: string) => void;
   skills: Skill[];
+  /** v2 SKILL.md skills the user pinned to the rail (12.10.5). */
+  pinnedSkills?: ReadonlyArray<PinnedSkillItem>;
   className?: string;
   /** When true, rail widens and shows labels beside icons. */
   isExpanded?: boolean;
@@ -107,32 +106,50 @@ export function NavRail({
   activeView,
   onNavigate,
   skills,
+  pinnedSkills = [],
   className,
   isExpanded = false,
 }: NavRailProps) {
   const coreItems: NavItem[] = [
     { id: 'chat', label: 'AI Chat', icon: MessageSquare, section: 'core' },
+    // 12.10.5 nav split: "Skills" lands directly on the Library tab; the
+    // separate "Skill Store" entry hosts the Coming-Soon tab. The page
+    // hides its internal tab nav when fed `hideTabs`.
     { id: 'skills', label: 'Skills', icon: Zap, section: 'core' },
-    { id: 'skill-library', label: 'Library', icon: Library, section: 'core' },
+    { id: 'skill-library', label: 'Skill Store', icon: Library, section: 'core' },
     { id: 'video-gen', label: 'Video Studio', icon: Video, section: 'core' },
     { id: 'image-gen', label: 'Image Studio', icon: ImageIcon, section: 'core' },
     { id: 'node-system', label: 'Node Editor', icon: Network, section: 'core' },
-    // Post-Production surfaces — wired in Phase 9.4. Permanent app
-    // dashboards backed by @pipefx/post-production HTTP endpoints.
+    // Post-Production surfaces — Subtitles migrated to a bundled skill in
+    // 12.10 (the entry now launches the v2 component-mode skill via
+    // `BundledSkillLauncher`). Audio Sync + Autopod remain inline
+    // dashboards until 12.11.
     { id: 'subtitles', label: 'Subtitles', icon: Subtitles, section: 'core' },
     { id: 'audio-sync', label: 'Audio Sync', icon: AudioWaveform, section: 'core' },
     { id: 'autopod', label: 'Autopod', icon: Mic, section: 'core' },
   ];
 
-  // Dynamic skill items with UIs
-  const skillItems: NavItem[] = skills
+  // Legacy v1 chat skills with hasUI — older nav-rail surface predating
+  // the v2 SKILL.md system. Kept until v1 chat retires (Phase 6).
+  const legacySkillItems: NavItem[] = skills
     .filter((s) => s.hasUI && s.id !== 'default')
     .map((s) => ({
       id: s.id,
       label: s.name,
-      icon: ICON_MAP[s.icon || 'bot'] || Bot,
+      icon: resolveSkillIcon(s.icon),
       section: 'skills' as const,
     }));
+
+  // v2 pinned skills (12.10.5). Identified by `skill:<id>` activeView so
+  // the host's view router can dispatch to `BundledSkillLauncher`.
+  const pinnedItems: NavItem[] = pinnedSkills.map((s) => ({
+    id: `skill:${s.id}`,
+    label: s.name,
+    icon: resolveSkillIcon(s.icon),
+    section: 'skills' as const,
+  }));
+
+  const skillItems: NavItem[] = [...pinnedItems, ...legacySkillItems];
 
   const systemItem: NavItem = {
     id: 'settings',

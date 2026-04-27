@@ -1,29 +1,43 @@
 // ── @pipefx/skills/backend — v2 SKILL.md store ───────────────────────────
-// Phase 12.2 storage layer. Persists installed skills under a versioned
-// subfolder so v1 and v2 coexist without touching each other:
+// Phase 12.6 storage layer. Reads from two roots — a read-only `builtinRoot`
+// (skills shipped inside the desktop bundle) and a writable `userRoot`
+// (skills the user installed from `.pfxskill` bundles or dropped in by
+// hand). `list()` merges the two; user-root entries shadow built-ins
+// with the same id.
 //
-//   <root>/v2/
+// User-root layout (per-skill directory + sidecar index.json):
+//
+//   <userRoot>/v2/
 //     index.json                       ─ list of installed-skill metadata
 //     <skill-id>/SKILL.md              ─ canonical source of truth
 //     <skill-id>/<resource paths…>     ─ scripts/, ui/, assets/, etc.
 //
-// The store owns the directory: install writes SKILL.md + the bundled
-// resources, uninstall rm-rfs the skill directory. The on-disk SKILL.md
-// is the source of truth — `index.json` only carries install metadata
-// (source, signed, fingerprint, installedAt) so we don't re-parse every
-// SKILL.md on `list()`.
+// Built-in root layout (no index.json — the directory IS the manifest):
+//
+//   <builtinRoot>/
+//     <skill-id>/SKILL.md
+//     <skill-id>/<resource paths…>
+//
+// Built-ins are walked at construction; the cache is rebuilt on every
+// process restart, which is fine because they only change with the desktop
+// app version. User-root install/uninstall flushes its own cache + index.
 //
 // What this layer does NOT do:
 //
 //   • Verify signatures. Phase 12.x install routes verify before
 //     calling `install`; once persisted, the SKILL.md is trusted.
 //
-//   • Lock the directory across processes. Same single-writer assumption
-//     as v1's store.
+//   • Lock the directory across processes. Single-writer assumption.
+//
+//   • Publish bus events. The mount layer wraps install/uninstall to
+//     emit `skills.installed` / `skills.uninstalled` so the
+//     capability-matcher can recompute. Keeping this layer storage-only
+//     means tests and tools can mutate the store without spinning up an
+//     event bus.
 //
 // References:
-//   - phase-12-skills-v2.md §12.2 ("Loader + storage")
-//   - skill-storage.ts (the v1 sibling — same shape, JSON-manifest payload)
+//   - phase-12-skills-v2.md §12.2 ("Loader + storage"), §12.6 ("Backend
+//     wiring + script-mode host")
 
 import {
   existsSync,
@@ -37,62 +51,37 @@ import * as path from 'node:path';
 import { stringify as stringifyYaml } from 'yaml';
 
 import type {
+  InstallOptions,
+  InstalledSkill,
+  SkillStore,
+} from '../../contracts/api.js';
+import type {
   LoadedSkill,
   SkillFrontmatter,
   SkillId,
-} from '../../contracts/index.js';
-import { loadSkillFromDir } from './skill-md-loader.js';
+} from '../../contracts/skill-md.js';
+import { loadSkillFromDir, loadSkillsFromDir } from './skill-md-loader.js';
 
 // ── Public types ─────────────────────────────────────────────────────────
-// Mirrors v1's `SkillStore` shape but takes a `LoadedSkill` (frontmatter +
-// body) and an optional resource list instead of a JSON `SkillManifest`.
-// The runner (Phase 12.4) decides which to call based on the skill format.
-
-export type SkillMdSource = 'local' | 'bundle' | 'remote';
-
-export interface InstalledSkillMd {
-  loaded: LoadedSkill;
-  source: SkillMdSource;
-  installedAt: number;
-  /** True iff the bundle carried a valid Ed25519 signature. */
-  signed: boolean;
-  /** Author fingerprint at install time. */
-  fingerprint?: string;
-  /** Filesystem path of the unpacked skill directory. */
-  installPath: string;
-}
-
-export interface InstallSkillMdOptions {
-  source: SkillMdSource;
-  signed: boolean;
-  fingerprint?: string;
-  /** Resources to write alongside SKILL.md (scripts/, ui/, assets/).
-   *  Paths are POSIX-style and relative to the skill directory. */
-  resources?: ReadonlyArray<{ path: string; content: Uint8Array }>;
-}
-
-export interface SkillMdStore {
-  list(): InstalledSkillMd[];
-  get(id: SkillId): InstalledSkillMd | null;
-  install(loaded: LoadedSkill, opts: InstallSkillMdOptions): InstalledSkillMd;
-  /** Returns true iff a skill was removed. */
-  uninstall(id: SkillId): boolean;
-}
 
 export interface SkillMdStorageOptions {
-  /** Root directory for installs. The store appends `/v2/` automatically
-   *  so v1 and v2 stores can share a parent (e.g. `~/.pipefx/skills/`)
-   *  without colliding. */
-  rootDir: string;
+  /** Writable root for user-installed skills. The store appends `/v2/`
+   *  automatically so v1 and v2 stores can share a parent. */
+  userRoot: string;
+  /** Optional read-only root for built-in skills shipped in the desktop
+   *  bundle. When a user skill shadows a built-in (same id), the user
+   *  copy wins on `list()` / `get()`. Built-ins cannot be uninstalled —
+   *  `uninstall()` returns `false` when only a built-in exists. */
+  builtinRoot?: string;
   /** Wall-clock source — pluggable for tests. */
   now?: () => number;
 }
 
-// ── Internal index row ───────────────────────────────────────────────────
+// ── Internal index row (user root only) ──────────────────────────────────
 
 interface IndexRow {
   skillId: SkillId;
-  source: SkillMdSource;
+  source: InstalledSkill['source'];
   installedAt: number;
   signed: boolean;
   fingerprint?: string;
@@ -110,60 +99,97 @@ const STORE_SCHEMA_VERSION = 2 as const;
 
 export function createSkillMdStorage(
   opts: SkillMdStorageOptions
-): SkillMdStore {
-  const versionedRoot = path.join(opts.rootDir, `v${STORE_SCHEMA_VERSION}`);
-  const indexPath = path.join(versionedRoot, 'index.json');
+): SkillStore {
+  const userVersionedRoot = path.join(opts.userRoot, `v${STORE_SCHEMA_VERSION}`);
+  const indexPath = path.join(userVersionedRoot, 'index.json');
   const now = opts.now ?? Date.now;
 
-  mkdirSync(versionedRoot, { recursive: true });
+  mkdirSync(userVersionedRoot, { recursive: true });
 
-  // In-memory snapshot keyed by skillId. Bootstrap by re-reading every
-  // SKILL.md so the cache reflects the on-disk source of truth — if the
-  // user edits a SKILL.md by hand between runs, that edit takes effect.
-  const cache = new Map<SkillId, InstalledSkillMd>();
+  // Built-in cache: walked once, never mutated. The desktop ships the
+  // built-in root inside the app bundle, so any updates require an app
+  // restart anyway.
+  const builtinCache = new Map<SkillId, InstalledSkill>();
+  if (opts.builtinRoot && existsSync(opts.builtinRoot)) {
+    const walked = loadSkillsFromDir(opts.builtinRoot);
+    for (const err of walked.errors) {
+      console.warn(
+        `[skill-md-storage] built-in skill load failed for "${err.skillId}": ${err.message}`
+      );
+    }
+    for (const loaded of walked.loaded) {
+      const skillId = loaded.frontmatter.id;
+      const installPath = path.join(opts.builtinRoot, skillId);
+      builtinCache.set(skillId, {
+        loaded,
+        source: 'builtin',
+        // Phase 12.13 will sign built-ins at build time. Until that
+        // ships we mark them as unsigned and the install route's
+        // signature gate is the only `signed: true` path.
+        signed: false,
+        installedAt: 0,
+        installPath,
+      });
+    }
+  }
+
+  // User cache: bootstrap from `index.json` + on-disk SKILL.md so a
+  // user editing SKILL.md by hand between runs takes effect.
+  const userCache = new Map<SkillId, InstalledSkill>();
   for (const row of readIndex(indexPath).rows) {
-    const skillDir = path.join(versionedRoot, sanitize(row.skillId));
+    const skillDir = path.join(userVersionedRoot, sanitize(row.skillId));
     const loadResult = loadSkillFromDir(skillDir, { idOverride: row.skillId });
     if (!loadResult.ok) {
       console.warn(
-        `[skill-md-storage] dropping skill ${row.skillId} from index: ${loadResult.error.message}`
+        `[skill-md-storage] dropping user skill "${row.skillId}" from index: ${loadResult.error.message}`
       );
       continue;
     }
-    cache.set(row.skillId, hydrate(loadResult.loaded, row));
+    userCache.set(row.skillId, hydrate(loadResult.loaded, row));
   }
 
   function persist(): void {
     const file: IndexFile = {
       schemaVersion: STORE_SCHEMA_VERSION,
-      rows: [...cache.values()].map(toIndexRow),
+      rows: [...userCache.values()].map(toIndexRow),
     };
     writeFileSync(indexPath, JSON.stringify(file, null, 2), 'utf-8');
   }
 
+  function merged(): InstalledSkill[] {
+    // User shadows built-in. Iterate built-ins first then overwrite from
+    // user — preserves built-in ordering for ids that aren't shadowed.
+    const out = new Map<SkillId, InstalledSkill>();
+    for (const [id, record] of builtinCache) out.set(id, record);
+    for (const [id, record] of userCache) out.set(id, record);
+    return [...out.values()];
+  }
+
   return {
-    list(): InstalledSkillMd[] {
-      return [...cache.values()];
+    list(): InstalledSkill[] {
+      return merged();
     },
-    get(id: SkillId): InstalledSkillMd | null {
-      return cache.get(id) ?? null;
+    get(id: SkillId): InstalledSkill | null {
+      return userCache.get(id) ?? builtinCache.get(id) ?? null;
     },
-    install(loaded, installOpts): InstalledSkillMd {
+    install(loaded: LoadedSkill, installOpts: InstallOptions): InstalledSkill {
+      if (installOpts.source === 'builtin') {
+        throw new Error(
+          'install() cannot persist a builtin skill — drop it under builtinRoot at build time'
+        );
+      }
       const skillId = loaded.frontmatter.id;
-      const skillDir = path.join(versionedRoot, sanitize(skillId));
+      const skillDir = path.join(userVersionedRoot, sanitize(skillId));
       mkdirSync(skillDir, { recursive: true });
 
-      // Reconstruct SKILL.md from the parsed result. We could keep the
-      // original source byte-for-byte by passing it through — simpler
-      // contract for now: the canonical SKILL.md has the resolved
-      // frontmatter (post-Zod) and the body verbatim.
+      // Reconstruct SKILL.md from the parsed result. The canonical
+      // SKILL.md has the resolved frontmatter (post-Zod) and the body
+      // verbatim — re-parsing disk → re-render produces a byte-stable
+      // file. Lossy for original whitespace / comments, which is fine
+      // since the parser is the source of truth post-install.
       const skillMdSource = renderSkillMd(loaded);
       writeFileSync(path.join(skillDir, 'SKILL.md'), skillMdSource, 'utf-8');
 
-      // Write resources. The loader rejects backslash / absolute / `..`
-      // paths at parse time (bundle-v2.ts), but we sanitize here too as
-      // belt-and-suspenders — v2 SkillStore.install() can be called by
-      // callers that didn't go through the bundle parser.
       if (installOpts.resources) {
         for (const resource of installOpts.resources) {
           if (!isSafeRelativePath(resource.path)) {
@@ -177,7 +203,7 @@ export function createSkillMdStorage(
         }
       }
 
-      const record: InstalledSkillMd = {
+      const record: InstalledSkill = {
         loaded: { ...loaded, sourceFile: path.join(skillDir, 'SKILL.md') },
         source: installOpts.source,
         signed: installOpts.signed,
@@ -185,14 +211,18 @@ export function createSkillMdStorage(
         installPath: skillDir,
         installedAt: now(),
       };
-      cache.set(skillId, record);
+      userCache.set(skillId, record);
       persist();
       return record;
     },
     uninstall(id: SkillId): boolean {
-      const existed = cache.delete(id);
+      // Built-ins are immutable — `uninstall` is a no-op for ids that
+      // only exist in the built-in cache. The contract on api.ts is
+      // explicit: "Returns true iff a skill was removed from the user
+      // root."
+      const existed = userCache.delete(id);
       if (!existed) return false;
-      const skillDir = path.join(versionedRoot, sanitize(id));
+      const skillDir = path.join(userVersionedRoot, sanitize(id));
       if (existsSync(skillDir)) {
         rmSync(skillDir, { recursive: true, force: true });
       }
@@ -226,7 +256,7 @@ function readIndex(indexPath: string): IndexFile {
   }
 }
 
-function hydrate(loaded: LoadedSkill, row: IndexRow): InstalledSkillMd {
+function hydrate(loaded: LoadedSkill, row: IndexRow): InstalledSkill {
   return {
     loaded,
     source: row.source,
@@ -237,7 +267,7 @@ function hydrate(loaded: LoadedSkill, row: IndexRow): InstalledSkillMd {
   };
 }
 
-function toIndexRow(record: InstalledSkillMd): IndexRow {
+function toIndexRow(record: InstalledSkill): IndexRow {
   return {
     skillId: record.loaded.frontmatter.id,
     source: record.source,
@@ -296,9 +326,6 @@ function renderSkillMd(loaded: LoadedSkill): string {
     const value = loaded.frontmatter[key];
     if (value !== undefined) orderedFm[key] = value;
   }
-  // `yaml.stringify` defaults are friendly: block scalars for arrays,
-  // double-quotes only when needed. `lineWidth: 0` disables wrapping so
-  // long descriptions stay on one line for easy diffing.
   const yaml = stringifyYaml(orderedFm, { lineWidth: 0 });
   const body = loaded.body.endsWith('\n') ? loaded.body : loaded.body + '\n';
   const bodyJoiner = body.startsWith('\n') ? '' : '\n';

@@ -1,14 +1,16 @@
 // ── @pipefx/skills/backend — v2 SkillStore tests ─────────────────────────
-// Drives the storage layer through a real temp directory: install →
-// list → get → uninstall → reload-from-disk. Mirrors the v1 store's
-// test approach so future migrations can compare behavior side-by-side.
+// Drives the storage layer through real temp directories: install →
+// list → get → uninstall → reload-from-disk, plus the two-root merge
+// (built-in vs user) added in Phase 12.6.
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import {
   existsSync,
+  mkdirSync,
   mkdtempSync,
   readFileSync,
   rmSync,
+  writeFileSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import * as path from 'node:path';
@@ -27,9 +29,10 @@ triggers:
 requires:
   tools:
     - render_clip
-    - import_subtitle_track
-  capabilities:
-    - resolve | premiere
+    - name: import_subtitle_track
+      connector:
+        - resolve
+        - premiere
 inputs:
   - id: clipId
     type: clip-ref
@@ -49,19 +52,38 @@ ui: inline
 This is the prompt body the model sees.
 `;
 
-let rootDir: string;
+const builtinSkillMd = `---
+id: builtin-hello
+name: Built-in Hello
+description: Ships with the desktop.
+ui: inline
+---
+
+# Hello from a built-in skill.
+`;
+
+let userRoot: string;
+let builtinRoot: string;
 
 beforeEach(() => {
-  rootDir = mkdtempSync(path.join(tmpdir(), 'pipefx-skills-md-store-'));
+  userRoot = mkdtempSync(path.join(tmpdir(), 'pipefx-skills-md-user-'));
+  builtinRoot = mkdtempSync(path.join(tmpdir(), 'pipefx-skills-md-builtin-'));
 });
 
 afterEach(() => {
-  rmSync(rootDir, { recursive: true, force: true });
+  rmSync(userRoot, { recursive: true, force: true });
+  rmSync(builtinRoot, { recursive: true, force: true });
 });
 
+function seedBuiltin(id: string, source: string): void {
+  const dir = path.join(builtinRoot, id);
+  mkdirSync(dir, { recursive: true });
+  writeFileSync(path.join(dir, 'SKILL.md'), source, 'utf-8');
+}
+
 describe('createSkillMdStorage', () => {
-  it('install + list + get round-trip', () => {
-    const store = createSkillMdStorage({ rootDir, now: () => 1000 });
+  it('install + list + get round-trip (user root only)', () => {
+    const store = createSkillMdStorage({ userRoot, now: () => 1000 });
     const loaded = parseSkillMdOrThrow(subtitlesSkillMd);
 
     const installed = store.install(loaded, {
@@ -78,14 +100,14 @@ describe('createSkillMdStorage', () => {
   });
 
   it('persists SKILL.md to disk in the v2 subdirectory', () => {
-    const store = createSkillMdStorage({ rootDir });
+    const store = createSkillMdStorage({ userRoot });
     store.install(parseSkillMdOrThrow(subtitlesSkillMd), {
       source: 'local',
       signed: false,
     });
 
     const skillMdPath = path.join(
-      rootDir,
+      userRoot,
       'v2',
       'subtitles',
       'SKILL.md'
@@ -98,7 +120,7 @@ describe('createSkillMdStorage', () => {
   });
 
   it('writes resources alongside SKILL.md and rejects unsafe paths', () => {
-    const store = createSkillMdStorage({ rootDir });
+    const store = createSkillMdStorage({ userRoot });
     store.install(parseSkillMdOrThrow(subtitlesSkillMd), {
       source: 'bundle',
       signed: false,
@@ -111,7 +133,7 @@ describe('createSkillMdStorage', () => {
     });
 
     const scriptPath = path.join(
-      rootDir,
+      userRoot,
       'v2',
       'subtitles',
       'scripts',
@@ -132,13 +154,13 @@ describe('createSkillMdStorage', () => {
   });
 
   it('uninstall removes the directory and the index row', () => {
-    const store = createSkillMdStorage({ rootDir });
+    const store = createSkillMdStorage({ userRoot });
     store.install(parseSkillMdOrThrow(subtitlesSkillMd), {
       source: 'local',
       signed: false,
     });
 
-    const skillDir = path.join(rootDir, 'v2', 'subtitles');
+    const skillDir = path.join(userRoot, 'v2', 'subtitles');
     expect(existsSync(skillDir)).toBe(true);
 
     expect(store.uninstall('subtitles')).toBe(true);
@@ -148,7 +170,7 @@ describe('createSkillMdStorage', () => {
   });
 
   it('reload-from-disk picks up persisted skills', () => {
-    const original = createSkillMdStorage({ rootDir, now: () => 5000 });
+    const original = createSkillMdStorage({ userRoot, now: () => 5000 });
     original.install(parseSkillMdOrThrow(subtitlesSkillMd), {
       source: 'remote',
       signed: true,
@@ -156,7 +178,7 @@ describe('createSkillMdStorage', () => {
     });
 
     // New store on the same directory — bootstrap should rehydrate.
-    const reloaded = createSkillMdStorage({ rootDir });
+    const reloaded = createSkillMdStorage({ userRoot });
     const skill = reloaded.get('subtitles');
     expect(skill).not.toBeNull();
     expect(skill?.installedAt).toBe(5000);
@@ -166,42 +188,101 @@ describe('createSkillMdStorage', () => {
   });
 
   it('drops index rows whose SKILL.md disappeared', () => {
-    const store = createSkillMdStorage({ rootDir });
+    const store = createSkillMdStorage({ userRoot });
     store.install(parseSkillMdOrThrow(subtitlesSkillMd), {
       source: 'local',
       signed: false,
     });
 
-    // Simulate a partial cleanup: remove the SKILL.md but leave the
-    // directory + index row.
-    rmSync(path.join(rootDir, 'v2', 'subtitles', 'SKILL.md'), {
+    rmSync(path.join(userRoot, 'v2', 'subtitles', 'SKILL.md'), {
       force: true,
     });
 
-    const reloaded = createSkillMdStorage({ rootDir });
+    const reloaded = createSkillMdStorage({ userRoot });
     expect(reloaded.list()).toHaveLength(0);
     expect(reloaded.get('subtitles')).toBeNull();
   });
 
   it('canonicalizes SKILL.md on install (re-parses cleanly)', () => {
-    const store = createSkillMdStorage({ rootDir });
+    const store = createSkillMdStorage({ userRoot });
     store.install(parseSkillMdOrThrow(subtitlesSkillMd), {
       source: 'local',
       signed: false,
     });
 
     const persistedPath = path.join(
-      rootDir,
+      userRoot,
       'v2',
       'subtitles',
       'SKILL.md'
     );
     const persisted = readFileSync(persistedPath, 'utf-8');
-    // Re-parse the canonical form. It must still validate and carry the
-    // same frontmatter id.
     const reparsed = parseSkillMdOrThrow(persisted);
     expect(reparsed.frontmatter.id).toBe('subtitles');
     expect(reparsed.frontmatter.inputs).toHaveLength(2);
     expect(reparsed.body.trim()).toContain('Generate Subtitles');
+  });
+
+  // ── Two-root merge (Phase 12.6) ──────────────────────────────────────
+
+  it('list() merges builtin + user roots; user shadows builtin', () => {
+    seedBuiltin('builtin-hello', builtinSkillMd);
+    seedBuiltin('shadowed', builtinSkillMd.replace('builtin-hello', 'shadowed'));
+
+    const store = createSkillMdStorage({ userRoot, builtinRoot });
+    expect(store.list().map((s) => s.loaded.frontmatter.id).sort()).toEqual([
+      'builtin-hello',
+      'shadowed',
+    ]);
+    expect(store.get('builtin-hello')?.source).toBe('builtin');
+
+    // Install a user skill with the same id as a built-in — user wins.
+    const shadowingMd = builtinSkillMd
+      .replace('builtin-hello', 'shadowed')
+      .replace('Built-in Hello', 'User Override');
+    store.install(parseSkillMdOrThrow(shadowingMd), {
+      source: 'local',
+      signed: false,
+    });
+
+    const merged = store.list();
+    expect(merged).toHaveLength(2);
+    const shadowed = merged.find((s) => s.loaded.frontmatter.id === 'shadowed');
+    expect(shadowed?.source).toBe('local');
+    expect(shadowed?.loaded.frontmatter.name).toBe('User Override');
+  });
+
+  it('uninstall is a no-op for builtin-only skills', () => {
+    seedBuiltin('builtin-hello', builtinSkillMd);
+    const store = createSkillMdStorage({ userRoot, builtinRoot });
+    expect(store.uninstall('builtin-hello')).toBe(false);
+    expect(store.get('builtin-hello')?.source).toBe('builtin');
+  });
+
+  it('refuses to install with source: "builtin"', () => {
+    const store = createSkillMdStorage({ userRoot });
+    expect(() =>
+      store.install(parseSkillMdOrThrow(subtitlesSkillMd), {
+        source: 'builtin',
+        signed: true,
+      })
+    ).toThrow(/cannot persist a builtin skill/);
+  });
+
+  it('uninstalling a shadowing user skill reveals the built-in again', () => {
+    seedBuiltin('shadowed', builtinSkillMd.replace('builtin-hello', 'shadowed'));
+    const store = createSkillMdStorage({ userRoot, builtinRoot });
+
+    const userMd = builtinSkillMd
+      .replace('builtin-hello', 'shadowed')
+      .replace('Built-in Hello', 'User Override');
+    store.install(parseSkillMdOrThrow(userMd), {
+      source: 'local',
+      signed: false,
+    });
+    expect(store.get('shadowed')?.source).toBe('local');
+
+    expect(store.uninstall('shadowed')).toBe(true);
+    expect(store.get('shadowed')?.source).toBe('builtin');
   });
 });

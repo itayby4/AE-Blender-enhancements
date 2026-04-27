@@ -21,6 +21,9 @@
     },
     {
       "path": "../brain-contracts/tsconfig.lib.json"
+    },
+    {
+      "path": "../command-palette/tsconfig.lib.json"
     }
   ]
 }

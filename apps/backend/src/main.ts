@@ -8,13 +8,13 @@ import {
   type CapabilityMatcherHandle,
 } from '@pipefx/skills/domain';
 import {
+  createScriptRunner,
+  createSkillMdStorage,
   createSkillRunStore,
-  createSkillStorage,
   mountSkillRoutes,
+  registerSkillBrainTools,
 } from '@pipefx/skills/backend';
-import { parseSkillBundle } from '@pipefx/skills/marketplace';
-import type { SkillEventMap, SkillStore } from '@pipefx/skills/contracts';
-import { existsSync, readdirSync, readFileSync } from 'node:fs';
+import type { SkillEventMap } from '@pipefx/skills/contracts';
 import { createAgent } from '@pipefx/brain-loop';
 import type { Agent } from '@pipefx/agent-loop-kernel';
 import {
@@ -288,47 +288,31 @@ async function main() {
 
   let agent: Agent = createAgent(baseAgentConfig);
 
-  // ── Skills surface (Phase 7) ──
-  // Storage is filesystem-backed under <workspaceRoot>/data/skills/v1/.
-  // The matcher is created against the underlying storage (not the wrapper)
-  // so the wrapper can capture the matcher in its closure without a
-  // forward-reference. The wrapper exists to nudge `matcher.recompute()`
-  // after install/uninstall — the matcher's own subscription only fires on
-  // `mcp.tools.changed`, so without this nudge a freshly-installed skill
-  // stays absent from the availability snapshot until the next MCP refresh.
-  const skillsStorage = createSkillStorage({
-    rootDir: path.join(config.workspaceRoot, 'data', 'skills'),
+  // ── Skills surface (Phase 12 — SKILL.md / three-mode runner) ──
+  // Two roots: a read-only `<workspaceRoot>/SKILL/` for built-ins
+  // (populated by `@pipefx/skills-builtin` in 12.9; today the directory
+  // is optional and may not exist yet), plus the writable user root at
+  // `<workspaceRoot>/data/skills/` where `.pfxskill` bundles unpack.
+  //
+  // The matcher subscribes to `mcp.tools.changed`, `skills.installed`,
+  // and `skills.uninstalled` on the shared bus and recomputes the
+  // availability snapshot on each. The install / uninstall routes are
+  // what publish the latter two — we don't need to nudge the matcher
+  // manually anymore.
+  const skillStore = createSkillMdStorage({
+    userRoot: path.join(config.workspaceRoot, 'data', 'skills'),
+    builtinRoot: path.join(config.workspaceRoot, 'SKILL'),
   });
   const skillsMatcher: CapabilityMatcherHandle = createCapabilityMatcher({
-    skillsProvider: () => skillsStorage.list().map((s) => s.manifest),
+    store: skillStore,
     bus,
   });
-  const skillStore: SkillStore = {
-    list: () => skillsStorage.list(),
-    get: (id) => skillsStorage.get(id),
-    install: (manifest, opts) => {
-      const record = skillsStorage.install(manifest, opts);
-      skillsMatcher.recompute();
-      return record;
-    },
-    uninstall: (id) => {
-      const removed = skillsStorage.uninstall(id);
-      if (removed) skillsMatcher.recompute();
-      return removed;
-    },
-  };
-  // Preinstall example .pfxskill bundles (subtitles, audio-sync, autopod)
-  // on first boot. Each bundle is keyed by its skill id; if the user has
-  // already installed it (manually via the UI or from a prior boot), the
-  // SkillStore returns a record and we skip — preinstall is idempotent.
-  // Errors during preinstall are logged but do not abort startup; a
-  // missing example skill is a worse experience than a friendly warning.
-  await preinstallExampleSkills(skillStore, config.workspaceRoot);
 
   const skillsRunStore = createSkillRunStore();
+  const skillsScriptRunner = createScriptRunner();
   const skillsRunner = createSkillRunner({
     store: skillStore,
-    runs: skillsRunStore,
+    runStore: skillsRunStore,
     matcher: skillsMatcher,
     // Agent.chat from @pipefx/agent-loop-kernel is a strict superset of
     // BrainLoopApi.chat — accepts the same {sessionId, allowedTools} shape
@@ -336,6 +320,7 @@ async function main() {
     // explicit without dragging extra plumbing in.
     brain: { chat: (msg, opts) => agent.chat(msg, opts) },
     bus,
+    scriptRunner: skillsScriptRunner,
   });
 
   // ── Build Router ──
@@ -389,7 +374,15 @@ async function main() {
     runs: skillsRunStore,
     matcher: skillsMatcher,
     runner: skillsRunner,
+    bus,
   });
+
+  // Phase 12.14: register the brain-side `create_skill` tool so the
+  // chat-driven authoring flow can persist a SKILL.md end-to-end. The
+  // connector registry is the brain's tool surface — adding a local tool
+  // here is the same pattern the memory tools use (see registerMemoryTools
+  // below).
+  registerSkillBrainTools(registry, { store: skillStore, bus });
   registerUsageRoutes(router, {
     usageStore,
     getUserId: () => 'local-user', // BYOK: no authenticated user, hardcode local
@@ -449,61 +442,6 @@ async function main() {
     );
     console.log('Ready to receive commands from PipeFX Desktop!');
   });
-}
-
-// ── Example skill preinstall ──
-// Reads any .pfxskill bundle under <workspaceRoot>/data/example-skills/dist/
-// and installs it through the SkillStore if a record for the same id is
-// not already present. Idempotent: re-running on next boot is a no-op
-// because the SkillStore returns the existing record on collision.
-//
-// Bundles ship UNSIGNED on purpose (see data/example-skills/README.md).
-// Signed bundles installed through the UI go through Ed25519 verify at
-// the install route; the preinstall path bypasses that gate intentionally
-// since the bundles are repo-shipped and reviewed at PR time, not at
-// runtime — same trust model as any other code in the repo.
-async function preinstallExampleSkills(
-  store: SkillStore,
-  workspaceRoot: string
-): Promise<void> {
-  const bundleDir = path.join(workspaceRoot, 'data', 'example-skills', 'dist');
-  if (!existsSync(bundleDir)) return;
-
-  let installed = 0;
-  let skipped = 0;
-  for (const file of readdirSync(bundleDir)) {
-    if (!file.endsWith('.pfxskill')) continue;
-    const fullPath = path.join(bundleDir, file);
-    try {
-      const bytes = readFileSync(fullPath);
-      const result = parseSkillBundle(new Uint8Array(bytes.buffer, bytes.byteOffset, bytes.byteLength));
-      if (!result.ok) {
-        console.warn(`[skills] preinstall skipped ${file}: ${result.error}`);
-        continue;
-      }
-      const id = result.bundle.manifest.id;
-      if (store.get(id)) {
-        skipped += 1;
-        continue;
-      }
-      store.install(result.bundle.manifest, {
-        source: 'bundle',
-        signed: false,
-      });
-      installed += 1;
-      console.log(`[skills] preinstalled example: ${id}`);
-    } catch (err) {
-      console.warn(
-        `[skills] preinstall failed for ${file}:`,
-        err instanceof Error ? err.message : err
-      );
-    }
-  }
-  if (installed > 0 || skipped > 0) {
-    console.log(
-      `[skills] example preinstall: ${installed} installed, ${skipped} already present`
-    );
-  }
 }
 
 // ── Local Tool Registration ──

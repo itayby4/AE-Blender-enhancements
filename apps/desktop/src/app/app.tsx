@@ -13,6 +13,12 @@ import {
   Settings,
   Brain,
   MessageSquare,
+  Zap,
+  Video,
+  ImageIcon,
+  Network,
+  Trash2,
+  FilePlus,
 } from 'lucide-react';
 import { Button } from '../components/ui/button.js';
 import { Card, CardContent } from '../components/ui/card.js';
@@ -28,6 +34,7 @@ import {
 } from '../components/ui/select.js';
 import { cn } from '../lib/utils.js';
 import { loadSkills, filterSkillsByApp, type Skill } from '../lib/load-skills.js';
+import { usePinnedSkills } from '../lib/pinned-skills.js';
 import { fetchProjects, createProject, switchApp, getActiveAppState } from '../lib/api.js';
 
 // Layout
@@ -38,15 +45,27 @@ import { TerminalSpinner } from '../components/ui/TerminalSpinner.js';
 
 // Features
 import { ChatPanel } from '../features/chat/ChatPanel.js';
-import { CommandPalette } from '../features/command-palette/CommandPalette.js';
+import { CommandPalette } from '@pipefx/command-palette/ui';
+import type { CommandSource } from '@pipefx/command-palette/contracts';
+import {
+  createAuthoringSource,
+  createSkillsSource,
+  ScaffoldDialog,
+  SkillEditor,
+  useSkills,
+} from '@pipefx/skills/ui';
+import type { InstalledSkill } from '@pipefx/skills/contracts';
+// Side-effect import: seeds the desktop's bundled-skill registry with
+// the modules from `@pipefx/skills-builtin`. The runner host consumes
+// the singleton from `./bundled-skill-registry.js` once 12.10 lands.
+import './bundled-skill-registry.js';
 import { ProjectBrain } from '../features/project-brain/ProjectBrain.js';
 import { VideoGenDashboard } from '../features/video-gen/VideoGenDashboard.js';
 import { ImageGenDashboard } from '../features/image-gen/ImageGenDashboard.js';
 import { NodeSystemDashboard } from '@pipefx/node-system/ui';
-import { SubtitlesDashboard } from '../features/subtitles/SubtitlesDashboard.js';
-import { AudioSyncDashboard } from '../features/audio-sync/AudioSyncDashboard.js';
-import { AutopodDashboard } from '../features/autopod/AutopodDashboard.js';
-import { SkillLibraryPage } from '../features/skills/SkillLibraryPage.js';
+import { SkillsPage } from '@pipefx/skills/ui';
+import { BundledSkillLauncher } from './BundledSkillLauncher.js';
+import { SkillQuickFilter } from './SkillQuickFilter.js';
 import { SkillPlannerPage } from '../features/skills/SkillPlannerPage.js';
 import { TaskManagerWidget } from '../features/skills/TaskManagerWidget.js';
 import { PlanApprovalModal } from '../components/PlanApprovalModal.js';
@@ -63,7 +82,7 @@ import { dispatchPipelineActions } from '@pipefx/node-system';
 import { parseMessageContent } from '../features/skills/ChatCard.js';
 
 // Auth
-import { useAuth } from '@pipefx/auth/ui';
+import { getAccessToken, useAuth } from '@pipefx/auth/ui';
 import { LoginPage } from '../features/auth/LoginPage.js';
 
 // ── Static Data ──
@@ -102,6 +121,14 @@ export function App() {
   const [activeView, setActiveView] = useState('chat');
   const [isRightPanelOpen, setIsRightPanelOpen] = useState(true);
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
+  const [paletteInitialQuery, setPaletteInitialQuery] = useState('');
+  const [palettePinnedSourceId, setPalettePinnedSourceId] = useState<string | undefined>(undefined);
+
+  // 12.10.5 — compact `/` skill picker anchored above the chat input.
+  // Open state derives from chat-input content (see effect below): if
+  // the user types `/foo` (no space), the popover opens with `foo` as
+  // the filter; deleting the `/` closes it.
+  const [isQuickFilterOpen, setIsQuickFilterOpen] = useState(false);
 
   // ── Left NavRail Expanded ── narrow icon rail (default) vs wide labeled rail
   const [isNavRailExpanded, setIsNavRailExpanded] = useState<boolean>(() => {
@@ -328,15 +355,34 @@ export function App() {
   // Global keyboard shortcuts
   useEffect(() => {
     const handler = (e: globalThis.KeyboardEvent) => {
-      // Ctrl+K — Command Palette
+      // Ctrl+K — palette unfiltered
       if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
         e.preventDefault();
+        setPaletteInitialQuery('');
+        setPalettePinnedSourceId(undefined);
         setIsCommandPaletteOpen((v) => !v);
+        return;
       }
+      // 12.10.5 followup: `/` is no longer intercepted globally — it
+      // types into the chat input naturally, and `SkillQuickFilter` is
+      // driven by `chatInput` content via the effect below. Deleting
+      // the `/` automatically closes the popover.
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
   }, []);
+
+  // 12.10.5 popover sync — open while chat input starts with `/` and
+  // contains no space; close otherwise. The popover only shows when
+  // the chat view is active (other views don't have a chat input).
+  useEffect(() => {
+    if (activeView !== 'chat') {
+      setIsQuickFilterOpen(false);
+      return;
+    }
+    const v = chatInput;
+    setIsQuickFilterOpen(v.startsWith('/') && !v.includes(' '));
+  }, [chatInput, activeView]);
 
   // ── Handlers ──
 
@@ -386,6 +432,13 @@ export function App() {
       setActivePlanContent(content);
       setActiveView('skill-planner');
     },
+    // Phase 12.14: chat-authored skill landed via SkillBuilderCard.
+    // Refresh the v2 library so the skill card shows up immediately,
+    // and pop the editor for inline iteration.
+    onSkillCreated: (record: InstalledSkill) => {
+      refreshSkills();
+      setEditingSkill(record);
+    },
     chatSessions: chatHistory.sessions,
     activeSessionId: chatHistory.activeSessionId,
     onLoadSession: async (id: string) => {
@@ -403,6 +456,89 @@ export function App() {
     todos: chat.todos,
     subAgents: chat.subAgents,
   };
+
+  // ── Command palette sources ──
+  // The palette is source-pluggable (`@pipefx/command-palette`). Desktop
+  // contributes a built-in source (navigation, settings, chat actions);
+  // skills come from `createSkillsSource` over the SKILL.md library;
+  // authoring entry points come from `createAuthoringSource` (12.12).
+  const { skills: installedSkills, refresh: refreshSkills } = useSkills({
+    getToken: getAccessToken,
+  });
+
+  // 12.12 — authoring overlays. State lives at app level so the palette,
+  // library card edits, and the editor all funnel through the same
+  // open/close handlers.
+  const [isScaffoldOpen, setIsScaffoldOpen] = useState(false);
+  const [editingSkill, setEditingSkill] = useState<InstalledSkill | null>(null);
+  const pinnedSkillsState = usePinnedSkills();
+  const pinnedNavItems = useMemo(
+    () =>
+      pinnedSkillsState.pinned
+        .map((id) => {
+          const match = installedSkills.find(
+            (s) => s.skill.loaded.frontmatter.id === id
+          );
+          if (!match) return null;
+          const fm = match.skill.loaded.frontmatter;
+          return { id: fm.id, name: fm.name, icon: fm.icon };
+        })
+        .filter((x): x is { id: string; name: string; icon: string | undefined } => x !== null),
+    [pinnedSkillsState.pinned, installedSkills]
+  );
+
+  const handleRunSkill = useCallback(
+    (skill: InstalledSkill) => {
+      // For now the palette routes a skill activation to the Library
+      // surface. Once 12.10 ships bundled skills, this will hand off to
+      // the runner and let the host mount the matching component.
+      void skill;
+      setActiveView('skills');
+    },
+    []
+  );
+
+  const desktopSource = useMemo<CommandSource>(
+    () => ({
+      id: 'desktop',
+      label: 'Workspace',
+      list: () => [
+        { id: 'nav-chat', label: 'AI Chat', icon: MessageSquare, group: 'Navigation', shortcut: 'Ctrl+1', run: () => setActiveView('chat') },
+        { id: 'nav-skills', label: 'Skills', icon: Zap, group: 'Navigation', shortcut: 'Ctrl+2', run: () => setActiveView('skills') },
+        { id: 'nav-video', label: 'Video Studio', icon: Video, group: 'Navigation', shortcut: 'Ctrl+3', run: () => setActiveView('video-gen') },
+        { id: 'nav-image', label: 'Image Studio', icon: ImageIcon, group: 'Navigation', shortcut: 'Ctrl+4', run: () => setActiveView('image-gen') },
+        { id: 'nav-node', label: 'Node Editor', icon: Network, group: 'Navigation', shortcut: 'Ctrl+5', run: () => setActiveView('node-system') },
+        { id: 'nav-autopod', label: 'AutoPod Studio', icon: Scissors, group: 'Navigation', shortcut: 'Ctrl+6', run: () => setActiveView('autopod') },
+        { id: 'act-clear', label: 'Clear Chat History', icon: Trash2, group: 'Actions', run: () => chat.clearChat() },
+        { id: 'act-brain', label: 'Project Brain', icon: Brain, group: 'Actions', run: () => setActiveView('chat') },
+        { id: 'set-pref', label: 'API Keys & Preferences', icon: Settings, group: 'Settings', shortcut: 'Ctrl+,', run: () => setActiveView('settings') },
+      ],
+    }),
+    [chat]
+  );
+
+  const skillsSource = useMemo<CommandSource>(
+    () =>
+      createSkillsSource({
+        getSkills: () => installedSkills,
+        onRun: handleRunSkill,
+      }),
+    [installedSkills, handleRunSkill]
+  );
+
+  const authoringSource = useMemo<CommandSource>(
+    () =>
+      createAuthoringSource({
+        createSkillIcon: FilePlus,
+        onCreateSkill: () => setIsScaffoldOpen(true),
+      }),
+    []
+  );
+
+  const paletteSources = useMemo(
+    () => [desktopSource, skillsSource, authoringSource],
+    [desktopSource, skillsSource, authoringSource]
+  );
 
   // ── Auth Gate ──
   // All hooks above run on every render — gate rendering only, not hook order.
@@ -437,9 +573,57 @@ export function App() {
         <CommandPalette
           isOpen={isCommandPaletteOpen}
           onClose={() => setIsCommandPaletteOpen(false)}
-          onNavigate={(view) => setActiveView(view)}
-          onClearChat={chat.clearChat}
-          onOpenPreferences={() => setActiveView('settings')}
+          sources={paletteSources}
+          initialQuery={paletteInitialQuery}
+          pinnedSourceId={palettePinnedSourceId}
+        />
+
+        {/* ── Skill authoring overlays (Phase 12.12) ── */}
+        <ScaffoldDialog
+          isOpen={isScaffoldOpen}
+          onClose={() => setIsScaffoldOpen(false)}
+          getToken={getAccessToken}
+          onCreated={(record) => {
+            refreshSkills();
+            setEditingSkill(record);
+          }}
+        />
+        <SkillEditor
+          isOpen={editingSkill !== null}
+          onClose={() => setEditingSkill(null)}
+          skill={editingSkill}
+          getToken={getAccessToken}
+          onSaved={() => refreshSkills()}
+        />
+
+        {/* ── Compact `/` skill quick-filter (12.10.5) ── */}
+        <SkillQuickFilter
+          isOpen={isQuickFilterOpen}
+          query={chatInput}
+          skills={installedSkills}
+          getAnchor={() => document.getElementById('chat-input')}
+          onClose={() => {
+            // Esc clears the chat-input `/` so the open-condition
+            // effect doesn't immediately re-open the popover.
+            setChatInput('');
+            setIsQuickFilterOpen(false);
+          }}
+          onSelectBundled={(_id, name) => {
+            // Trailing space ensures the popover's open-condition
+            // (no-space) fails and stays closed. The launcher mounts
+            // when activeView changes; the chat input keeps `/Name `
+            // as a visual cue.
+            setChatInput(`/${name} `);
+            setActiveView(`skill:${_id}`);
+          }}
+          onSelectInline={(id, name, trigger) => {
+            // Inline skills (prompt/script) — drop the `/Name ` hint
+            // (or the explicit slash trigger if defined) into chat so
+            // the user can append the actual prompt.
+            const prefix = trigger ?? `/${name}`;
+            setChatInput(`${prefix} `);
+            void id;
+          }}
         />
 
 
@@ -586,6 +770,7 @@ export function App() {
             activeView={activeView}
             onNavigate={setActiveView}
             skills={filteredSkills}
+            pinnedSkills={pinnedNavItems}
             isExpanded={isNavRailExpanded}
           />
 
@@ -609,13 +794,39 @@ export function App() {
                 </div>
               )}
 
-              {/* Manifest-based Skill Library — the single skills surface
-                  after Phase 7. The legacy markdown/script SkillsPage was
-                  retired in Phase 7.13; SkillLibraryPage covers both the
-                  install/run path (Phase 7.9) and the in-app authoring
-                  flow (Phase 7.12) via its embedded SkillAuthoringPage. */}
-              {(activeView === 'skill-library' || activeView === 'skills') && (
-                <SkillLibraryPage />
+              {/* Skill Library — Phase 12.7 rebuild, split in 12.10.5.
+                  Two nav-rail entries:
+                    - "Skills" (Zap icon) → installed Library tab only.
+                    - "Skill Store" (Library icon) → Coming-Soon tab only.
+                  Both call into the same `SkillsPage` with `hideTabs`
+                  set; the host owns the surface boundary. */}
+              {activeView === 'skills' && (
+                <div className="flex-1 min-h-0 bg-card rounded-xl border overflow-hidden flex flex-col">
+                  <SkillsPage
+                    getToken={getAccessToken}
+                    defaultTab="library"
+                    hideTabs
+                    pinnedSkillIds={pinnedSkillsState.pinned}
+                    onTogglePin={pinnedSkillsState.toggle}
+                  />
+                </div>
+              )}
+              {activeView === 'skill-library' && (
+                <div className="flex-1 min-h-0 bg-card rounded-xl border overflow-hidden flex flex-col">
+                  <SkillsPage
+                    getToken={getAccessToken}
+                    defaultTab="store"
+                    hideTabs
+                  />
+                </div>
+              )}
+              {/* Pinned v2 skills — `skill:<id>` activeView is the rail's
+                  output for any pinned bundled skill. The launcher fires
+                  the run, mounts the registered React module. */}
+              {activeView.startsWith('skill:') && (
+                <div className="flex-1 min-h-0 bg-card rounded-xl border overflow-hidden flex flex-col">
+                  <BundledSkillLauncher skillId={activeView.slice('skill:'.length)} />
+                </div>
               )}
 
               {/* Core feature panels */}
@@ -635,27 +846,27 @@ export function App() {
                 </div>
               )}
 
-              {/* Post-Production dashboards — backed by @pipefx/post-production
-                  HTTP endpoints (mounted in apps/backend via mountWorkflowRoutes).
-                  These are permanent app surfaces, NOT skills: they require
-                  multi-step UI (Autopod's discover→review→run mapping flow),
-                  file-picker dialogs (Audio-Sync's audio_paths array), and
-                  domain-specific controls (Subtitles' VAD slider, language
-                  picker) that the manifest-driven SkillRunner can't generate.
-                  Wired in Phase 9.4. */}
+              {/* Post-Production dashboards — all three migrated to
+                  bundled skills (Phase 12.10 = Subtitles, 12.11 =
+                  Audio Sync + Autopod). The nav-rail entries now launch
+                  `SkillRunner.run({ skillId })` and mount the React
+                  module from `@pipefx/skills-builtin` via
+                  `BundledSkillHost`. The legacy
+                  `apps/desktop/src/features/{subtitles,audio-sync,autopod}/`
+                  directories were deleted in their respective phases. */}
               {activeView === 'subtitles' && (
                 <div className="flex-1 min-h-0 bg-card rounded-xl border overflow-hidden flex flex-col">
-                  <SubtitlesDashboard />
+                  <BundledSkillLauncher skillId="subtitles" />
                 </div>
               )}
               {activeView === 'audio-sync' && (
                 <div className="flex-1 min-h-0 bg-card rounded-xl border overflow-hidden flex flex-col">
-                  <AudioSyncDashboard />
+                  <BundledSkillLauncher skillId="audio-sync" />
                 </div>
               )}
               {activeView === 'autopod' && (
                 <div className="flex-1 min-h-0 bg-card rounded-xl border overflow-hidden flex flex-col">
-                  <AutopodDashboard activeApp={activeApp} />
+                  <BundledSkillLauncher skillId="autopod" />
                 </div>
               )}
 
@@ -673,12 +884,13 @@ export function App() {
                 </div>
               )}
 
-              {/* The legacy SKILL_UI_REGISTRY (per-skill bespoke React
-                  components) and SkillIframeRenderer (uiHtml embedded
-                  in legacy markdown skills) were retired in Phase 7.13.
-                  Manifest skills render through @pipefx/skills/ui's
-                  SkillRunner — a single typed form-based UX driven by
-                  the manifest's `inputs` array. */}
+              {/* Phase 12 rewrites the skill UI surface. The v1
+                  SkillRunner (form-based, manifest-driven) was deleted in
+                  12.2; the new three-mode runner — `prompt` (LLM body),
+                  `script` (subprocess), `component` (bundled React UI) —
+                  lands in 12.5–12.7. Bundled-UI skills resolve via a
+                  static React module registry populated by
+                  `@pipefx/skills-builtin`. */}
 
               {/* Macro pages */}
               {isMacroView && (

@@ -12,25 +12,28 @@
 import { z } from 'zod';
 
 import type {
+  RequiredTool,
   SkillBundledUiManifest,
   SkillFrontmatter,
   SkillFrontmatterInput,
-  SkillFrontmatterRequires,
   SkillFrontmatterScripts,
+  SkillRequires,
 } from '../contracts/skill-md.js';
 
 // ── Identity ─────────────────────────────────────────────────────────────
-// Same charset rule as v1: alphanumeric with optional . _ - separators,
-// no leading/trailing separator. Skill ids are filesystem path segments
-// in v2 (`<root>/<id>/SKILL.md`), so the constraint is load-bearing.
+// Alphanumeric with optional . _ - separators. Skill ids are filesystem
+// path segments in v2 (`<root>/<id>/SKILL.md`) so the constraint is
+// load-bearing. A single leading underscore is permitted as the
+// "internal/dev" convention used by built-in skills like `_author-guide`
+// and `_smoke`; trailing separators are still rejected.
 
 const skillIdSchema = z
   .string()
   .min(1)
   .max(128)
-  .regex(/^[a-z0-9]([a-z0-9._-]*[a-z0-9])?$/i, {
+  .regex(/^_?[a-z0-9]([a-z0-9._-]*[a-z0-9])?$/i, {
     message:
-      'skill id must be alphanumeric with optional . _ - separators (no leading/trailing separator)',
+      'skill id must be alphanumeric with optional . _ - separators (only a single leading underscore is permitted; no trailing separator)',
   });
 
 const inputIdSchema = z
@@ -117,11 +120,54 @@ const inputSchema: z.ZodType<SkillFrontmatterInput> = z.union([
 ]) as unknown as z.ZodType<SkillFrontmatterInput>;
 
 // ── Requirements ─────────────────────────────────────────────────────────
+// A `RequiredTool` is either a bare tool name (matches any live connector
+// exposing it) or `{ name, connector? }` (restricts the match to the
+// listed connector ids). `optional[]` advertises tools that enhance the
+// run when present but don't gate runnability.
+//
+// The object form is `.strict()` so typos in `connector` (e.g. `connectors`,
+// `connectorId`) fail loudly at load time. The outer `requires` block is
+// validated via `passthrough() + superRefine` so we can intercept the v1
+// `capabilities[]` field with a migration-pointing error rather than the
+// default "unrecognized keys" message.
 
-const requiresSchema: z.ZodType<SkillFrontmatterRequires> = z.object({
-  tools: z.array(z.string().min(1)).optional(),
-  capabilities: z.array(z.string().min(1)).optional(),
-});
+const requiredToolSchema: z.ZodType<RequiredTool> = z.union([
+  z.string().min(1, { message: 'tool name must be a non-empty string' }),
+  z
+    .object({
+      name: z.string().min(1, { message: 'tool name must be a non-empty string' }),
+      connector: z.array(z.string().min(1)).optional(),
+    })
+    .strict(),
+]);
+
+const REQUIRES_KNOWN_KEYS = new Set(['tools', 'optional']);
+
+const requiresSchema: z.ZodType<SkillRequires> = z
+  .object({
+    tools: z.array(requiredToolSchema),
+    optional: z.array(requiredToolSchema).optional(),
+  })
+  .passthrough()
+  .superRefine((value, ctx) => {
+    for (const key of Object.keys(value)) {
+      if (REQUIRES_KNOWN_KEYS.has(key)) continue;
+      if (key === 'capabilities') {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: [key],
+          message:
+            'legacy `requires.capabilities[]` is no longer supported — list each tool in `requires.tools[]` and use `{ name, connector: [...] }` to restrict it to specific connectors',
+        });
+      } else {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: [key],
+          message: `unrecognized key "${key}" in \`requires\` (allowed: tools, optional)`,
+        });
+      }
+    }
+  });
 
 // ── Scripts ──────────────────────────────────────────────────────────────
 // `entry` is a relative path inside the skill directory; the loader is

@@ -50,6 +50,7 @@
   ],
   "dependencies": {
     "@pipefx/brain-contracts": "workspace:*",
+    "@pipefx/command-palette": "workspace:*",
     "@pipefx/connectors-contracts": "workspace:*",
     "@pipefx/event-bus": "workspace:*",
     "fflate": "^0.8.2",
@@ -58,10 +59,18 @@
     "zod": "^3.22.2"
   },
   "peerDependencies": {
+    "@monaco-editor/react": "^4.7.0",
+    "monaco-editor": "^0.55.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"
   },
   "peerDependenciesMeta": {
+    "@monaco-editor/react": {
+      "optional": true
+    },
+    "monaco-editor": {
+      "optional": true
+    },
     "react": {
       "optional": true
     },

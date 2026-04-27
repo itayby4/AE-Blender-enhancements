@@ -1,31 +1,13 @@
 // ── @pipefx/skills/backend ───────────────────────────────────────────────
 // Public surface for backend wiring. Apps consume this via the
 // `@pipefx/skills/backend` subpath export — no deep imports allowed.
-
-export { mountSkillRoutes, type SkillMountDeps } from './mount.js';
-
-export {
-  createSkillStorage,
-  type SkillStorageOptions,
-} from './services/skill-storage.js';
-
-export {
-  createSkillRunStore,
-  type SkillRunStoreOptions,
-} from './services/skill-run-store.js';
-
-export {
-  registerSkillRoutes,
-  type SkillRouteDeps,
-} from './routes/skills.js';
-export {
-  registerRunRoutes,
-  type RunRouteDeps,
-} from './routes/runs.js';
-
-export type { RouterLike, RouteHandler } from './internal/http.js';
-
-// ── v2 (Phase 12) — SKILL.md loader + storage ───────────────────────────
+//
+// Phase 12.6 surface:
+//   • Storage:    `createSkillMdStorage` (two-root SkillStore over disk)
+//   • Loader:     `loadSkillsFromDir`, `loadSkillFromDir`
+//   • Run store:  `createSkillRunStore` (in-memory ring buffer)
+//   • Spawner:    `createScriptRunner` (child-process host for script-mode)
+//   • Routes:     `mountSkillRoutes` + the per-namespace registrars
 
 export {
   loadSkillsFromDir,
@@ -38,9 +20,41 @@ export {
 
 export {
   createSkillMdStorage,
-  type SkillMdStore,
   type SkillMdStorageOptions,
-  type SkillMdSource,
-  type InstalledSkillMd,
-  type InstallSkillMdOptions,
 } from './services/skill-md-storage.js';
+
+export {
+  createSkillRunStore,
+  type SkillRunStoreOptions,
+} from './services/skill-run-store.js';
+
+export {
+  createScriptRunner,
+  resolveScriptInterpreter,
+  type CreateScriptRunnerOptions,
+  type ScriptRunnerLineKind,
+} from './services/script-runner.js';
+
+export {
+  registerSkillBrainTools,
+  CREATE_SKILL_TOOL_NAME,
+  type RegisterSkillBrainToolsDeps,
+  type SkillBrainToolRegistry,
+} from './services/skill-brain-tools.js';
+
+export {
+  mountSkillRoutes,
+  type MountSkillRoutesDeps,
+} from './mount.js';
+
+export {
+  registerSkillRoutes,
+  type RegisterSkillRoutesDeps,
+} from './routes/skills.js';
+
+export {
+  registerRunRoutes,
+  type RegisterRunRoutesDeps,
+} from './routes/runs.js';
+
+export type { RouterLike, RouteHandler } from './internal/http.js';

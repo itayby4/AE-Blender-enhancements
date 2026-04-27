@@ -16,8 +16,11 @@ const validFrontmatter = {
   category: 'post-production',
   triggers: ['subtitle*', 'caption*', '/subtitles'],
   requires: {
-    tools: ['render_clip', 'import_subtitle_track'],
-    capabilities: ['resolve | premiere'],
+    tools: [
+      'render_clip',
+      { name: 'import_subtitle_track', connector: ['resolve', 'premiere'] },
+    ],
+    optional: ['burn_in_subtitles'],
   },
   inputs: [
     { id: 'clipId', type: 'clip-ref', label: 'Clip', required: true },
@@ -169,5 +172,118 @@ describe('parseFrontmatter', () => {
     expect(() =>
       parseFrontmatterOrThrow({ id: 'x', name: '', description: '' })
     ).toThrow(/invalid skill frontmatter/);
+  });
+
+  // ── requires.tools[] / optional[] (Phase 12.3) ─────────────────────────
+
+  it('accepts a bare-string entry in requires.tools[]', () => {
+    const result = parseFrontmatter({
+      ...validFrontmatter,
+      requires: { tools: ['render_clip'] },
+    });
+    expect(result.ok).toBe(true);
+  });
+
+  it('accepts a `{ name, connector: [...] }` entry in requires.tools[]', () => {
+    const result = parseFrontmatter({
+      ...validFrontmatter,
+      requires: {
+        tools: [{ name: 'import_subtitle_track', connector: ['resolve'] }],
+      },
+    });
+    expect(result.ok).toBe(true);
+  });
+
+  it('accepts requires with both tools[] and optional[]', () => {
+    const result = parseFrontmatter({
+      ...validFrontmatter,
+      requires: {
+        tools: ['render_clip'],
+        optional: [{ name: 'burn_in_subtitles' }],
+      },
+    });
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.frontmatter.requires?.tools).toHaveLength(1);
+      expect(result.frontmatter.requires?.optional).toHaveLength(1);
+    }
+  });
+
+  it('accepts requires.tools as an empty array (no required tools)', () => {
+    // A pure prompt-mode skill may declare no tool requirements explicitly.
+    const result = parseFrontmatter({
+      ...validFrontmatter,
+      requires: { tools: [] },
+    });
+    expect(result.ok).toBe(true);
+  });
+
+  it('rejects the legacy `capabilities[]` key with a migration hint', () => {
+    const result = parseFrontmatter({
+      ...validFrontmatter,
+      requires: {
+        tools: ['render_clip'],
+        capabilities: ['resolve | premiere'],
+      },
+    });
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      const issue = result.error.issues.find((i) =>
+        i.path.join('.').endsWith('capabilities')
+      );
+      expect(issue).toBeDefined();
+      expect(issue?.message).toMatch(/capabilities/i);
+      expect(issue?.message).toMatch(/connector/i);
+    }
+  });
+
+  it('rejects an unrecognized key inside requires', () => {
+    const result = parseFrontmatter({
+      ...validFrontmatter,
+      requires: { tools: ['x'], whatever: 'nope' },
+    });
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(
+        result.error.issues.some((i) => i.message.includes('whatever'))
+      ).toBe(true);
+    }
+  });
+
+  it('rejects an empty tool name (bare string)', () => {
+    const result = parseFrontmatter({
+      ...validFrontmatter,
+      requires: { tools: [''] },
+    });
+    expect(result.ok).toBe(false);
+  });
+
+  it('rejects a tool object with an empty name', () => {
+    const result = parseFrontmatter({
+      ...validFrontmatter,
+      requires: { tools: [{ name: '' }] },
+    });
+    expect(result.ok).toBe(false);
+  });
+
+  it('rejects a tool object with an unknown field (e.g. `connectors`)', () => {
+    // `.strict()` on the tool object catches the common typo.
+    const result = parseFrontmatter({
+      ...validFrontmatter,
+      requires: {
+        tools: [
+          { name: 'render_clip', connectors: ['resolve'] } as unknown as object,
+        ],
+      },
+    });
+    expect(result.ok).toBe(false);
+  });
+
+  it('rejects a tool object whose connector[] contains an empty string', () => {
+    const result = parseFrontmatter({
+      ...validFrontmatter,
+      requires: { tools: [{ name: 'render_clip', connector: [''] }] },
+    });
+    expect(result.ok).toBe(false);
   });
 });

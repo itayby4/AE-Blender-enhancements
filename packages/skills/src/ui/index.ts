@@ -1,74 +1,65 @@
 // ── @pipefx/skills/ui — public surface ───────────────────────────────────
-// React hooks + headless components for embedding the skills experience.
-// Re-exports a small set of contract types so consumers don't also need
-// to import from `@pipefx/skills/contracts` for everyday use.
+// Phase 12.7 ships the rebuilt library (Library / Store tabs, capability-
+// aware cards) and the inline-mode run dialog. Component-mode hosts use
+// `BundledSkillHost` + a registry populated by `@pipefx/skills-builtin`
+// (Phase 12.9). The authoring scaffold lands in 12.12.
 
-export { useSkills } from './hooks/use-skills.js';
-export type { UseSkillsDeps, UseSkillsResult } from './hooks/use-skills.js';
-
-export { useAvailableSkills } from './hooks/use-available-skills.js';
-export type {
-  UseAvailableSkillsDeps,
-  UseAvailableSkillsResult,
-} from './hooks/use-available-skills.js';
-
-export { useSkillRun } from './hooks/use-skill-run.js';
-export type {
-  UseSkillRunDeps,
-  UseSkillRunResult,
-  SkillRunError,
-  SkillRunErrorCode,
-} from './hooks/use-skill-run.js';
-
-export { SkillCard } from './components/SkillCard.js';
-export type { SkillCardProps } from './components/SkillCard.js';
-
-export { SkillLibrary } from './components/SkillLibrary.js';
-export type { SkillLibraryProps } from './components/SkillLibrary.js';
-
-export { SkillRunner } from './components/SkillRunner.js';
-export type { SkillRunnerProps } from './components/SkillRunner.js';
-
-// ── Authoring surface ────────────────────────────────────────────────────
-// Headless primitives for the in-app skill editor. Re-exported from the
-// `./ui` subpath so consumers don't need a separate package export.
+export { SkillsPage, type SkillsPageProps, type SkillsTab } from './SkillsPage.js';
 
 export {
-  draftToManifestInput,
-  emptyDraft,
-  emptyDraftCapability,
-  emptyDraftInput,
-  extractTemplateVariables,
-  manifestToDraft,
-  synthesizeSampleValues,
-  validateDraft,
-  useSkillDraft,
-  ManifestIdentityFields,
-  InputSchemaBuilder,
-  CapabilityPicker,
-  TemplatePreview,
-  type DraftCapability,
-  type DraftInput,
-  type DraftValidation,
-  type ExtractedVariable,
-  type SkillDraft,
-  type UseSkillDraftOptions,
-  type UseSkillDraftResult,
-  type ManifestIdentityFieldsProps,
-  type InputSchemaBuilderProps,
-  type CapabilityPickerProps,
-  type TemplatePreviewProps,
-} from './authoring/index.js';
+  SkillLibrary,
+  type SkillLibraryProps,
+  type SkillFilter,
+  SkillCard,
+  type SkillCardProps,
+  StoreComingSoon,
+} from './library/index.js';
 
-export type {
-  CapabilityRequirement,
-  InstalledSkill,
-  SkillAvailability,
-  SkillId,
-  SkillInput,
-  SkillInputType,
-  SkillManifest,
-  SkillRunRecord,
-  SkillRunRequest,
-  SkillRunStatus,
-} from '../contracts/types.js';
+export {
+  InlineForm,
+  type InlineFormProps,
+  type InlineFormValues,
+  SkillRunOutput,
+  type SkillRunOutputProps,
+  SkillRunDialog,
+  type SkillRunDialogProps,
+  BundledSkillHost,
+  createBundledSkillRegistry,
+  type BundledSkillHostProps,
+  type BundledSkillProps,
+  type BundledSkillComponent,
+  type BundledSkillRegistry,
+} from './runner/index.js';
+
+export {
+  useSkills,
+  type UseSkillsOptions,
+  type UseSkillsResult,
+  type SkillWithAvailability,
+  useSkillRun,
+  type UseSkillRunOptions,
+  type UseSkillRunResult,
+} from './hooks/index.js';
+
+export {
+  createSkillsSource,
+  type CreateSkillsSourceOptions,
+} from './palette/index.js';
+
+export {
+  ScaffoldDialog,
+  type ScaffoldDialogProps,
+  SkillEditor,
+  type SkillEditorProps,
+  SkillBuilderCard,
+  type SkillBuilderCardProps,
+  useScaffoldSkill,
+  type ScaffoldRequest,
+  type UseScaffoldSkillOptions,
+  type UseScaffoldSkillResult,
+  useSkillSource,
+  type UseSkillSourceOptions,
+  type UseSkillSourceResult,
+  createAuthoringSource,
+  type CreateAuthoringSourceOptions,
+} from './authoring/index.js';
