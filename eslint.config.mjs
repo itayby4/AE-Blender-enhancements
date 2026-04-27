@@ -25,6 +25,10 @@ export default [
       '**/build',
       '**/vite.config.*.timestamp*',
       '**/vitest.config.*.timestamp*',
+      // CEP ExtendScript host file — ES3-style, cannot use let/const.
+      'apps/mcp-aftereffects/host.jsx',
+      // CSInterface CEP shim — must remain ES5 for CEP compatibility.
+      'apps/mcp-aftereffects/CSInterface.js',
     ],
   },
   {

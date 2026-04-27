@@ -2,27 +2,7 @@ import * as dotenv from 'dotenv';
 import * as path from 'path';
 import * as fs from 'fs';
 import { resolveVenvPython } from '@pipefx/mcp-transport';
-import type { ToolResult } from '@pipefx/connectors';
 import { loadSystemPrompt, loadLegacySections } from './prompts/index.js';
-
-/**
- * Extract text from an MCP tool-result content. MCP returns content as an
- * array of blocks (text | image | ...) — we flatten the text so the AE
- * async policy predicates can regex-match on the combined message.
- */
-function extractText(content: unknown): string {
-  if (typeof content === 'string') return content;
-  if (Array.isArray(content)) {
-    return content
-      .filter(
-        (c): c is { type: string; text: string } =>
-          !!c && typeof c === 'object' && (c as { type?: string }).type === 'text'
-      )
-      .map((c) => c.text)
-      .join('\n');
-  }
-  return '';
-}
 
 // Resolve workspace root first so we can find the correct .env
 let currentDir = __dirname;
@@ -106,56 +86,17 @@ export let config = {
     aftereffects: {
       id: 'aftereffects' as const,
       name: 'Adobe After Effects',
+      // The AE MCP runs as a UXP panel inside After Effects, exposing an
+      // MCP server over HTTP/SSE on localhost:7891. The panel must be
+      // installed (sideloaded via UDT for now; signed .ccx later) and
+      // After Effects must be running with the panel open.
+      //
+      // Connection state == TCP state: if the SSE stream drops, the panel
+      // is closed or AE has quit. Surfaces directly through the existing
+      // ConnectorStatus widget — no health-check polling required.
       transport: {
-        type: 'stdio' as const,
-        command: process.execPath,
-        args: [
-          path.join(
-            workspaceRoot,
-            'apps',
-            'mcp-aftereffects',
-            'build',
-            'index.js'
-          ),
-        ],
-        cwd: path.join(workspaceRoot, 'apps', 'mcp-aftereffects'),
-      },
-      // The AE MCP server is fire-and-forget: most tools return
-      // "command queued, use get-results after a few seconds". The
-      // registry transparently polls get-results so the agent sees a
-      // synchronous call with the real result. This is what eliminates
-      // the 4-duplicate-composition bug by construction.
-      asyncPolicy: {
-        pollToolName: 'get-results',
-        skipTools: ['get-results', 'get-help', 'get-running-scripts'],
-        isQueued: (result: ToolResult) => {
-          const text = extractText(result.content);
-          if (!text) return false;
-          return /queued|please ensure|use the "get-results"/i.test(text);
-        },
-        // get-results returns JSON strings. These patterns all mean
-        // "nothing fresh to see yet" — keep polling. Everything else
-        // (a real ExtendScript result payload, or an AE_BRIDGE_TIMEOUT error
-        // the bridge emits after staleness) counts as ready.
-        isReady: (result: ToolResult) => {
-          const text = extractText(result.content);
-          if (!text) return true;
-          // The bridge emits `"status":"waiting"` while it holds a pending
-          // requestId whose response hasn't arrived yet; that's the signal to
-          // keep polling. An AE_BRIDGE_TIMEOUT payload is a terminal error
-          // and must NOT match here so it surfaces to the agent.
-          return !/no results file|no results available|pending|processing|please run a script|"status"\s*:\s*"waiting"|awaiting result for request/i.test(
-            text
-          );
-        },
-        // Snapshot the result buffer before dispatching so we can tell a
-        // fresh response apart from the leftover JSON of a previous
-        // command — this is what stops the "stale-data looks like
-        // success" failure mode that created duplicate comps.
-        captureBaseline: true,
-        pollIntervalMs: 400,
-        pollDeadlineMs: 45_000,
-        idempotencyTtlMs: 15_000,
+        type: 'sse' as const,
+        url: 'http://127.0.0.1:7891/sse',
       },
     },
     blender: {

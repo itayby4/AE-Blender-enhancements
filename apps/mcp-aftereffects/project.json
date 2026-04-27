@@ -5,21 +5,42 @@
   "sourceRoot": "apps/mcp-aftereffects/src",
   "tags": ["type:app", "scope:mcp"],
   "targets": {
-    "serve": {
+    "build": {
       "executor": "nx:run-commands",
-      "dependsOn": ["build"],
       "options": {
-        "command": "node build/index.js",
+        "command": "vite build",
+        "cwd": "apps/mcp-aftereffects"
+      },
+      "outputs": ["{projectRoot}/dist"],
+      "cache": true,
+      "inputs": [
+        "{projectRoot}/src/**/*",
+        "{projectRoot}/index.html",
+        "{projectRoot}/manifest.json",
+        "{projectRoot}/vite.config.ts",
+        "{projectRoot}/tsconfig.app.json",
+        "{projectRoot}/package.json"
+      ]
+    },
+    "dev": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "vite build --watch --mode development",
         "cwd": "apps/mcp-aftereffects"
       }
     },
-    "test": {
+    "typecheck": {
       "executor": "nx:run-commands",
-      "dependsOn": ["build"],
       "options": {
-        "command": "node --check build/index.js",
+        "command": "tsc -p tsconfig.app.json --noEmit",
         "cwd": "apps/mcp-aftereffects"
-      }
+      },
+      "cache": true,
+      "inputs": [
+        "{projectRoot}/src/**/*",
+        "{projectRoot}/tsconfig.app.json",
+        "{projectRoot}/tsconfig.json"
+      ]
     }
   }
 }

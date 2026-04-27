@@ -115,7 +115,11 @@
       "Bash(git -C C:/Users/PC/Documents/GitHub/pipefx show 85f4c69:apps/desktop/src/features/chat/ChatPanel.tsx)",
       "Bash(git -C C:/Users/PC/Documents/GitHub/pipefx show 85f4c69:apps/desktop/src/features/skills/ChatCard.tsx)",
       "Bash(git -C C:/Users/PC/Documents/GitHub/pipefx ls-files --deleted)",
-      "PowerShell(pnpm nx run-many -t build lint typecheck -p @pipefx/skills @pipefx/skills-builtin @pipefx/backend 2>&1)"
+      "PowerShell(pnpm nx run-many -t build lint typecheck -p @pipefx/skills @pipefx/skills-builtin @pipefx/backend 2>&1)",
+      "WebFetch(domain:ae-plugins.docsforadobe.dev)",
+      "WebFetch(domain:developer.adobe.com)",
+      "Bash(./venv/Scripts/python.exe -c \"import mcp_blender.server; print\\('smoke ok'\\); print\\('tools registered:', len\\(mcp_blender.server.mcp._tool_manager._tools\\) if hasattr\\(mcp_blender.server.mcp, '_tool_manager'\\) else 'unknown'\\)\")",
+      "Bash(./venv/Scripts/python.exe -c \"import mcp_blender.server; mgr = mcp_blender.server.mcp._tool_manager; print\\('smoke ok, tools:', list\\(mgr._tools.keys\\(\\)\\) if hasattr\\(mgr,'_tools'\\) else 'unknown'\\)\")"
     ]
   }
 }
