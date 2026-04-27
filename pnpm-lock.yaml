@@ -175,27 +175,6 @@ importers:
         specifier: ^9.0.10
         version: 9.0.10
 
-  apps/cloud-api:
-    dependencies:
-      '@pipefx/auth-tokens':
-        specifier: workspace:*
-        version: link:../../packages/auth-tokens
-      '@pipefx/llm-providers':
-        specifier: workspace:*
-        version: link:../../packages/llm-providers
-      '@pipefx/usage':
-        specifier: workspace:*
-        version: link:../../packages/usage
-      '@supabase/supabase-js':
-        specifier: ^2.103.3
-        version: 2.103.3
-      dotenv:
-        specifier: ^17.3.1
-        version: 17.3.1
-      tslib:
-        specifier: ^2.3.0
-        version: 2.8.1
-
   apps/desktop:
     dependencies:
       '@base-ui/react':
