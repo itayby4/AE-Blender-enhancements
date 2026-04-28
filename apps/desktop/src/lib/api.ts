@@ -182,16 +182,16 @@ export function updateSettings(settings: any): Promise<void> {
  * Uses the user's Supabase JWT to authenticate (chicken-and-egg:
  * we can't use a device token to get a device token).
  *
- * @param cloudApiUrl  - Base URL of the Cloud-API (e.g. https://cloud.pipefx.com)
- * @param deviceName   - Optional device name (shown in account management)
- * @returns The plaintext token, or null on failure
+ * @returns Token on success, or { error: string } with a diagnostic message.
  */
 export async function provisionCloudToken(
   cloudApiUrl: string,
   deviceName = 'PipeFX Desktop'
-): Promise<{ token: string; tokenId: string } | null> {
+): Promise<{ token: string; tokenId: string } | { error: string }> {
   const jwt = await getAccessToken();
-  if (!jwt) return null;
+  if (!jwt) {
+    return { error: 'No active Supabase session — please sign out and sign back in.' };
+  }
 
   try {
     const res = await fetch(`${cloudApiUrl}/auth/device-token`, {
@@ -203,16 +203,20 @@ export async function provisionCloudToken(
       body: JSON.stringify({ deviceName }),
     });
 
+    let body: any = null;
+    try { body = await res.json(); } catch { /* non-JSON response */ }
+
     if (!res.ok) {
-      console.error('[Cloud] Failed to provision device token:', res.status);
-      return null;
+      const detail = body?.error ?? `HTTP ${res.status}`;
+      console.error('[Cloud] Device token provision failed:', res.status, body);
+      return { error: `Cloud API: ${detail}` };
     }
 
-    const data = await res.json();
-    return { token: data.token, tokenId: data.tokenId };
-  } catch (err) {
-    console.error('[Cloud] Device token provisioning failed:', err);
-    return null;
+    return { token: body.token, tokenId: body.tokenId };
+  } catch (err: any) {
+    const msg = err?.message ?? String(err);
+    console.error('[Cloud] Network error during provisioning:', err);
+    return { error: `Network error: ${msg}` };
   }
 }
 

@@ -743,8 +743,9 @@ function ApiModeSection({
           savedSettings?.cloudApiUrl || 'https://pipefx-cloud-api-production.up.railway.app';
 
         const result = await provisionCloudToken(cloudApiUrl);
-        if (!result) {
-          toast.error('Failed to provision cloud access. Please try again.');
+        if ('error' in result) {
+          // Surface the actual diagnostic message from the Cloud API
+          toast.error(`Cloud access failed: ${result.error}`, { duration: 8000 });
           setApiMode('byok');
           return;
         }
@@ -765,6 +766,7 @@ function ApiModeSection({
       setIsSavingMode(false);
     }
   };
+
 
   return (
     <>
