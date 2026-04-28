@@ -734,9 +734,13 @@ function ApiModeSection({
     setIsSavingMode(true);
     try {
       if (newMode === 'cloud') {
-        // Auto-provision a device token for cloud mode
-        const cloudApiUrl = 'https://pipefx-cloud-api-production.up.railway.app';
         toast.info('Setting up cloud mode...');
+
+        // Read the configured Cloud-API URL from settings (set by admin / env var).
+        // Falls back to the canonical production URL if not explicitly configured.
+        const savedSettings = await fetchSettings().catch(() => null);
+        const cloudApiUrl: string =
+          savedSettings?.cloudApiUrl || 'https://pipefx-cloud-api-production.up.railway.app';
 
         const result = await provisionCloudToken(cloudApiUrl);
         if (!result) {
