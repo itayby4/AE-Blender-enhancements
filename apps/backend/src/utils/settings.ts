@@ -78,7 +78,9 @@ const DEFAULTS: AppSettings = {
 export async function loadSettings(): Promise<AppSettings> {
   try {
     const data = await fs.readFile(SETTINGS_FILE, 'utf-8');
-    const parsed = JSON.parse(data);
+    // Strip UTF-8 BOM if present (PowerShell Set-Content can write one)
+    const clean = data.charCodeAt(0) === 0xFEFF ? data.slice(1) : data;
+    const parsed = JSON.parse(clean);
     return {
       geminiApiKey: parsed.geminiApiKey || DEFAULTS.geminiApiKey,
       openaiApiKey: parsed.openaiApiKey || DEFAULTS.openaiApiKey,
