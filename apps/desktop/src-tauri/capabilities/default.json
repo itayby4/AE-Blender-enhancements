@@ -12,6 +12,14 @@
     "core:window:allow-is-maximized",
     "core:window:allow-set-focus",
     "dialog:default",
-    "fs:default"
+    "fs:default",
+    "fs:allow-mkdir",
+    "fs:allow-write-file",
+    "fs:allow-read-dir",
+    "fs:allow-exists",
+    {
+      "identifier": "fs:scope",
+      "allow": [{ "path": "**" }]
+    }
   ]
 }

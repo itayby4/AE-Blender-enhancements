@@ -15,6 +15,7 @@ export interface Project {
   genre: string | null;
   target_platforms: string | null; // JSON array stored as text
   deliverables: string | null;    // JSON object stored as text
+  folder_path: string | null;
   status: string;
   created_at: number;
   updated_at: number;
@@ -29,6 +30,7 @@ export interface ProjectDTO {
   genre?: string;
   targetPlatforms?: string[];
   deliverables?: Record<string, unknown>;
+  folderPath?: string;
   status: string;
   createdAt: number;
   updatedAt: number;

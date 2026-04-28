@@ -40,6 +40,7 @@ function toDTO(row: Project): ProjectDTO {
     deliverables: row.deliverables
       ? JSON.parse(row.deliverables)
       : undefined,
+    folderPath: row.folder_path ?? undefined,
     status: row.status,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
@@ -65,15 +66,24 @@ export function getProject(id: string): ProjectDTO | null {
 export function createProject(
   name: string,
   externalAppName?: string,
-  externalProjectName?: string
+  externalProjectName?: string,
+  folderPath?: string
 ): ProjectDTO {
   const db = getDatabase();
   const now = Date.now();
   const id = `proj_${now}`;
   db.prepare(
-    `INSERT INTO projects (id, name, external_app, external_project, status, created_at, updated_at)
-     VALUES (?, ?, ?, ?, 'active', ?, ?)`
-  ).run(id, name, externalAppName ?? null, externalProjectName ?? null, now, now);
+    `INSERT INTO projects (id, name, external_app, external_project, folder_path, status, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, 'active', ?, ?)`
+  ).run(
+    id,
+    name,
+    externalAppName ?? null,
+    externalProjectName ?? null,
+    folderPath ?? null,
+    now,
+    now
+  );
   return getProject(id)!;
 }
 
@@ -86,6 +96,7 @@ export function updateProject(
     genre: string;
     targetPlatforms: string[];
     deliverables: Record<string, unknown>;
+    folderPath: string;
     status: string;
   }>
 ): ProjectDTO | null {
@@ -104,6 +115,7 @@ export function updateProject(
        genre = ?,
        target_platforms = ?,
        deliverables = ?,
+       folder_path = ?,
        status = ?,
        updated_at = ?
      WHERE id = ?`
@@ -118,6 +130,7 @@ export function updateProject(
     updates.deliverables
       ? JSON.stringify(updates.deliverables)
       : existing.deliverables,
+    updates.folderPath ?? existing.folder_path,
     updates.status ?? existing.status,
     now,
     id

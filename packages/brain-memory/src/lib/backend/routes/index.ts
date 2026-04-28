@@ -1,7 +1,19 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import type { TaskEvent } from '@pipefx/tasks';
-import { listKnowledge, forgetKnowledge } from '../../data/knowledge.js';
+import {
+  listKnowledge,
+  forgetKnowledge,
+  getProjectMemories,
+  addProjectMemory,
+  deleteProjectMemoryByIndex,
+} from '../../data/knowledge.js';
 import { memoryTaskManager } from '../../data/tasks.js';
+import {
+  listProjects,
+  getProject,
+  createProject,
+  updateProject,
+} from '../../data/projects.js';
 import { brainMemoryLog } from '../../log.js';
 
 // ── Minimal router shape — structurally satisfied by apps/backend Router. ──
@@ -100,6 +112,67 @@ export function mountMemoryRoutes(router: MemoryRouter): void {
   router.post('/api/tasks/clear', async (_req, res) => {
     memoryTaskManager.clearAllTasks();
     jsonResponse(res, { success: true });
+  });
+
+  // ── GET /api/projects ──
+  router.get('/api/projects', async (_req, res) => {
+    try {
+      const projects = listProjects();
+      const projectsWithMemories = projects.map((p) => ({
+        ...p,
+        memories: getProjectMemories(p.id),
+      }));
+      jsonResponse(res, projectsWithMemories);
+    } catch (err) {
+      jsonError(res, err);
+    }
+  });
+
+  // ── POST /api/projects ──
+  router.post('/api/projects', async (req, res) => {
+    try {
+      const body = await readBody(req);
+      const { name, externalAppName, externalProjectName, folderPath } =
+        JSON.parse(body);
+      const p = createProject(name, externalAppName, externalProjectName, folderPath);
+      jsonResponse(res, p);
+    } catch (err) {
+      jsonError(res, err);
+    }
+  });
+
+  // ── POST /api/projects/update ──
+  router.post('/api/projects/update', async (req, res) => {
+    try {
+      const body = await readBody(req);
+      const { id, ...updates } = JSON.parse(body);
+      const updated = updateProject(id, updates);
+      if (!updated) {
+        jsonResponse(res, { error: 'Project not found' }, 404);
+        return;
+      }
+      jsonResponse(res, updated);
+    } catch (err) {
+      jsonError(res, err);
+    }
+  });
+
+  // ── POST /api/projects/memory ──
+  router.post('/api/projects/memory', async (req, res) => {
+    try {
+      const body = await readBody(req);
+      const { projectId, action, note, memoryIndex } = JSON.parse(body);
+      if (action === 'delete') {
+        deleteProjectMemoryByIndex(projectId, memoryIndex);
+      } else {
+        addProjectMemory(projectId, note);
+      }
+      const project = getProject(projectId);
+      const memories = getProjectMemories(projectId);
+      jsonResponse(res, { ...project, memories });
+    } catch (err) {
+      jsonError(res, err);
+    }
   });
 
   // ── GET /api/tasks/stream (SSE) ──

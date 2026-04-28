@@ -157,6 +157,41 @@ export function mountConnectorRoutes(
     }
   });
 
+  // GET /api/active-app-state — returns the active project name reported by
+  // the *active* connector via the conventional `get_project_info` tool, if
+  // it is connected and exposes that tool. Connector-agnostic: any connector
+  // that follows the convention will resolve here.
+  router.get('/api/active-app-state', async (_req, res) => {
+    try {
+      let activeProjectName: string | null = null;
+
+      const activeId = registry.getActiveConnectorId();
+      const connectors = registry.listConnectors();
+      const active = activeId
+        ? connectors.find((c) => c.id === activeId)
+        : null;
+      const isConnected = active?.status === 'connected';
+
+      if (isConnected) {
+        try {
+          const result = await registry.callTool('get_project_info', {});
+          const content = String(result.content)
+            .replace(/```json/g, '')
+            .replace(/```/g, '')
+            .trim();
+          const data = JSON.parse(content);
+          if (data.project_name) activeProjectName = data.project_name;
+        } catch {
+          // Tool call failed — connector might have just disconnected. Stay quiet.
+        }
+      }
+
+      jsonResponse(res, { activeProjectName });
+    } catch (err) {
+      jsonError(res, err);
+    }
+  });
+
   router.post('/tools/call', async (req, res) => {
     try {
       const body = await readBody(req);

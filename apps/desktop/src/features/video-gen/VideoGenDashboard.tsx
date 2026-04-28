@@ -55,7 +55,7 @@ type VideoGeneration = {
   abortController?: AbortController;
 };
 
-export function VideoGenDashboard() {
+export function VideoGenDashboard({ projectFolder }: { projectFolder?: string } = {}) {
   const [selectedModel, setSelectedModel] = useState(MODELS[0].id);
   const [prompt, setPrompt] = useState('');
   const [duration, setDuration] = useState('5');
@@ -179,6 +179,24 @@ export function VideoGenDashboard() {
               : c
           )
         );
+
+        // Auto-save to <projectFolder>/videos when a project folder is bound.
+        if (projectFolder && data.url) {
+          try {
+            const sep = projectFolder.includes('\\') ? '\\' : '/';
+            const isImage = data.type === 'image';
+            const subdir = isImage ? 'images' : 'videos';
+            const ext = isImage ? 'jpg' : 'mp4';
+            const resp = await fetch(data.url);
+            const buf = new Uint8Array(await resp.arrayBuffer());
+            const ts = new Date().toISOString().replace(/[:.]/g, '-');
+            const prefix = isImage ? 'img' : 'vid';
+            const filePath = `${projectFolder}${sep}${subdir}${sep}${prefix}_${ts}_${task.id.slice(0, 6)}.${ext}`;
+            await writeFile(filePath, buf);
+          } catch (saveErr) {
+            console.error('Auto-save video failed:', saveErr);
+          }
+        }
       } catch (err: unknown) {
         if (err instanceof Error && err.name === 'AbortError') return; // Ignore abort errors
         setGenerations((current) =>
