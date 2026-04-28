@@ -59,7 +59,8 @@ import type { InstalledSkill } from '@pipefx/skills/contracts';
 // the modules from `@pipefx/skills-builtin`. The runner host consumes
 // the singleton from `./bundled-skill-registry.js` once 12.10 lands.
 import './bundled-skill-registry.js';
-import { ProjectBrain } from '../features/project-brain/ProjectBrain.js';
+import { NewProjectDialog } from '../features/projects/NewProjectDialog.js';
+import { MediaPool } from '../features/projects/MediaPool.js';
 import { VideoGenDashboard } from '../features/video-gen/VideoGenDashboard.js';
 import { ImageGenDashboard } from '../features/image-gen/ImageGenDashboard.js';
 import { NodeSystemDashboard } from '@pipefx/node-system/ui';
@@ -386,17 +387,26 @@ export function App() {
 
   // ── Handlers ──
 
-  const handleCreateProject = useCallback(async () => {
-    const name = window.prompt('Enter new PipeFX Project Name:');
-    if (!name) return;
-    try {
-      const p = await createProject({ name, externalAppName: activeApp });
+  const [isNewProjectOpen, setIsNewProjectOpen] = useState(false);
+
+  const handleCreateProject = useCallback(() => {
+    setIsNewProjectOpen(true);
+  }, []);
+
+  const handleProjectCreated = useCallback(
+    async ({ name, folderPath }: { name: string; folderPath: string }) => {
+      const p = await createProject({ name, externalAppName: activeApp, folderPath });
       setProjects((prev) => [...prev, p]);
       setActiveProjectId(p.id);
-    } catch (e) {
-      console.error(e);
-    }
-  }, [activeApp]);
+    },
+    [activeApp]
+  );
+
+  const activeProject = useMemo(
+    () => projects.find((p) => p.id === activeProjectId),
+    [projects, activeProjectId]
+  );
+  const activeProjectFolder: string | undefined = activeProject?.folderPath;
 
   // Does the activeView match a macro category?
   const isMacroView = MACRO_CATEGORIES.some((c) => c.id === activeView);
@@ -578,6 +588,13 @@ export function App() {
           pinnedSourceId={palettePinnedSourceId}
         />
 
+        {/* ── New Project dialog ── */}
+        <NewProjectDialog
+          isOpen={isNewProjectOpen}
+          onClose={() => setIsNewProjectOpen(false)}
+          onCreated={handleProjectCreated}
+        />
+
         {/* ── Skill authoring overlays (Phase 12.12) ── */}
         <ScaffoldDialog
           isOpen={isScaffoldOpen}
@@ -686,9 +703,9 @@ export function App() {
                   </SelectItem>
                 ))}
               </SelectGroup>
-              <div className="p-2 border-t mt-1">
+              <div className="p-2 border-t mt-1 space-y-1">
                 <Button size="sm" variant="ghost" className="w-full text-xs justify-start" onClick={handleCreateProject}>
-                  + New Project Group
+                  + New / Open project
                 </Button>
               </div>
             </SelectContent>
@@ -837,14 +854,19 @@ export function App() {
               )}
               {activeView === 'video-gen' && (
                 <div className="flex-1 min-h-0 bg-card rounded-xl border overflow-hidden flex flex-col">
-                  <VideoGenDashboard />
+                  <VideoGenDashboard projectFolder={activeProjectFolder} />
                 </div>
               )}
-              {activeView === 'image-gen' && (
-                <div className="flex-1 min-h-0 bg-card rounded-xl border overflow-hidden flex flex-col">
-                  <ImageGenDashboard />
-                </div>
-              )}
+              {/* ImageGenDashboard is always mounted (just hidden when
+                  another tab is active) so prompt + generated images +
+                  in-flight requests survive tab switches. */}
+              <div
+                className={`flex-1 min-h-0 bg-card rounded-xl border overflow-hidden flex flex-col ${
+                  activeView === 'image-gen' ? '' : 'hidden'
+                }`}
+              >
+                <ImageGenDashboard active={activeView === 'image-gen'} projectFolder={activeProjectFolder} />
+              </div>
 
               {/* Post-Production dashboards — all three migrated to
                   bundled skills (Phase 12.10 = Subtitles, 12.11 =
@@ -1002,14 +1024,14 @@ export function App() {
                   </div>
                 ) : (
                   <>
-                    {/* Project Brain */}
+                    {/* Media Pool only — Brain sub-tab removed per user request */}
                     {activeProjectId ? (
-                      <div className="flex-1 min-h-0 bg-card rounded-xl border overflow-hidden">
-                        <ProjectBrain
+                      <div className="flex-1 min-h-0 bg-card rounded-xl border overflow-hidden flex flex-col">
+                        <MediaPool
                           projectId={activeProjectId}
-                          onAnalyzeRequest={() => {
-                            setChatInput('Analyze the current project in depth');
-                            setActiveView('chat');
+                          folderPath={activeProjectFolder}
+                          onFolderLinked={() => {
+                            void fetchProjects().then(setProjects);
                           }}
                         />
                       </div>

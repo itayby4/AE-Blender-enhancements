@@ -16,7 +16,7 @@ import * as fs from 'node:fs';
 let db: Database.Database | null = null;
 let workspaceRoot: string | null = null;
 
-const SCHEMA_VERSION = 3;
+const SCHEMA_VERSION = 4;
 
 export interface MemoryStoreConfig {
   workspaceRoot: string;
@@ -66,6 +66,7 @@ function createSchema(database: Database.Database): void {
       genre TEXT,
       target_platforms TEXT,
       deliverables TEXT,
+      folder_path TEXT,
       status TEXT DEFAULT 'active',
       created_at INTEGER NOT NULL,
       updated_at INTEGER NOT NULL
@@ -325,6 +326,18 @@ function migrateSchema(database: Database.Database, fromVersion: number): void {
     database.prepare(
       `INSERT OR REPLACE INTO schema_meta (key, value) VALUES ('version', ?)`
     ).run(String(3));
+  }
+
+  if (fromVersion < 4) {
+    console.log('[Memory] Migration v3 → v4: Adding folder_path to projects');
+    try {
+      database.exec(`ALTER TABLE projects ADD COLUMN folder_path TEXT`);
+    } catch {
+      // Column already exists — fine
+    }
+    database.prepare(
+      `INSERT OR REPLACE INTO schema_meta (key, value) VALUES ('version', ?)`
+    ).run(String(4));
   }
 }
 

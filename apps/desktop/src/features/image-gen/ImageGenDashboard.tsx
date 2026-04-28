@@ -3,6 +3,9 @@ import type {
   MediaGenRequest,
   MediaGenResponse,
 } from '@pipefx/media-gen/contracts';
+import { generateMedia } from '../../lib/api';
+import { writeFile } from '@tauri-apps/plugin-fs';
+import { cn } from '../../lib/utils';
 import { Textarea } from '../../components/ui/textarea';
 import {
   Sparkles,
@@ -17,25 +20,82 @@ import {
   X,
 } from 'lucide-react';
 
-export function ImageGenDashboard() {
+type ModelId = 'seeddream45' | 'gemini2' | 'gpt-image-2';
+type AspectRatio = '16:9' | '9:16' | '1:1' | '4:3';
+type Quality = 'auto' | 'low' | 'medium' | 'high';
+
+const MODEL_META: Record<
+  ModelId,
+  { letter: string; name: string; subtitle: string; chipText: string; chipBg: string }
+> = {
+  seeddream45: {
+    letter: 'S',
+    name: 'SeedDream 5',
+    subtitle: 'ByteDance Vision',
+    chipText: 'text-rose-500',
+    chipBg: 'bg-rose-500/10',
+  },
+  gemini2: {
+    letter: 'N',
+    name: 'Nano Banana',
+    subtitle: 'Fast AI model',
+    chipText: 'text-[#FFD700]',
+    chipBg: 'bg-[#FFD700]/10',
+  },
+  'gpt-image-2': {
+    letter: 'G',
+    name: 'GPT Image 2',
+    subtitle: 'OpenAI image model',
+    chipText: 'text-emerald-400',
+    chipBg: 'bg-emerald-500/10',
+  },
+};
+
+const MODEL_IDS: ModelId[] = ['seeddream45', 'gemini2', 'gpt-image-2'];
+const ASPECT_RATIOS: AspectRatio[] = ['16:9', '9:16', '1:1', '4:3'];
+const QUALITIES: Quality[] = ['auto', 'low', 'medium', 'high'];
+
+export function ImageGenDashboard({
+  active = true,
+  projectFolder,
+}: {
+  active?: boolean;
+  projectFolder?: string;
+}) {
   const [prompt, setPrompt] = useState(
     'remove him from the shot and his towel'
   );
-  const [selectedModel, setSelectedModel] = useState<'seeddream45' | 'gemini2'>(
-    'seeddream45'
-  );
+  const [selectedModel, setSelectedModel] = useState<ModelId>('seeddream45');
   const [showModelMenu, setShowModelMenu] = useState(false);
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [generatedImages, setGeneratedImages] = useState<string[]>([]);
+  const [aspectRatio, setAspectRatio] = useState<AspectRatio>('16:9');
+  const [showAspectMenu, setShowAspectMenu] = useState(false);
+  const [quality, setQuality] = useState<Quality>('auto');
+  const [showQualityMenu, setShowQualityMenu] = useState(false);
+  const [generations, setGenerations] = useState<
+    Array<{
+      id: string;
+      status: 'pending' | 'success' | 'error';
+      url?: string;
+      aspectRatio: AspectRatio;
+      error?: string;
+    }>
+  >([]);
   const [imageRef, setImageRef] = useState<string | null>(
     'https://picsum.photos/400/300'
   ); // Mock initial image
-  const [extraFreeGens, setExtraFreeGens] = useState(true);
+  const [batchSize, setBatchSize] = useState(1);
+  const BATCH_MAX = 4;
   const [isDragging, setIsDragging] = useState(false);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   useEffect(() => {
+    // Only listen for drops while this view is the active tab — otherwise
+    // dragging into a different panel would still toggle the image-gen
+    // overlay (the component is kept mounted across tab switches so its
+    // state + in-flight requests survive).
+    if (!active) return;
+
     const handleDragOver = (e: DragEvent) => {
       e.preventDefault();
       setIsDragging(true);
@@ -43,7 +103,10 @@ export function ImageGenDashboard() {
 
     const handleDragLeave = (e: DragEvent) => {
       e.preventDefault();
-      if (e.clientX === 0 && e.clientY === 0) {
+      // Only clear when the drag actually leaves the window — `relatedTarget`
+      // is null (or outside <html>) when the cursor exits the viewport.
+      const related = e.relatedTarget as Node | null;
+      if (!related || !document.documentElement.contains(related)) {
         setIsDragging(false);
       }
     };
@@ -70,60 +133,93 @@ export function ImageGenDashboard() {
       window.removeEventListener('dragleave', handleDragLeave);
       window.removeEventListener('drop', handleDrop);
     };
-  }, []);
+  }, [active]);
 
-  const handleGenerate = async () => {
-    if (!prompt.trim() || isGenerating) return;
-    setIsGenerating(true);
-    setErrorMsg(null);
+  const runOne = async (jobAspect: AspectRatio) => {
+    const jobId = crypto.randomUUID();
+    setGenerations((prev) => [
+      { id: jobId, status: 'pending', aspectRatio: jobAspect },
+      ...prev,
+    ]);
 
     try {
-      // Route the generation request back through @pipefx/media-gen.
-      // Body is typed against MediaGenRequest so any provider option
-      // drift surfaces here (and in the route mount) at compile time.
       const body: MediaGenRequest = {
         model: selectedModel,
         prompt,
         imageRef: imageRef ?? undefined,
+        aspectRatio: jobAspect,
+        ...(selectedModel === 'gpt-image-2' ? { quality } : {}),
       };
-      const response = await fetch('http://localhost:3001/api/ai-models', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-      });
-
-      const data = (await response.json()) as MediaGenResponse & {
-        error?: string;
-      };
-      if (!response.ok)
-        throw new Error(
-          data.error || 'API request failed with status ' + response.status
-        );
-
+      const data = await generateMedia<MediaGenRequest, MediaGenResponse>(body);
       const finalUrl = data.url;
-      if (!finalUrl) {
-        throw new Error('No URL returned from the server.');
-      }
+      if (!finalUrl) throw new Error('No URL returned from the server.');
 
-      // Wait for the image to actually generate and download before removing the spinner
       await new Promise<void>((resolve, reject) => {
         const img = new Image();
         img.onload = () => resolve();
         img.onerror = () =>
-          reject(
-            new Error('Image generated but failed to load in the browser.')
-          );
+          reject(new Error('Image generated but failed to load in the browser.'));
         img.src = finalUrl;
       });
 
-      setGeneratedImages((prev) => [finalUrl, ...prev]);
+      setGenerations((prev) =>
+        prev.map((g) =>
+          g.id === jobId ? { ...g, status: 'success', url: finalUrl } : g
+        )
+      );
+
+      if (projectFolder) {
+        try {
+          const sep = projectFolder.includes('\\') ? '\\' : '/';
+          const resp = await fetch(finalUrl);
+          const buf = new Uint8Array(await resp.arrayBuffer());
+          const ts = new Date().toISOString().replace(/[:.]/g, '-');
+          const ext = (() => {
+            const u = finalUrl.split('?')[0];
+            const m = u.match(/\.(png|jpe?g|webp|gif)$/i);
+            return m ? m[1].toLowerCase() : 'png';
+          })();
+          const filePath = `${projectFolder}${sep}images${sep}img_${ts}_${jobId.slice(0, 6)}.${ext}`;
+          await writeFile(filePath, buf);
+        } catch (saveErr) {
+          console.error('Auto-save image failed:', saveErr);
+        }
+      }
     } catch (err: unknown) {
       console.error(err);
-      setErrorMsg(
-        err instanceof Error ? err.message : 'Unknown generation error'
+      const msg = err instanceof Error ? err.message : 'Unknown generation error';
+      setErrorMsg(msg);
+      setGenerations((prev) =>
+        prev.map((g) =>
+          g.id === jobId ? { ...g, status: 'error', error: msg } : g
+        )
       );
-    } finally {
-      setIsGenerating(false);
+    }
+  };
+
+  const handleGenerate = () => {
+    if (!prompt.trim()) return;
+    setErrorMsg(null);
+    const jobAspect = aspectRatio;
+    for (let i = 0; i < batchSize; i++) {
+      void runOne(jobAspect);
+    }
+  };
+
+  const pendingCount = generations.filter((g) => g.status === 'pending').length;
+  const hasAnyJobs = generations.length > 0;
+  const MAX_CONCURRENT = 8;
+
+  const aspectClass = (ar: AspectRatio): string => {
+    switch (ar) {
+      case '16:9':
+        return 'aspect-video';
+      case '9:16':
+        return 'aspect-[9/16]';
+      case '1:1':
+        return 'aspect-square';
+      case '4:3':
+        return 'aspect-[4/3]';
     }
   };
 
@@ -150,28 +246,50 @@ export function ImageGenDashboard() {
         </div>
       )}
 
-      {/* Background Canvas */}
-      <div className="absolute inset-0 flex flex-col items-center justify-center transition-all overflow-hidden z-0 bg-muted/50">
-        {generatedImages.length > 0 ? (
-          <div className="absolute inset-0 overflow-y-auto scrollbar-none z-0">
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-[2px] pb-[300px] w-full">
-              {generatedImages.map((src, i) => (
-                <img
-                  key={`${i}-${window.btoa(src.slice(0, 10))}`}
-                  src={src}
-                  alt={`Generated output ${i}`}
-                  onClick={() => setSelectedImage(src)}
-                  onError={(e) => {
-                    const target = e.target as HTMLImageElement;
-                    target.style.display = 'none'; // hide broken images completely
-                  }}
-                  className="w-full aspect-video object-cover transition-opacity duration-700 opacity-90 hover:opacity-100 cursor-zoom-in bg-muted/20 hover:scale-[1.02] border border-border/20 rounded-sm"
-                />
-              ))}
-            </div>
+      {/* Canvas — in-place slot grid (Higgsfield-style). Pending jobs occupy
+          slots with the same aspect ratio as the final image, so the
+          rendered image appears in place. */}
+      <div className="absolute inset-0 overflow-y-auto scrollbar-none z-0 bg-muted/30">
+        {hasAnyJobs ? (
+          <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2 p-3 pb-[260px] w-full">
+            {generations.map((g) => (
+              <div
+                key={g.id}
+                className={cn(
+                  'relative w-full overflow-hidden rounded-md border border-border/40 bg-muted/40',
+                  aspectClass(g.aspectRatio)
+                )}
+              >
+                {g.status === 'pending' && (
+                  <div className="absolute inset-0 flex flex-col items-center justify-center gap-2">
+                    <div className="absolute inset-0 bg-gradient-to-br from-muted/60 via-muted/30 to-muted/60 animate-pulse" />
+                    <div className="relative flex items-center gap-1.5 text-[11px] font-medium text-foreground/80 z-10">
+                      <Sparkles className="h-3 w-3 text-primary animate-pulse" />
+                      Generating
+                    </div>
+                  </div>
+                )}
+                {g.status === 'success' && g.url && (
+                  <img
+                    src={g.url}
+                    alt="Generated output"
+                    onClick={() => g.url && setSelectedImage(g.url)}
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).style.display = 'none';
+                    }}
+                    className="w-full h-full object-cover cursor-zoom-in hover:scale-[1.02] transition-transform duration-300"
+                  />
+                )}
+                {g.status === 'error' && (
+                  <div className="absolute inset-0 flex items-center justify-center p-2 text-center">
+                    <p className="text-[10px] text-destructive">{g.error || 'Failed'}</p>
+                  </div>
+                )}
+              </div>
+            ))}
           </div>
         ) : (
-          <div className="flex flex-col items-center justify-center h-full w-full pointer-events-none mb-32 opacity-20 relative z-0">
+          <div className="flex flex-col items-center justify-center h-full w-full pointer-events-none opacity-20">
             <h1 className="text-6xl md:text-[150px] font-black tracking-tighter uppercase blur-[1px] text-muted-foreground/30">
               IMAGE GEN
             </h1>
@@ -181,24 +299,9 @@ export function ImageGenDashboard() {
           </div>
         )}
 
-        {/* Optional vignette gradient over the background image to make the UI popup readable */}
-        {generatedImages.length > 0 && (
-          <div className="absolute inset-x-0 bottom-0 h-[280px] bg-gradient-to-t from-background via-background/80 to-transparent z-10 pointer-events-none flex-shrink-0"></div>
-        )}
-
-        {isGenerating && (
-          <div className="absolute inset-0 bg-background/60 backdrop-blur-sm flex flex-col items-center justify-center z-10 transition-all duration-300">
-            <div className="relative">
-              <div className="h-24 w-24 border-[3px] border-muted rounded-full"></div>
-              <div className="h-24 w-24 border-[3px] border-primary rounded-full border-t-transparent animate-spin absolute inset-0"></div>
-              <div className="absolute inset-0 flex items-center justify-center">
-                <Sparkles className="h-8 w-8 text-primary animate-pulse" />
-              </div>
-            </div>
-            <h3 className="mt-8 font-semibold text-foreground tracking-wide uppercase text-sm animate-pulse">
-              Rendering pixels...
-            </h3>
-          </div>
+        {/* Vignette over bottom area so the floating prompt panel stays readable */}
+        {hasAnyJobs && (
+          <div className="fixed inset-x-0 bottom-0 h-[240px] bg-gradient-to-t from-background via-background/80 to-transparent z-10 pointer-events-none" />
         )}
       </div>
 
@@ -225,7 +328,7 @@ export function ImageGenDashboard() {
         )}
 
         <div className="bg-card/95 backdrop-blur-xl rounded-[24px] shadow-2xl border border-border/80 pointer-events-auto flex text-foreground transition-all hover:border-border hover:shadow-[0_20px_60px_-15px_rgba(0,0,0,0.3)]">
-          <div className="p-4 pl-5 pr-4 flex max-md:flex-col gap-4 w-full overflow-hidden">
+          <div className="p-4 pl-5 pr-4 flex max-md:flex-col gap-4 w-full">
             {/* Left Content Column */}
             <div className="flex-1 flex flex-col gap-3 justify-center min-w-0">
               {/* Row 1: Image thumbnails and Prompt */}
@@ -276,24 +379,19 @@ export function ImageGenDashboard() {
               <div className="flex items-center flex-wrap gap-2 text-[12px] font-medium text-muted-foreground w-full pt-0.5">
                 <div className="relative">
                   <button
-                    onClick={() => setShowModelMenu(!showModelMenu)}
+                    onClick={() => {
+                      setShowModelMenu(!showModelMenu);
+                      setShowAspectMenu(false);
+                      setShowQualityMenu(false);
+                    }}
                     className="flex items-center gap-1.5 h-8 px-3 rounded-full bg-secondary hover:bg-secondary/80 hover:text-foreground transition-colors border border-border/40 shadow-sm"
                   >
-                    {selectedModel === 'seeddream45' ? (
-                      <>
-                        <span className="text-rose-500 font-black text-[10px] w-4 h-4 rounded bg-rose-500/10 flex items-center justify-center">
-                          S
-                        </span>
-                        <span>SeedDream 5</span>
-                      </>
-                    ) : (
-                      <>
-                        <span className="text-[#FFD700] font-black text-[10px] w-4 h-4 rounded bg-[#FFD700]/10 flex items-center justify-center">
-                          N
-                        </span>
-                        <span>Nano Banana</span>
-                      </>
-                    )}
+                    <span
+                      className={`${MODEL_META[selectedModel].chipText} ${MODEL_META[selectedModel].chipBg} font-black text-[10px] w-4 h-4 rounded flex items-center justify-center`}
+                    >
+                      {MODEL_META[selectedModel].letter}
+                    </span>
+                    <span>{MODEL_META[selectedModel].name}</span>
                     <ChevronRight
                       className={`w-3 h-3 opacity-50 ml-1 transition-transform duration-200 ${
                         showModelMenu ? '-rotate-90' : ''
@@ -302,100 +400,143 @@ export function ImageGenDashboard() {
                   </button>
 
                   {showModelMenu && (
-                    <div className="absolute bottom-full left-0 mb-2 w-[180px] bg-card border border-border rounded-xl shadow-xl overflow-hidden z-50 flex flex-col py-1 pointer-events-auto">
-                      <button
-                        onClick={() => {
-                          setSelectedModel('seeddream45');
-                          setShowModelMenu(false);
-                        }}
-                        className={`flex items-center gap-3 px-3 py-2 text-sm hover:bg-muted transition-colors text-left ${
-                          selectedModel === 'seeddream45' ? 'bg-muted/50' : ''
-                        }`}
-                      >
-                        <span className="text-rose-500 font-black text-[10px] w-5 h-5 shrink-0 rounded bg-rose-500/10 flex items-center justify-center">
-                          S
-                        </span>
-                        <div className="flex flex-col leading-snug">
-                          <span className="font-medium text-foreground">
-                            SeedDream 5
-                          </span>
-                          <span className="text-[10px] text-muted-foreground font-normal">
-                            ByteDance Vision
-                          </span>
-                        </div>
-                      </button>
-
-                      <button
-                        onClick={() => {
-                          setSelectedModel('gemini2');
-                          setShowModelMenu(false);
-                        }}
-                        className={`flex items-center gap-3 px-3 py-2 text-sm hover:bg-muted transition-colors text-left border-t border-border/50 ${
-                          selectedModel === 'gemini2' ? 'bg-muted/50' : ''
-                        }`}
-                      >
-                        <span className="text-[#FFD700] font-black text-[10px] w-5 h-5 shrink-0 rounded bg-[#FFD700]/10 flex items-center justify-center">
-                          N
-                        </span>
-                        <div className="flex flex-col leading-snug">
-                          <span className="font-medium text-foreground">
-                            Nano Banana
-                          </span>
-                          <span className="text-[10px] text-muted-foreground font-normal">
-                            Fast AI model
-                          </span>
-                        </div>
-                      </button>
+                    <div className="absolute bottom-full left-0 mb-2 w-[200px] bg-card border border-border rounded-xl shadow-xl overflow-hidden z-50 flex flex-col py-1 pointer-events-auto">
+                      {MODEL_IDS.map((id, idx) => {
+                        const meta = MODEL_META[id];
+                        return (
+                          <button
+                            key={id}
+                            onClick={() => {
+                              setSelectedModel(id);
+                              setShowModelMenu(false);
+                            }}
+                            className={`flex items-center gap-3 px-3 py-2 text-sm hover:bg-muted transition-colors text-left ${
+                              selectedModel === id ? 'bg-muted/50' : ''
+                            } ${idx > 0 ? 'border-t border-border/50' : ''}`}
+                          >
+                            <span
+                              className={`${meta.chipText} ${meta.chipBg} font-black text-[10px] w-5 h-5 shrink-0 rounded flex items-center justify-center`}
+                            >
+                              {meta.letter}
+                            </span>
+                            <div className="flex flex-col leading-snug">
+                              <span className="font-medium text-foreground">
+                                {meta.name}
+                              </span>
+                              <span className="text-[10px] text-muted-foreground font-normal">
+                                {meta.subtitle}
+                              </span>
+                            </div>
+                          </button>
+                        );
+                      })}
                     </div>
                   )}
                 </div>
 
                 <div className="w-px h-4 bg-border mx-1"></div>
 
-                <button className="flex items-center gap-1.5 h-8 px-3 rounded-full bg-secondary/50 hover:bg-secondary hover:text-foreground transition-colors border border-border/40 shadow-sm shrink-0">
-                  <Monitor className="w-3.5 h-3.5 opacity-70" />
-                  <span className="max-sm:hidden">16:9</span>
-                </button>
+                {/* Aspect ratio dropdown */}
+                <div className="relative shrink-0">
+                  <button
+                    onClick={() => {
+                      setShowAspectMenu(!showAspectMenu);
+                      setShowModelMenu(false);
+                      setShowQualityMenu(false);
+                    }}
+                    className="flex items-center gap-1.5 h-8 px-3 rounded-full bg-secondary/50 hover:bg-secondary hover:text-foreground transition-colors border border-border/40 shadow-sm"
+                  >
+                    <Monitor className="w-3.5 h-3.5 opacity-70" />
+                    <span className="max-sm:hidden">{aspectRatio}</span>
+                  </button>
+                  {showAspectMenu && (
+                    <div className="absolute bottom-full left-0 mb-2 w-[120px] bg-card border border-border rounded-xl shadow-xl overflow-hidden z-50 flex flex-col py-1 pointer-events-auto">
+                      {ASPECT_RATIOS.map((ratio) => (
+                        <button
+                          key={ratio}
+                          onClick={() => {
+                            setAspectRatio(ratio);
+                            setShowAspectMenu(false);
+                          }}
+                          className={`px-3 py-1.5 text-left text-sm hover:bg-muted transition-colors ${
+                            aspectRatio === ratio
+                              ? 'bg-muted/50 text-foreground'
+                              : ''
+                          }`}
+                        >
+                          {ratio}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
 
-                <button className="flex items-center gap-1.5 h-8 px-3 rounded-full bg-secondary/50 hover:bg-secondary hover:text-foreground transition-colors border border-border/40 shadow-sm shrink-0">
-                  <Diamond className="w-3.5 h-3.5 opacity-70" />
-                  <span className="max-sm:hidden">2K</span>
-                </button>
+                {/* Quality (GPT Image 2 only) — non-GPT shows static 2K pill */}
+                {selectedModel === 'gpt-image-2' ? (
+                  <div className="relative shrink-0">
+                    <button
+                      onClick={() => {
+                        setShowQualityMenu(!showQualityMenu);
+                        setShowModelMenu(false);
+                        setShowAspectMenu(false);
+                      }}
+                      className="flex items-center gap-1.5 h-8 px-3 rounded-full bg-secondary/50 hover:bg-secondary hover:text-foreground transition-colors border border-border/40 shadow-sm"
+                    >
+                      <Diamond className="w-3.5 h-3.5 opacity-70" />
+                      <span className="max-sm:hidden capitalize">{quality}</span>
+                    </button>
+                    {showQualityMenu && (
+                      <div className="absolute bottom-full left-0 mb-2 w-[120px] bg-card border border-border rounded-xl shadow-xl overflow-hidden z-50 flex flex-col py-1 pointer-events-auto">
+                        {QUALITIES.map((q) => (
+                          <button
+                            key={q}
+                            onClick={() => {
+                              setQuality(q);
+                              setShowQualityMenu(false);
+                            }}
+                            className={`px-3 py-1.5 text-left text-sm capitalize hover:bg-muted transition-colors ${
+                              quality === q
+                                ? 'bg-muted/50 text-foreground'
+                                : ''
+                            }`}
+                          >
+                            {q}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <button className="flex items-center gap-1.5 h-8 px-3 rounded-full bg-secondary/50 hover:bg-secondary hover:text-foreground transition-colors border border-border/40 shadow-sm shrink-0">
+                    <Diamond className="w-3.5 h-3.5 opacity-70" />
+                    <span className="max-sm:hidden">2K</span>
+                  </button>
+                )}
 
-                <div className="flex items-center h-8 bg-secondary/50 rounded-full overflow-hidden mx-1 border border-border/40 shadow-sm shrink-0">
-                  <button className="h-full px-2 hover:bg-secondary hover:text-foreground flex items-center transition-colors">
+                <div
+                  title={`Generate ${batchSize} image${batchSize > 1 ? 's' : ''} per click`}
+                  className="flex items-center h-8 bg-secondary/50 rounded-full overflow-hidden mx-1 border border-border/40 shadow-sm shrink-0"
+                >
+                  <button
+                    onClick={() => setBatchSize((n) => Math.max(1, n - 1))}
+                    disabled={batchSize <= 1}
+                    className="h-full px-2 hover:bg-secondary hover:text-foreground flex items-center transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
                     <Minus className="w-3 h-3 opacity-70" />
                   </button>
-                  <span className="px-1 text-center text-[11px] min-w-[32px]">
-                    1/4
+                  <span className="px-1 text-center text-[11px] min-w-[32px] tabular-nums">
+                    {batchSize}/{BATCH_MAX}
                   </span>
-                  <button className="h-full px-2 hover:bg-secondary hover:text-foreground flex items-center transition-colors">
+                  <button
+                    onClick={() => setBatchSize((n) => Math.min(BATCH_MAX, n + 1))}
+                    disabled={batchSize >= BATCH_MAX}
+                    className="h-full px-2 hover:bg-secondary hover:text-foreground flex items-center transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
                     <Plus className="w-3 h-3 opacity-70" />
                   </button>
                 </div>
 
-                {/* Toggle switch for extra gens */}
-                <button
-                  onClick={() => setExtraFreeGens(!extraFreeGens)}
-                  className="flex items-center gap-1.5 h-8 px-3 rounded-full bg-secondary/50 hover:bg-secondary hover:text-foreground transition-colors ml-auto group border border-border/40 shadow-sm shrink-0"
-                >
-                  <span className="opacity-90 max-sm:hidden">
-                    Extra free gens
-                  </span>
-                  <div
-                    className={`w-7 h-4 rounded-full p-[2px] transition-colors duration-200 ${
-                      extraFreeGens ? 'bg-primary' : 'bg-muted-foreground/30'
-                    }`}
-                  >
-                    <div
-                      className={`w-[12px] h-[12px] rounded-full bg-background shadow-sm transition-transform duration-200 ${
-                        extraFreeGens ? 'translate-x-[12px]' : 'translate-x-0'
-                      }`}
-                    />
-                  </div>
-                </button>
-
-                <button className="flex items-center gap-1.5 h-8 px-3 rounded-full bg-secondary/50 hover:bg-secondary hover:text-foreground transition-colors border border-border/40 shadow-sm shrink-0">
+                <button className="flex items-center gap-1.5 h-8 px-3 rounded-full bg-secondary/50 hover:bg-secondary hover:text-foreground transition-colors ml-auto border border-border/40 shadow-sm shrink-0">
                   <Pencil className="w-3 h-3 opacity-70" />
                   <span className="max-sm:hidden">Draw</span>
                 </button>
@@ -406,21 +547,24 @@ export function ImageGenDashboard() {
             <div className="flex-shrink-0 flex items-stretch max-md:h-12 max-md:w-full">
               <button
                 onClick={handleGenerate}
-                disabled={isGenerating || !prompt.trim()}
-                className="h-full md:w-[120px] max-md:flex-1 rounded-[16px] bg-primary hover:bg-primary/90 active:scale-[0.98] text-primary-foreground font-semibold text-sm shadow-md transition-all flex md:flex-col items-center justify-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed border border-primary/20"
+                disabled={!prompt.trim() || pendingCount >= MAX_CONCURRENT}
+                className="h-full md:w-[120px] max-md:flex-1 rounded-[16px] bg-primary hover:bg-primary/90 active:scale-[0.98] text-primary-foreground font-semibold text-sm shadow-md transition-all flex md:flex-col items-center justify-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed border border-primary/20 relative"
               >
-                {isGenerating ? (
-                  <Loader2 className="w-5 h-5 animate-spin" />
-                ) : (
-                  <>
-                    <span className="font-bold text-[15px] tracking-tight">
-                      Generate
-                    </span>
-                    <div className="flex items-center gap-1 text-[11px] font-black opacity-90">
+                <span className="font-bold text-[15px] tracking-tight">
+                  Generate
+                </span>
+                <div className="flex items-center gap-1 text-[11px] font-black opacity-90">
+                  {pendingCount > 0 ? (
+                    <>
+                      <Loader2 className="w-3 h-3 animate-spin" />
+                      {pendingCount}
+                    </>
+                  ) : (
+                    <>
                       <Sparkles className="w-3 h-3 fill-primary-foreground" />2
-                    </div>
-                  </>
-                )}
+                    </>
+                  )}
+                </div>
               </button>
             </div>
           </div>

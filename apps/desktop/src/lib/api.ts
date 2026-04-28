@@ -40,10 +40,21 @@ export function createProject(data: {
   name: string;
   externalAppName: string;
   externalProjectName?: string;
+  folderPath?: string;
 }): Promise<any> {
   return request('/api/projects', {
     method: 'POST',
     body: JSON.stringify(data),
+  });
+}
+
+export function updateProjectApi(
+  id: string,
+  updates: { folderPath?: string; name?: string }
+): Promise<any> {
+  return request('/api/projects/update', {
+    method: 'POST',
+    body: JSON.stringify({ id, ...updates }),
   });
 }
 
@@ -88,6 +99,15 @@ export async function sendChat(
     });
   }
   return res.json();
+}
+
+// ── Media generation (image / video / sound) ──
+
+export function generateMedia<TReq, TRes>(payload: TReq): Promise<TRes> {
+  return request<TRes>('/api/ai-models', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
 }
 
 // ── App State ──

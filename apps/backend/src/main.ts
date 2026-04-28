@@ -88,7 +88,6 @@ import type { KnowledgeCategory } from '@pipefx/brain-memory';
 
 // ΓöÇΓöÇ Router & Routes ΓöÇΓöÇ
 import { Router } from './router.js';
-import { registerProjectRoutes } from './routes/projects.js';
 import { registerSkillFileRoutes } from './routes/skill-files.js';
 import { registerUsageRoutes } from './routes/usage.js';
 import { registerMiscRoutes } from './routes/misc.js';
@@ -367,7 +366,6 @@ async function main() {
   });
   mountMemoryRoutes(router);
   mountConnectorRoutes(router, { registry });
-  registerProjectRoutes(router, { registry });
   registerSkillFileRoutes(router);
   mountSkillRoutes(router, {
     store: skillStore,
