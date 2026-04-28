@@ -686,7 +686,7 @@ export function App() {
           <div onMouseDown={(e) => e.stopPropagation()}>
           <Select
             value={activeProjectId || 'none'}
-            onValueChange={(val) => setActiveProjectId(val === 'none' ? '' : val)}
+            onValueChange={(val) => setActiveProjectId(val === 'none' ? '' : val ?? '')}
           >
             <SelectTrigger className="w-[140px] h-7 bg-muted/40 border-transparent hover:bg-muted text-xs font-semibold shrink-0">
               <SelectValue placeholder="No Project" />

@@ -24,7 +24,6 @@ import {
   Eye,
   EyeOff,
   ChevronRight,
-  ChevronDown,
 } from 'lucide-react';
 import { usePaddleCheckout } from './PaddleCheckout.js';
 

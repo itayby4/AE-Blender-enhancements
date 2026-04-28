@@ -672,7 +672,6 @@ function ApiModeSection({
   const [apiMode, setApiMode] = useState<'byok' | 'cloud'>('byok');
   const [balance, setBalance] = useState<{ available: number; held: number } | null>(null);
   const [subscriptionStatus, setSubscriptionStatus] = useState<string>('none');
-  const [currentPriceId, setCurrentPriceId] = useState<string | null>(null);
   const [selectedPlan, setSelectedPlan] = useState('creator');
   const [userEmail, setUserEmail] = useState('');
   const [userId, setUserId] = useState('');
@@ -902,7 +901,7 @@ function ApiModeSection({
                           : 'border-border/60 hover:border-primary/25 hover:bg-muted/30'
                       )}
                     >
-                      {plan.popular && (
+                      {(plan as any).popular && (
                         <span className="absolute -top-2 left-1/2 -translate-x-1/2 text-[8px] font-bold uppercase tracking-wider text-primary bg-primary/10 rounded-full px-1.5 py-px">
                           Popular
                         </span>
