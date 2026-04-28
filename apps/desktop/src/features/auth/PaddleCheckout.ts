@@ -76,9 +76,10 @@ export function usePaddleCheckout(callbacks?: CheckoutCallbacks) {
    *
    * @param priceId  - Paddle price ID (e.g. `pri_xxx`)
    * @param email    - Customer email to prefill (skips the email step)
+   * @param userId   - Supabase user ID to pass as custom_data so webhooks can link the Paddle customer
    */
   const openCheckout = useCallback(
-    (priceId: string, email?: string) => {
+    (priceId: string, email?: string, userId?: string) => {
       if (!paddle) {
         console.error('[Paddle] SDK not initialized yet.');
         return;
@@ -93,6 +94,9 @@ export function usePaddleCheckout(callbacks?: CheckoutCallbacks) {
               customer: { email },
             }
           : {}),
+        // Pass the Supabase user ID so the Cloud-API webhook can link
+        // paddle_customer_id → profiles.id on first purchase.
+        ...(userId ? { customData: { userId } } : {}),
         settings: {
           displayMode: 'overlay',
           theme: 'dark',

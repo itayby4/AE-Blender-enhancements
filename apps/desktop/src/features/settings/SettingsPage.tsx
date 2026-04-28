@@ -30,7 +30,7 @@ import { PaletteEditor } from './PaletteEditor.js';
 import { applyPalette } from '../../lib/palette-runtime.js';
 import type { CustomPalette } from '../../lib/palette-runtime.js';
 import type { CornerMode } from '../../lib/corners-runtime.js';
-import { fetchSettings, updateSettings } from '../../lib/api.js';
+import { fetchSettings, updateSettings, provisionCloudToken } from '../../lib/api.js';
 import { useAuth, supabase } from '@pipefx/auth/ui';
 import { toast } from 'sonner';
 import { usePaddleCheckout } from '../auth/PaddleCheckout.js';
@@ -675,6 +675,8 @@ function ApiModeSection({
   const [currentPriceId, setCurrentPriceId] = useState<string | null>(null);
   const [selectedPlan, setSelectedPlan] = useState('creator');
   const [userEmail, setUserEmail] = useState('');
+  const [userId, setUserId] = useState('');
+  const [isSavingMode, setIsSavingMode] = useState(false);
 
   /* Paddle */
   const {
@@ -682,8 +684,13 @@ function ApiModeSection({
     openCheckout,
     isConfigured: isPaddleConfigured,
   } = usePaddleCheckout({
-    onComplete: () => {
+    onComplete: async (data) => {
       toast.success('Subscription activated! Credits will arrive shortly.');
+      // Write paddle_customer_id to Supabase profile so webhooks can find this user
+      const customerId = (data as any)?.customer?.id;
+      if (customerId && userId) {
+        await supabase.from('profiles').update({ paddle_customer_id: customerId }).eq('id', userId);
+      }
       // Refresh balance after a short delay for webhook processing
       setTimeout(refreshBalance, 3000);
     },
@@ -705,6 +712,7 @@ function ApiModeSection({
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
     setUserEmail(user.email || '');
+    setUserId(user.id);
     const { data, error } = await supabase
       .from('profiles')
       .select('credits_balance, held_credits, subscription_status, paddle_subscription_id')
@@ -722,12 +730,36 @@ function ApiModeSection({
     else setBalance(null);
   }, [apiMode, refreshBalance]);
 
-  const handleSaveMode = async () => {
+  const handleSaveMode = async (newMode: 'byok' | 'cloud') => {
+    setApiMode(newMode);
+    setIsSavingMode(true);
     try {
-      await updateSettings({ apiMode });
-      toast.success('API mode saved.');
+      if (newMode === 'cloud') {
+        // Auto-provision a device token for cloud mode
+        const cloudApiUrl = 'https://pipefx-cloud-api-production.up.railway.app';
+        toast.info('Setting up cloud mode...');
+
+        const result = await provisionCloudToken(cloudApiUrl);
+        if (!result) {
+          toast.error('Failed to provision cloud access. Please try again.');
+          setApiMode('byok');
+          return;
+        }
+
+        await updateSettings({
+          apiMode: 'cloud',
+          cloudApiUrl,
+          deviceToken: result.token,
+        });
+        toast.success('Cloud mode activated!');
+      } else {
+        await updateSettings({ apiMode: 'byok' });
+        toast.success('Switched to BYOK mode.');
+      }
     } catch {
-      toast.error('Failed to save.');
+      toast.error('Failed to save mode.');
+    } finally {
+      setIsSavingMode(false);
     }
   };
 
@@ -742,7 +774,8 @@ function ApiModeSection({
         <div className="grid grid-cols-2 gap-3">
           <button
             type="button"
-            onClick={() => setApiMode('byok')}
+            disabled={isSavingMode}
+            onClick={() => handleSaveMode('byok')}
             className={cn(
               'group relative flex flex-col items-start gap-2 rounded-lg border p-4 text-left transition-all',
               apiMode === 'byok'
@@ -767,7 +800,8 @@ function ApiModeSection({
 
           <button
             type="button"
-            onClick={() => setApiMode('cloud')}
+            disabled={isSavingMode}
+            onClick={() => handleSaveMode('cloud')}
             className={cn(
               'group relative flex flex-col items-start gap-2 rounded-lg border p-4 text-left transition-all',
               apiMode === 'cloud'
@@ -902,7 +936,7 @@ function ApiModeSection({
               <Button
                 onClick={() => {
                   const plan = CLOUD_PLANS.find((p) => p.id === selectedPlan);
-                  if (plan && isPaddleReady) openCheckout(plan.paddlePriceId, userEmail);
+                  if (plan && isPaddleReady) openCheckout(plan.paddlePriceId, userEmail, userId);
                 }}
                 disabled={!isPaddleReady}
                 className="w-full gap-2"

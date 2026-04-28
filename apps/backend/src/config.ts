@@ -51,6 +51,11 @@ export let config = {
   supabaseAnonKey: process.env.SUPABASE_ANON_KEY || '',
   supabaseServiceKey: process.env.SUPABASE_SERVICE_ROLE_KEY || '',
 
+  // ── Cloud Mode (dynamically set via settings) ──
+  apiMode: 'byok' as 'byok' | 'cloud',
+  cloudApiUrl: '',
+  deviceToken: '',
+
   systemPrompt: loadSystemPrompt(workspaceRoot),
   // Legacy md content (memory + pipeline_actions + skills) that the
   // per-turn composer threads in as a cached section. core.md is
@@ -126,6 +131,8 @@ export let config = {
   },
 };
 
-export function updateConfig(newSettings: Record<string, any>) {
+export type AppConfig = typeof config;
+
+export function updateConfig(newSettings: Partial<AppConfig>) {
   config = { ...config, ...newSettings };
 }

@@ -156,6 +156,46 @@ export function updateSettings(settings: any): Promise<void> {
   });
 }
 
+/**
+ * Provision a device token from the PipeFX Cloud-API.
+ *
+ * Uses the user's Supabase JWT to authenticate (chicken-and-egg:
+ * we can't use a device token to get a device token).
+ *
+ * @param cloudApiUrl  - Base URL of the Cloud-API (e.g. https://cloud.pipefx.com)
+ * @param deviceName   - Optional device name (shown in account management)
+ * @returns The plaintext token, or null on failure
+ */
+export async function provisionCloudToken(
+  cloudApiUrl: string,
+  deviceName = 'PipeFX Desktop'
+): Promise<{ token: string; tokenId: string } | null> {
+  const jwt = await getAccessToken();
+  if (!jwt) return null;
+
+  try {
+    const res = await fetch(`${cloudApiUrl}/auth/device-token`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${jwt}`,
+      },
+      body: JSON.stringify({ deviceName }),
+    });
+
+    if (!res.ok) {
+      console.error('[Cloud] Failed to provision device token:', res.status);
+      return null;
+    }
+
+    const data = await res.json();
+    return { token: data.token, tokenId: data.tokenId };
+  } catch (err) {
+    console.error('[Cloud] Device token provisioning failed:', err);
+    return null;
+  }
+}
+
 // ── Agents (Todo / PlanMode / Sub-agents) ──
 
 export function submitPlanResponse(payload: {

@@ -128,12 +128,12 @@ CREATE TABLE IF NOT EXISTS public.products (
   created_at      TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
--- Seed starter packages
+-- Seed starter packages (prices must match Paddle config and desktop UI)
 INSERT INTO public.products (name, description, credits_amount, price_usd)
 VALUES
   ('Starter Pack',  '100K credits',  100000,  10.00),
-  ('Creator Pack',  '300K credits',  300000,  25.00),
-  ('Studio Pack',   '700K credits',  700000,  50.00)
+  ('Creator Pack',  '300K credits',  300000,  30.00),
+  ('Studio Pack',   '700K credits',  700000, 100.00)
 ON CONFLICT DO NOTHING;
 
 -- ── stripe_events ─────────────────────────────────────────

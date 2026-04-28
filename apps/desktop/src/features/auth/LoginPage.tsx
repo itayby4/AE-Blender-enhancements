@@ -157,6 +157,7 @@ export function LoginPage() {
             toast.error(result.error);
           } else {
             toast.success('Account created! Check your email to confirm.');
+            const newUserId = result.user?.id;
             if (hasKeys) {
               try {
                 await updateSettings({
@@ -177,7 +178,7 @@ export function LoginPage() {
             }
             if (cloudExpanded && isPaddleReady) {
               const plan = PLANS.find((p) => p.id === selectedPlan);
-              if (plan) openCheckout(plan.paddlePriceId, email);
+              if (plan) openCheckout(plan.paddlePriceId, email, newUserId);
             }
           }
         }
@@ -307,6 +308,33 @@ export function LoginPage() {
                 Continue with Google
               </button>
             </div>
+
+            {/* Mode toggle — inside left card so it never shifts */}
+            <div className="px-5 pb-4 pt-1">
+              <p className="text-center text-[13px] text-muted-foreground">
+                {isSignUp ? (
+                  <>
+                    Already have an account?{' '}
+                    <button
+                      onClick={() => setMode('sign-in')}
+                      className="text-primary hover:underline font-medium"
+                    >
+                      Sign in
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    Don&apos;t have an account?{' '}
+                    <button
+                      onClick={() => { setMode('sign-up'); setConfirmPassword(''); }}
+                      className="text-primary hover:underline font-medium"
+                    >
+                      Sign up
+                    </button>
+                  </>
+                )}
+              </p>
+            </div>
           </div>
 
           {/* ╔═══════════════════════════════════════════════╗
@@ -420,76 +448,76 @@ export function LoginPage() {
                 subtitle="Use your own API keys — free"
                 last
               >
-                <div className="flex flex-col gap-2 pt-1">
-                  <div className="flex items-center justify-end">
+                <div className="pt-1.5 space-y-3">
+                  {/* Toolbar */}
+                  <div className="flex items-center justify-between">
+                    <button
+                      type="button"
+                      onClick={() => setShowMediaKeys(!showMediaKeys)}
+                      className={cn(
+                        'flex items-center gap-1.5 text-[11px] font-medium transition-all rounded-md px-2 py-1 -ml-2',
+                        showMediaKeys
+                          ? 'text-primary bg-primary/8 shadow-sm shadow-primary/5'
+                          : 'text-muted-foreground/70 hover:text-foreground hover:bg-muted/40'
+                      )}
+                    >
+                      <Sparkles className="h-3 w-3" />
+                      {showMediaKeys ? 'Chat + Media' : '+ Media Keys'}
+                    </button>
                     <button
                       type="button"
                       onClick={() => setShowKeys(!showKeys)}
                       className="inline-flex items-center gap-1 text-[11px] text-muted-foreground/60 hover:text-foreground transition-colors"
                     >
                       {showKeys ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
-                      {showKeys ? 'Hide' : 'Show'}
+                      <span className="text-[10px]">{showKeys ? 'Hide' : 'Show'}</span>
                     </button>
                   </div>
-                  <KeyInput id="byok-gemini" label="Gemini" value={geminiKey} onChange={setGeminiKey} show={showKeys} placeholder="AIza..." />
-                  <KeyInput id="byok-openai" label="OpenAI" value={openaiKey} onChange={setOpenaiKey} show={showKeys} placeholder="sk-..." />
-                  <KeyInput id="byok-anthropic" label="Anthropic" value={anthropicKey} onChange={setAnthropicKey} show={showKeys} placeholder="sk-ant-..." />
 
-                  {/* Media Gen Keys Toggle */}
-                  <button
-                    type="button"
-                    onClick={() => setShowMediaKeys(!showMediaKeys)}
-                    className="flex items-center gap-1.5 text-[11px] text-muted-foreground/60 hover:text-foreground transition-colors mt-1"
+                  {/* Key grid */}
+                  <div
+                    className={cn(
+                      'grid gap-x-4 gap-y-1.5 transition-all duration-300',
+                      showMediaKeys ? 'grid-cols-3' : 'grid-cols-1'
+                    )}
                   >
-                    {showMediaKeys ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
-                    <Sparkles className="h-3 w-3" />
-                    Media Generation Keys
-                  </button>
-
-                  {showMediaKeys && (
-                    <div className="flex flex-col gap-2 pl-2 border-l-2 border-border/30 animate-panel-enter">
-                      <KeyInput id="byok-elevenlabs" label="ElevenLabs" value={elevenlabsKey} onChange={setElevenlabsKey} show={showKeys} placeholder="sk_..." />
-                      <KeyInput id="byok-kling" label="Kling API Key" value={klingKey} onChange={setKlingKey} show={showKeys} placeholder="ak-..." />
-                      <KeyInput id="byok-kling-secret" label="Kling Secret" value={klingSecret} onChange={setKlingSecret} show={showKeys} placeholder="sk-..." />
-                      <KeyInput id="byok-byteplus" label="BytePlus Key" value={byteplusKey} onChange={setByteplusKey} show={showKeys} placeholder="..." />
-                      <KeyInput id="byok-seeddream" label="SeedDream Endpoint" value={byteplusSeedDream} onChange={setByteplusSeedDream} show={showKeys} placeholder="ep-..." />
-                      <KeyInput id="byok-ark" label="BytePlus ARK Key" value={byteplusArk} onChange={setByteplusArk} show={showKeys} placeholder="..." />
+                    {/* Col 1: Chat */}
+                    <div className="space-y-1.5">
+                      <p className="text-[9px] font-bold text-muted-foreground/60 uppercase tracking-widest pb-0.5 border-b border-border/30">Chat</p>
+                      <CompactKeyInput id="byok-gemini" label="Gemini" value={geminiKey} onChange={setGeminiKey} show={showKeys} placeholder="AIza..." />
+                      <CompactKeyInput id="byok-openai" label="OpenAI" value={openaiKey} onChange={setOpenaiKey} show={showKeys} placeholder="sk-..." />
+                      <CompactKeyInput id="byok-anthropic" label="Anthropic" value={anthropicKey} onChange={setAnthropicKey} show={showKeys} placeholder="sk-ant-..." />
                     </div>
-                  )}
 
-                  <p className="text-[10px] text-muted-foreground/50 mt-0.5 pl-1">
-                    Only one chat key needed · Stored locally on your device
+                    {/* Col 2: Audio & Video */}
+                    {showMediaKeys && (
+                      <div className="space-y-1.5 animate-panel-enter">
+                        <p className="text-[9px] font-bold text-muted-foreground/60 uppercase tracking-widest pb-0.5 border-b border-border/30">Audio / Video</p>
+                        <CompactKeyInput id="byok-elevenlabs" label="ElevenLabs" value={elevenlabsKey} onChange={setElevenlabsKey} show={showKeys} placeholder="sk_..." />
+                        <CompactKeyInput id="byok-kling" label="Kling Key" value={klingKey} onChange={setKlingKey} show={showKeys} placeholder="ak-..." />
+                        <CompactKeyInput id="byok-kling-secret" label="Kling Secret" value={klingSecret} onChange={setKlingSecret} show={showKeys} placeholder="sk-..." />
+                      </div>
+                    )}
+
+                    {/* Col 3: Image */}
+                    {showMediaKeys && (
+                      <div className="space-y-1.5 animate-panel-enter" style={{ animationDelay: '50ms' }}>
+                        <p className="text-[9px] font-bold text-muted-foreground/60 uppercase tracking-widest pb-0.5 border-b border-border/30">Image</p>
+                        <CompactKeyInput id="byok-byteplus" label="BytePlus" value={byteplusKey} onChange={setByteplusKey} show={showKeys} placeholder="..." />
+                        <CompactKeyInput id="byok-seeddream" label="SeedDream" value={byteplusSeedDream} onChange={setByteplusSeedDream} show={showKeys} placeholder="ep-..." />
+                        <CompactKeyInput id="byok-ark" label="ARK Key" value={byteplusArk} onChange={setByteplusArk} show={showKeys} placeholder="..." />
+                      </div>
+                    )}
+                  </div>
+
+                  <p className="text-[10px] text-muted-foreground/50">
+                    At least one chat key required · Keys stored locally
                   </p>
                 </div>
               </OptionSection>
             </div>
           )}
         </div>
-
-        {/* ── Mode Toggle ── */}
-        <p className="text-center text-[13px] text-muted-foreground mt-5">
-          {isSignUp ? (
-            <>
-              Already have an account?{' '}
-              <button
-                onClick={() => setMode('sign-in')}
-                className="text-primary hover:underline font-medium"
-              >
-                Sign in
-              </button>
-            </>
-          ) : (
-            <>
-              Don&apos;t have an account?{' '}
-              <button
-                onClick={() => { setMode('sign-up'); setConfirmPassword(''); }}
-                className="text-primary hover:underline font-medium"
-              >
-                Sign up
-              </button>
-            </>
-          )}
-        </p>
       </div>
     </div>
   );
@@ -593,16 +621,19 @@ function OptionSection({
   );
 }
 
-/* ── Key Input ── */
-function KeyInput({
+/* ── Compact Key Input (inline label) ── */
+function CompactKeyInput({
   id, label, value, onChange, show, placeholder,
 }: {
   id: string; label: string; value: string;
   onChange: (v: string) => void; show: boolean; placeholder: string;
 }) {
   return (
-    <div className="flex flex-col gap-0.5">
-      <label htmlFor={id} className="text-[11px] font-medium text-muted-foreground/70">
+    <div className="relative group">
+      <label
+        htmlFor={id}
+        className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[10px] font-semibold text-muted-foreground/70 pointer-events-none select-none transition-colors group-focus-within:text-primary/70"
+      >
         {label}
       </label>
       <input
@@ -612,10 +643,10 @@ function KeyInput({
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
         className={cn(
-          'h-8 w-full rounded-md border border-input bg-background px-2.5',
-          'text-xs font-mono placeholder:text-muted-foreground/30',
-          'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-          'transition-colors'
+          'h-8 w-full rounded-lg border border-border/70 bg-muted/20 text-right pr-2.5',
+          'text-[11px] font-mono placeholder:text-muted-foreground/25',
+          'focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary/30 focus-visible:border-primary/40 focus-visible:bg-background',
+          'transition-all hover:border-border hover:bg-muted/30'
         )}
       />
     </div>

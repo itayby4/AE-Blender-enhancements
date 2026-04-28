@@ -413,9 +413,8 @@ async function main() {
   // reads the latest settings so hot-swaps take effect immediately.
   mountMediaGenRoutes(router, {
     getCloudConfig: () => {
-      const s = config as any;
-      if (s.apiMode === 'cloud' && s.deviceToken && s.cloudApiUrl) {
-        return { cloudApiUrl: s.cloudApiUrl, deviceToken: s.deviceToken };
+      if (config.apiMode === 'cloud' && config.deviceToken && config.cloudApiUrl) {
+        return { cloudApiUrl: config.cloudApiUrl, deviceToken: config.deviceToken };
       }
       return undefined;
     },
