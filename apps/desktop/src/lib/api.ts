@@ -179,13 +179,14 @@ export function updateSettings(settings: any): Promise<void> {
 /**
  * Provision a device token from the PipeFX Cloud-API.
  *
- * Uses the user's Supabase JWT to authenticate (chicken-and-egg:
- * we can't use a device token to get a device token).
+ * Routes through the local backend (/api/cloud/provision-token) rather than
+ * calling Railway directly — the Tauri webview can't make cross-origin
+ * requests to Railway (CORS), but the local Node.js backend can.
  *
  * @returns Token on success, or { error: string } with a diagnostic message.
  */
 export async function provisionCloudToken(
-  cloudApiUrl: string,
+  _cloudApiUrl: string,
   deviceName = 'PipeFX Desktop'
 ): Promise<{ token: string; tokenId: string } | { error: string }> {
   const jwt = await getAccessToken();
@@ -194,7 +195,9 @@ export async function provisionCloudToken(
   }
 
   try {
-    const res = await fetch(`${cloudApiUrl}/auth/device-token`, {
+    // Call the local backend proxy — it forwards to Railway server-side
+    // (no CORS issue since it's a Node.js → Railway request, not browser → Railway)
+    const res = await fetch(`${API_BASE}/api/cloud/provision-token`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

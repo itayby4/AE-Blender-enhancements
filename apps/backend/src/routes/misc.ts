@@ -104,4 +104,59 @@ export function registerMiscRoutes(
       jsonError(res, err);
     }
   });
+
+  /**
+   * POST /api/cloud/provision-token
+   *
+   * Server-side proxy for Cloud-API device token provisioning.
+   * The Tauri webview can't make cross-origin requests to Railway (CORS),
+   * but this Node.js backend can. We forward the user's Supabase JWT and
+   * relay the response back to the desktop.
+   *
+   * Body: { deviceName?: string }
+   * Headers: Authorization: Bearer <supabase-jwt>
+   */
+  router.post('/api/cloud/provision-token', async (req, res) => {
+    try {
+      // Forward the Authorization header from the desktop request
+      const authHeader = req.headers['authorization'];
+      if (!authHeader?.startsWith('Bearer ')) {
+        res.writeHead(401, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'Missing Authorization header' }));
+        return;
+      }
+
+      const body = await readBody(req);
+      const { deviceName = 'PipeFX Desktop' } = JSON.parse(body || '{}');
+
+      const settings = await loadSettings();
+      const cloudApiUrl = settings.cloudApiUrl || 'https://pipefx-cloud-api-production.up.railway.app';
+
+      console.log(`[Cloud] Proxying device token provision to ${cloudApiUrl}`);
+
+      const upstream = await fetch(`${cloudApiUrl}/auth/device-token`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: authHeader,
+        },
+        body: JSON.stringify({ deviceName }),
+      });
+
+      const upstreamBody = await upstream.json().catch(() => ({ error: `HTTP ${upstream.status}` }));
+
+      if (!upstream.ok) {
+        console.error(`[Cloud] Provision failed: ${upstream.status}`, upstreamBody);
+        res.writeHead(upstream.status, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify(upstreamBody));
+        return;
+      }
+
+      console.log(`[Cloud] Device token provisioned successfully`);
+      jsonResponse(res, upstreamBody);
+    } catch (err: any) {
+      console.error('[Cloud] Provision proxy error:', err?.message ?? err);
+      jsonError(res, err);
+    }
+  });
 }
