@@ -24,6 +24,7 @@ import {
 import { Input } from '../../components/ui/input';
 import { save } from '@tauri-apps/plugin-dialog';
 import { writeFile } from '@tauri-apps/plugin-fs';
+import { generateMedia } from '../../lib/api';
 
 const MODELS = [
   {
@@ -155,23 +156,7 @@ export function VideoGenDashboard({ projectFolder }: { projectFolder?: string } 
           imageRef: imageRef ?? undefined,
           lastFrameRef: lastFrameRef ?? undefined,
         };
-        const response = await fetch('http://localhost:3001/api/ai-models', {
-          method: 'POST',
-          signal: task.abortController?.signal,
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(body),
-        });
-
-        if (!response.ok) {
-          const errorData = await response.json().catch(() => null);
-          throw new Error(
-            errorData?.error || 'Failed to connect to video generator'
-          );
-        }
-
-        const data = (await response.json()) as MediaGenResponse;
+        const data = await generateMedia<MediaGenRequest, MediaGenResponse>(body);
         setGenerations((current) =>
           current.map((c) =>
             c.id === task.id && c.status !== 'cancelled'
