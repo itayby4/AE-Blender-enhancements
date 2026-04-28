@@ -18,11 +18,13 @@ export const seedDreamProvider: ImageProvider = {
       `[IMAGE-GEN] Calling SeedDream 5 with prompt: "${finalPrompt}"`
     );
 
-    const apiKey = process.env.BYTEPLUS_API_KEY;
+    // Use the same ARK API key as SeedDance — both hit the same BytePlus ARK domain.
+    // Falls back to BYTEPLUS_API_KEY for backward compatibility.
+    const apiKey = process.env.BYTEPLUS_ARK_API_KEY || process.env.BYTEPLUS_API_KEY;
 
     if (!apiKey) {
       throw new Error(
-        'BYTEPLUS_API_KEY is not configured in the environment variables.'
+        'BYTEPLUS_ARK_API_KEY is not configured in the environment variables.'
       );
     }
 

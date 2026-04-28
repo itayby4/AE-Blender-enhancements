@@ -17,6 +17,8 @@ import {
   Cloud,
   Zap,
   CreditCard,
+  Sparkles,
+  Crown,
 } from 'lucide-react';
 import { PipeFxLogo } from '../../components/brand/PipeFxLogo.js';
 import { Button } from '../../components/ui/button.js';
@@ -31,6 +33,20 @@ import type { CornerMode } from '../../lib/corners-runtime.js';
 import { fetchSettings, updateSettings } from '../../lib/api.js';
 import { useAuth, supabase } from '@pipefx/auth/ui';
 import { toast } from 'sonner';
+import { usePaddleCheckout } from '../auth/PaddleCheckout.js';
+
+/* ── Plan config (matches LoginPage) ── */
+const CLOUD_PLANS = [
+  { id: 'starter', name: 'Starter', price: '$10', credits: '100K',
+    paddlePriceId: import.meta.env.VITE_PADDLE_PRICE_STARTER || 'pri_01kq8gpgmnvxzgm5vbhqcvmsvh',
+    icon: Sparkles },
+  { id: 'creator', name: 'Creator', price: '$30', credits: '300K',
+    paddlePriceId: import.meta.env.VITE_PADDLE_PRICE_CREATOR || 'pri_01kq8gsa26ej1rjnzmzng215gq',
+    icon: Zap, popular: true },
+  { id: 'studio', name: 'Studio', price: '$100', credits: '700K',
+    paddlePriceId: import.meta.env.VITE_PADDLE_PRICE_STUDIO || 'pri_01kq8gwf6vjt1syhah5wacv334',
+    icon: Crown },
+] as const;
 
 interface SettingsPageProps {
   onClose: () => void;
@@ -57,6 +73,13 @@ export function SettingsPage({
   const [geminiApiKey, setGeminiApiKey] = useState('');
   const [openaiApiKey, setOpenaiApiKey] = useState('');
   const [anthropicApiKey, setAnthropicApiKey] = useState('');
+  // Media gen keys (BYOK)
+  const [elevenlabsApiKey, setElevenlabsApiKey] = useState('');
+  const [klingApiKey, setKlingApiKey] = useState('');
+  const [klingApiSecret, setKlingApiSecret] = useState('');
+  const [byteplusApiKey, setByteplusApiKey] = useState('');
+  const [byteplusSeedDreamEndpoint, setByteplusSeedDreamEndpoint] = useState('');
+  const [byteplusArkApiKey, setByteplusArkApiKey] = useState('');
   const [showKeys, setShowKeys] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saved' | 'error'>('idle');
@@ -74,6 +97,12 @@ export function SettingsPage({
         setGeminiApiKey(data.geminiApiKey || '');
         setOpenaiApiKey(data.openaiApiKey || '');
         setAnthropicApiKey(data.anthropicApiKey || '');
+        setElevenlabsApiKey(data.elevenlabsApiKey || '');
+        setKlingApiKey(data.klingApiKey || '');
+        setKlingApiSecret(data.klingApiSecret || '');
+        setByteplusApiKey(data.byteplusApiKey || '');
+        setByteplusSeedDreamEndpoint(data.byteplusSeedDreamEndpoint || '');
+        setByteplusArkApiKey(data.byteplusArkApiKey || '');
         if (Array.isArray(data.customPalettes)) {
           setCustomPalettes(data.customPalettes);
         }
@@ -88,6 +117,12 @@ export function SettingsPage({
         geminiApiKey: geminiApiKey.trim(),
         openaiApiKey: openaiApiKey.trim(),
         anthropicApiKey: anthropicApiKey.trim(),
+        elevenlabsApiKey: elevenlabsApiKey.trim(),
+        klingApiKey: klingApiKey.trim(),
+        klingApiSecret: klingApiSecret.trim(),
+        byteplusApiKey: byteplusApiKey.trim(),
+        byteplusSeedDreamEndpoint: byteplusSeedDreamEndpoint.trim(),
+        byteplusArkApiKey: byteplusArkApiKey.trim(),
       });
       setSaveStatus('saved');
       setTimeout(() => setSaveStatus('idle'), 2000);
@@ -258,10 +293,22 @@ export function SettingsPage({
                 geminiApiKey={geminiApiKey}
                 openaiApiKey={openaiApiKey}
                 anthropicApiKey={anthropicApiKey}
+                elevenlabsApiKey={elevenlabsApiKey}
+                klingApiKey={klingApiKey}
+                klingApiSecret={klingApiSecret}
+                byteplusApiKey={byteplusApiKey}
+                byteplusSeedDreamEndpoint={byteplusSeedDreamEndpoint}
+                byteplusArkApiKey={byteplusArkApiKey}
                 showKeys={showKeys}
                 onGeminiChange={setGeminiApiKey}
                 onOpenaiChange={setOpenaiApiKey}
                 onAnthropicChange={setAnthropicApiKey}
+                onElevenlabsChange={setElevenlabsApiKey}
+                onKlingKeyChange={setKlingApiKey}
+                onKlingSecretChange={setKlingApiSecret}
+                onByteplusKeyChange={setByteplusApiKey}
+                onByteplusSeedDreamChange={setByteplusSeedDreamEndpoint}
+                onByteplusArkChange={setByteplusArkApiKey}
                 onToggleShow={() => setShowKeys(!showKeys)}
                 onSave={handleSaveKeys}
                 isSaving={isSaving}
@@ -591,66 +638,96 @@ function AccountTab() {
 
 function ApiModeSection({
   geminiApiKey, openaiApiKey, anthropicApiKey,
+  elevenlabsApiKey, klingApiKey, klingApiSecret,
+  byteplusApiKey, byteplusSeedDreamEndpoint, byteplusArkApiKey,
   showKeys, onGeminiChange, onOpenaiChange, onAnthropicChange,
+  onElevenlabsChange, onKlingKeyChange, onKlingSecretChange,
+  onByteplusKeyChange, onByteplusSeedDreamChange, onByteplusArkChange,
   onToggleShow, onSave, isSaving, saveStatus,
 }: {
   geminiApiKey: string;
   openaiApiKey: string;
   anthropicApiKey: string;
+  elevenlabsApiKey: string;
+  klingApiKey: string;
+  klingApiSecret: string;
+  byteplusApiKey: string;
+  byteplusSeedDreamEndpoint: string;
+  byteplusArkApiKey: string;
   showKeys: boolean;
   onGeminiChange: (v: string) => void;
   onOpenaiChange: (v: string) => void;
   onAnthropicChange: (v: string) => void;
+  onElevenlabsChange: (v: string) => void;
+  onKlingKeyChange: (v: string) => void;
+  onKlingSecretChange: (v: string) => void;
+  onByteplusKeyChange: (v: string) => void;
+  onByteplusSeedDreamChange: (v: string) => void;
+  onByteplusArkChange: (v: string) => void;
   onToggleShow: () => void;
   onSave: () => void;
   isSaving: boolean;
   saveStatus: 'idle' | 'saved' | 'error';
 }) {
   const [apiMode, setApiMode] = useState<'byok' | 'cloud'>('byok');
-  const [deviceToken, setDeviceToken] = useState('');
-  const [cloudApiUrl, setCloudApiUrl] = useState('https://pipefx-cloud-api-production.up.railway.app');
   const [balance, setBalance] = useState<{ available: number; held: number } | null>(null);
-  const [isSavingMode, setIsSavingMode] = useState(false);
-  const [modeStatus, setModeStatus] = useState<'idle' | 'saved' | 'error'>('idle');
+  const [subscriptionStatus, setSubscriptionStatus] = useState<string>('none');
+  const [currentPriceId, setCurrentPriceId] = useState<string | null>(null);
+  const [selectedPlan, setSelectedPlan] = useState('creator');
+  const [userEmail, setUserEmail] = useState('');
+
+  /* Paddle */
+  const {
+    isReady: isPaddleReady,
+    openCheckout,
+    isConfigured: isPaddleConfigured,
+  } = usePaddleCheckout({
+    onComplete: () => {
+      toast.success('Subscription activated! Credits will arrive shortly.');
+      // Refresh balance after a short delay for webhook processing
+      setTimeout(refreshBalance, 3000);
+    },
+    onClose: () => {},
+    onError: () => toast.error('Checkout failed. Please try again.'),
+  });
 
   // Load saved API mode settings
   useEffect(() => {
     fetchSettings()
       .then((data: any) => {
         if (data.apiMode === 'cloud') setApiMode('cloud');
-        if (data.deviceToken) setDeviceToken(data.deviceToken);
-        if (data.cloudApiUrl) setCloudApiUrl(data.cloudApiUrl);
       })
       .catch(console.error);
   }, []);
 
-  // Fetch credit balance when in cloud mode
-  useEffect(() => {
-    if (apiMode !== 'cloud' || !deviceToken || !cloudApiUrl) {
-      setBalance(null);
-      return;
+  // Fetch credit balance + subscription status from Supabase
+  const refreshBalance = useCallback(async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    setUserEmail(user.email || '');
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('credits_balance, held_credits, subscription_status, paddle_subscription_id')
+      .eq('id', user.id)
+      .single();
+    if (!error && data) {
+      setBalance({ available: data.credits_balance ?? 0, held: data.held_credits ?? 0 });
+      setSubscriptionStatus(data.subscription_status || 'none');
+      // We don't store the price_id on profiles, but subscription_status tells us if they're active
     }
-    fetch(`${cloudApiUrl}/balance`, {
-      headers: { Authorization: `Bearer ${deviceToken}` },
-    })
-      .then((r) => r.ok ? r.json() : null)
-      .then((data) => {
-        if (data) setBalance({ available: data.available, held: data.held });
-      })
-      .catch(() => setBalance(null));
-  }, [apiMode, deviceToken, cloudApiUrl]);
+  }, []);
+
+  useEffect(() => {
+    if (apiMode === 'cloud') refreshBalance();
+    else setBalance(null);
+  }, [apiMode, refreshBalance]);
 
   const handleSaveMode = async () => {
-    setIsSavingMode(true);
     try {
-      await updateSettings({ apiMode, deviceToken, cloudApiUrl });
-      setModeStatus('saved');
-      setTimeout(() => setModeStatus('idle'), 2000);
+      await updateSettings({ apiMode });
+      toast.success('API mode saved.');
     } catch {
-      setModeStatus('error');
-      setTimeout(() => setModeStatus('idle'), 3000);
-    } finally {
-      setIsSavingMode(false);
+      toast.error('Failed to save.');
     }
   };
 
@@ -723,53 +800,121 @@ function ApiModeSection({
             <h3 className="text-sm font-semibold">Cloud Settings</h3>
           </div>
 
-          {/* Credit Balance */}
+          {/* Credit Balance Widget */}
           {balance && (
-            <div className="flex items-center gap-3 rounded-lg border border-border bg-card p-3">
-              <CreditCard className="w-5 h-5 text-primary" />
-              <div className="flex-1">
-                <div className="text-xs text-muted-foreground">Available Credits</div>
-                <div className="text-lg font-bold font-mono">
-                  {balance.available.toLocaleString()}
-                  {balance.held > 0 && (
-                    <span className="text-xs text-muted-foreground ml-2">
-                      ({balance.held.toLocaleString()} held)
-                    </span>
-                  )}
+            <div className="rounded-lg border border-border bg-card p-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <CreditCard className="w-4 h-4 text-primary" />
+                  <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                    Credit Balance
+                  </span>
                 </div>
+                <button
+                  type="button"
+                  onClick={refreshBalance}
+                  className="text-[11px] text-muted-foreground/60 hover:text-foreground transition-colors"
+                >
+                  Refresh
+                </button>
               </div>
+              <div className="flex items-baseline gap-1">
+                <span className="text-2xl font-bold font-mono tabular-nums text-foreground">
+                  {balance.available.toLocaleString()}
+                </span>
+                <span className="text-sm text-muted-foreground">credits</span>
+              </div>
+              {balance.held > 0 && (
+                <div className="flex items-center gap-1.5 text-xs text-muted-foreground/70">
+                  <div className="h-1.5 w-1.5 rounded-full bg-amber-400" />
+                  {balance.held.toLocaleString()} credits reserved (in-flight)
+                </div>
+              )}
+            </div>
+          )}
+          {(!balance && apiMode === 'cloud') && (
+            <div className="rounded-lg border border-border/50 bg-muted/10 p-3 text-center">
+              <p className="text-xs text-muted-foreground/50">Loading credit balance…</p>
             </div>
           )}
 
-          <div className="space-y-1.5">
-            <Label htmlFor="device-token" className="text-sm font-medium">
-              Device Token
-            </Label>
-            <Input
-              id="device-token"
-              type="password"
-              value={deviceToken}
-              onChange={(e) => setDeviceToken(e.target.value)}
-              placeholder="ptk_..."
-              className="font-mono text-sm bg-muted/40 border-border/50"
-            />
-            <p className="text-xs text-muted-foreground">
-              Generate a device token from your PipeFX account dashboard.
-            </p>
-          </div>
-
-          <div className="flex items-center gap-3">
-            <Button onClick={handleSaveMode} disabled={isSavingMode || !deviceToken} className="gap-2">
-              <Save className="w-4 h-4" />
-              {isSavingMode ? 'Saving...' : 'Save Cloud Settings'}
-            </Button>
-            {modeStatus === 'saved' && (
-              <span className="text-sm text-success font-medium">Saved ✓</span>
-            )}
-            {modeStatus === 'error' && (
-              <span className="text-sm text-destructive font-medium">Save failed</span>
-            )}
-          </div>
+          {/* ── Plan Management ── */}
+          {isPaddleConfigured && (
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <h4 className="text-sm font-semibold">
+                  {subscriptionStatus === 'active' ? 'Your Plan' : 'Choose a Plan'}
+                </h4>
+                {subscriptionStatus === 'active' && (
+                  <span className="text-[10px] font-medium uppercase tracking-wider text-emerald-500 bg-emerald-500/10 rounded-full px-2 py-0.5">
+                    Active
+                  </span>
+                )}
+              </div>
+              <div className="grid grid-cols-3 gap-2">
+                {CLOUD_PLANS.map((plan) => {
+                  const active = selectedPlan === plan.id;
+                  const Icon = plan.icon;
+                  return (
+                    <button
+                      key={plan.id}
+                      type="button"
+                      onClick={() => setSelectedPlan(plan.id)}
+                      className={cn(
+                        'relative flex flex-col items-center gap-1.5 rounded-lg p-3 text-center transition-all',
+                        'border',
+                        active
+                          ? 'border-primary/40 bg-primary/5 ring-1 ring-primary/20'
+                          : 'border-border/60 hover:border-primary/25 hover:bg-muted/30'
+                      )}
+                    >
+                      {plan.popular && (
+                        <span className="absolute -top-2 left-1/2 -translate-x-1/2 text-[8px] font-bold uppercase tracking-wider text-primary bg-primary/10 rounded-full px-1.5 py-px">
+                          Popular
+                        </span>
+                      )}
+                      <Icon
+                        className={cn(
+                          'h-4 w-4',
+                          active ? 'text-primary' : 'text-muted-foreground/50'
+                        )}
+                      />
+                      <span className={cn(
+                        'text-xs font-semibold',
+                        active ? 'text-foreground' : 'text-muted-foreground'
+                      )}>
+                        {plan.name}
+                      </span>
+                      <span className={cn(
+                        'text-lg font-bold tabular-nums leading-none',
+                        active ? 'text-foreground' : 'text-muted-foreground/60'
+                      )}>
+                        {plan.price}
+                        <span className="text-[10px] font-normal text-muted-foreground/50">/mo</span>
+                      </span>
+                      <span className="text-[10px] text-muted-foreground/50">
+                        {plan.credits} credits
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+              <Button
+                onClick={() => {
+                  const plan = CLOUD_PLANS.find((p) => p.id === selectedPlan);
+                  if (plan && isPaddleReady) openCheckout(plan.paddlePriceId, userEmail);
+                }}
+                disabled={!isPaddleReady}
+                className="w-full gap-2"
+              >
+                <CreditCard className="w-4 h-4" />
+                {subscriptionStatus === 'active' ? 'Change Plan' : 'Subscribe'}
+              </Button>
+              <p className="text-[10px] text-muted-foreground/50 text-center">
+                Managed by Paddle · Cancel anytime
+              </p>
+            </div>
+          )}
         </div>
       )}
 
@@ -802,7 +947,7 @@ function ApiModeSection({
               onChange={onGeminiChange}
               show={showKeys}
               placeholder="AIzaSy..."
-              hint="Required for AI chat. Get it at aistudio.google.com"
+              hint="Required for AI chat + image generation"
             />
             <ApiKeyField
               id="openai"
@@ -811,7 +956,7 @@ function ApiModeSection({
               onChange={onOpenaiChange}
               show={showKeys}
               placeholder="sk-..."
-              hint="Optional. For GPT-4 model access."
+              hint="For GPT chat + GPT Image 2 generation"
             />
             <ApiKeyField
               id="anthropic"
@@ -820,8 +965,71 @@ function ApiModeSection({
               onChange={onAnthropicChange}
               show={showKeys}
               placeholder="sk-ant-..."
-              hint="Optional. For Claude model access."
+              hint="For Claude model access"
             />
+          </div>
+
+          {/* ── Media Gen Providers ── */}
+          <div className="pt-2 border-t border-border/40">
+            <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">
+              Media Generation
+            </h4>
+            <div className="space-y-4">
+              <ApiKeyField
+                id="elevenlabs"
+                label="ElevenLabs"
+                value={elevenlabsApiKey}
+                onChange={onElevenlabsChange}
+                show={showKeys}
+                placeholder="sk_..."
+                hint="For text-to-speech, sound effects, and audio tools"
+              />
+              <ApiKeyField
+                id="kling-key"
+                label="Kling API Key"
+                value={klingApiKey}
+                onChange={onKlingKeyChange}
+                show={showKeys}
+                placeholder="ak-..."
+                hint="For Kling 3.0 video generation"
+              />
+              <ApiKeyField
+                id="kling-secret"
+                label="Kling API Secret"
+                value={klingApiSecret}
+                onChange={onKlingSecretChange}
+                show={showKeys}
+                placeholder="sk-..."
+                hint="Paired with the API Key above"
+              />
+              <ApiKeyField
+                id="byteplus-key"
+                label="BytePlus API Key"
+                value={byteplusApiKey}
+                onChange={onByteplusKeyChange}
+                show={showKeys}
+                placeholder="..."
+                hint="For SeedDream 5 image generation"
+              />
+              <ApiKeyField
+                id="byteplus-seeddream"
+                label="BytePlus SeedDream Endpoint"
+                value={byteplusSeedDreamEndpoint}
+                onChange={onByteplusSeedDreamChange}
+                show={showKeys}
+                placeholder="ep-..."
+                hint="SeedDream endpoint ID from BytePlus console"
+              />
+              <ApiKeyField
+                id="byteplus-ark"
+                label="BytePlus ARK API Key"
+                value={byteplusArkApiKey}
+                onChange={onByteplusArkChange}
+                show={showKeys}
+                placeholder="..."
+                hint="For SeedDance 2.0 video generation"
+              />
+            </div>
           </div>
 
           <div className="flex items-center gap-3 pt-2">

@@ -57,8 +57,17 @@ export function registerMiscRoutes(
         })
       );
 
-      // Resolve cloud config if user is in cloud mode
+      // Propagate media gen keys to process.env so @pipefx/media-providers
+      // (which read from process.env) pick up freshly-saved BYOK keys.
       const loadedSettings = await loadSettings();
+      if (loadedSettings.elevenlabsApiKey) process.env.ELEVENLABS_API_KEY = loadedSettings.elevenlabsApiKey;
+      if (loadedSettings.klingApiKey) process.env.KLING_API_KEY = loadedSettings.klingApiKey;
+      if (loadedSettings.klingApiSecret) process.env.KLING_API_SECRET = loadedSettings.klingApiSecret;
+      if (loadedSettings.byteplusApiKey) process.env.BYTEPLUS_API_KEY = loadedSettings.byteplusApiKey;
+      if (loadedSettings.byteplusSeedDreamEndpoint) process.env.BYTEPLUS_SEEDDREAM_ENDPOINT = loadedSettings.byteplusSeedDreamEndpoint;
+      if (loadedSettings.byteplusArkApiKey) process.env.BYTEPLUS_ARK_API_KEY = loadedSettings.byteplusArkApiKey;
+
+      // Resolve cloud config if user is in cloud mode
       const cloudConfig = loadedSettings.apiMode === 'cloud' && loadedSettings.deviceToken
         ? { cloudApiUrl: loadedSettings.cloudApiUrl, deviceToken: loadedSettings.deviceToken }
         : undefined;
@@ -75,7 +84,7 @@ export function registerMiscRoutes(
         })
       );
 
-      console.log('[Settings] Hot-Reloaded AI agent successfully');
+      console.log('[Settings] Hot-Reloaded AI agent + media gen keys successfully');
       jsonResponse(res, { success: true });
     } catch (err) {
       jsonError(res, err);

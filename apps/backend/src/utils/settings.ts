@@ -30,6 +30,20 @@ export interface AppSettings {
   cloudApiUrl: string;
   /** Device token for cloud-api authentication. */
   deviceToken: string;
+
+  // ── Media Gen Provider Keys (BYOK mode) ──
+  /** ElevenLabs API key for sound generation. */
+  elevenlabsApiKey: string;
+  /** Kling API key for video generation. */
+  klingApiKey: string;
+  /** Kling API secret for JWT signing. */
+  klingApiSecret: string;
+  /** BytePlus API key for SeedDream image generation. */
+  byteplusApiKey: string;
+  /** BytePlus SeedDream endpoint ID. */
+  byteplusSeedDreamEndpoint: string;
+  /** BytePlus ARK API key for SeedDance video generation. */
+  byteplusArkApiKey: string;
 }
 
 // ────────────────────────────────────────────────────────
@@ -53,6 +67,12 @@ const DEFAULTS: AppSettings = {
   apiMode: 'byok',
   cloudApiUrl: process.env.CLOUD_API_URL || 'https://pipefx-cloud-api-production.up.railway.app',
   deviceToken: '',
+  elevenlabsApiKey: process.env.ELEVENLABS_API_KEY || '',
+  klingApiKey: process.env.KLING_API_KEY || '',
+  klingApiSecret: process.env.KLING_API_SECRET || '',
+  byteplusApiKey: process.env.BYTEPLUS_API_KEY || '',
+  byteplusSeedDreamEndpoint: process.env.BYTEPLUS_SEEDDREAM_ENDPOINT || '',
+  byteplusArkApiKey: process.env.BYTEPLUS_ARK_API_KEY || '',
 };
 
 export async function loadSettings(): Promise<AppSettings> {
@@ -68,6 +88,12 @@ export async function loadSettings(): Promise<AppSettings> {
       apiMode: parsed.apiMode === 'cloud' ? 'cloud' : 'byok',
       cloudApiUrl: parsed.cloudApiUrl || DEFAULTS.cloudApiUrl,
       deviceToken: parsed.deviceToken || '',
+      elevenlabsApiKey: parsed.elevenlabsApiKey || DEFAULTS.elevenlabsApiKey,
+      klingApiKey: parsed.klingApiKey || DEFAULTS.klingApiKey,
+      klingApiSecret: parsed.klingApiSecret || DEFAULTS.klingApiSecret,
+      byteplusApiKey: parsed.byteplusApiKey || DEFAULTS.byteplusApiKey,
+      byteplusSeedDreamEndpoint: parsed.byteplusSeedDreamEndpoint || DEFAULTS.byteplusSeedDreamEndpoint,
+      byteplusArkApiKey: parsed.byteplusArkApiKey || DEFAULTS.byteplusArkApiKey,
     };
   } catch (error: any) {
     if (error.code === 'ENOENT') {

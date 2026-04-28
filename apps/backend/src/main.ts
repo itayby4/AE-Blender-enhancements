@@ -407,7 +407,19 @@ async function main() {
   // moved out of apps/backend/src/api/ into @pipefx/media-gen. The mount
   // is parameterless today; pass `saveRender.rendersDir` here once a
   // user-facing setting exists.
-  mountMediaGenRoutes(router);
+  //
+  // Cloud mode: when apiMode === 'cloud', media generation is proxied
+  // through the PipeFX Cloud-API (same pattern as LLM chat). The closure
+  // reads the latest settings so hot-swaps take effect immediately.
+  mountMediaGenRoutes(router, {
+    getCloudConfig: () => {
+      const s = config as any;
+      if (s.apiMode === 'cloud' && s.deviceToken && s.cloudApiUrl) {
+        return { cloudApiUrl: s.cloudApiUrl, deviceToken: s.deviceToken };
+      }
+      return undefined;
+    },
+  });
 
   // ΓöÇΓöÇ HTTP Server ΓöÇΓöÇ
   const server = createServer(async (req, res) => {

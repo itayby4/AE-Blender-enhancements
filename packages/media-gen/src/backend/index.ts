@@ -6,4 +6,5 @@ export {
   mountMediaGenRoutes,
   type MediaGenRouter,
   type MountMediaGenRoutesDeps,
+  type CloudMediaConfig,
 } from './mount.js';

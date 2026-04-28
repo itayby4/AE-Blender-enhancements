@@ -37,6 +37,15 @@ export interface MediaGenRouter {
   ): unknown;
 }
 
+// ── Cloud config ─────────────────────────────────────────────────────────
+
+export interface CloudMediaConfig {
+  /** Cloud-API base URL (e.g., https://pipefx-cloud-api-production.up.railway.app). */
+  cloudApiUrl: string;
+  /** Device token for authentication. */
+  deviceToken: string;
+}
+
 // ── Deps ─────────────────────────────────────────────────────────────────
 
 /**
@@ -48,6 +57,12 @@ export interface MountMediaGenRoutesDeps {
   /** Override the default `~/Desktop/RENDERS/` destination for saved
    *  assets. Pass-through to `saveRender(...)`. */
   saveRender?: SaveRenderOptions;
+
+  /** When set, media generation routes will proxy through the PipeFX
+   *  Cloud-API instead of calling providers locally. This is a closure
+   *  so the host can hot-swap between cloud/byok at runtime (e.g. when
+   *  the user changes settings). Returns undefined for BYOK mode. */
+  getCloudConfig?: () => CloudMediaConfig | undefined;
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────
@@ -68,6 +83,41 @@ async function readBody(req: IncomingMessage): Promise<string> {
     chunks.push(chunk as Buffer);
   }
   return Buffer.concat(chunks).toString('utf8');
+}
+
+// ── Cloud Proxy ──────────────────────────────────────────────────────────
+
+/**
+ * Proxy a media-gen request through the PipeFX Cloud-API.
+ * Mirrors the CloudProvider pattern from @pipefx/llm-providers.
+ */
+async function proxyMediaGenCloud(
+  payload: MediaGenRequest,
+  cloudConfig: CloudMediaConfig
+): Promise<unknown> {
+  const url = `${cloudConfig.cloudApiUrl.replace(/\/$/, '')}/ai/media`;
+
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${cloudConfig.deviceToken}`,
+    },
+    body: JSON.stringify(payload),
+  });
+
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({ error: `HTTP ${response.status}` })) as { error?: string; code?: string };
+    if (response.status === 402) {
+      throw new Error(`Insufficient credits: ${err.error ?? 'Please top up your balance.'}`);
+    }
+    if (response.status === 429) {
+      throw new Error('Rate limited. Please try again in a moment.');
+    }
+    throw new Error(`Cloud-API error: ${err.error ?? response.statusText}`);
+  }
+
+  return response.json();
 }
 
 // ── Mount ────────────────────────────────────────────────────────────────
@@ -101,6 +151,15 @@ export function mountMediaGenRoutes(
         return;
       }
 
+      // ── Cloud mode: proxy through Cloud-API ──
+      const cloudConfig = deps.getCloudConfig?.();
+      if (cloudConfig) {
+        const result = await proxyMediaGenCloud(payload as MediaGenRequest, cloudConfig);
+        jsonResponse(res, result);
+        return;
+      }
+
+      // ── BYOK mode: local provider dispatch ──
       const result = await dispatchMediaGen(payload as MediaGenRequest);
       jsonResponse(res, result);
     } catch (err) {
