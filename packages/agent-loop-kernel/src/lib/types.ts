@@ -1,5 +1,6 @@
 import type { Provider, UsageData } from '@pipefx/llm-providers';
 import type { ConnectorsApi } from '@pipefx/connectors-contracts';
+import type { Summarizer } from './compaction.js';
 
 /**
  * Context required to run a single chat turn through the kernel.
@@ -11,6 +12,12 @@ export interface LoopContext {
   model: string;
   systemPrompt: string;
   registry: ConnectorsApi;
+  /**
+   * Optional LLM-backed summarizer used by context compaction. When omitted,
+   * compaction falls back to the heuristic `summarizeMessages()` baseline.
+   * See `Summarizer` in compaction.ts for the contract.
+   */
+  summarizer?: Summarizer | null;
 }
 
 export interface PostRoundToolCall {

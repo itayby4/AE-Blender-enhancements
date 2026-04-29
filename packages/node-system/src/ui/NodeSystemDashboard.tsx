@@ -239,7 +239,7 @@ function loadPersistedGraph(): PersistedGraph {
   }
 }
 
-function NodeSystemFlow() {
+function NodeSystemFlow({ projectFolder }: { projectFolder?: string }) {
   const reactFlowWrapper = useRef<HTMLDivElement>(null);
   // Lazy initializer — runs exactly once, unlike useRef(expr) which evaluates expr every render.
   const [initialGraph] = useState<PersistedGraph>(loadPersistedGraph);
@@ -272,7 +272,9 @@ function NodeSystemFlow() {
   } | null>(null);
   const { screenToFlowPosition, getNodes, getEdges } = useReactFlow();
 
-  const { executePipeline, isGlobalExecuting } = usePipelineExecutor();
+  const { executePipeline, isGlobalExecuting } = usePipelineExecutor({
+    projectFolder,
+  });
 
   // Section states
   const [openSections, setOpenSections] = useState({
@@ -308,19 +310,23 @@ function NodeSystemFlow() {
     event.dataTransfer.effectAllowed = 'move';
   };
 
+  const pickDropEffect = (
+    types: ReadonlyArray<string> | DOMStringList
+  ): 'copy' | 'move' => {
+    const list = Array.from(types);
+    if (list.includes('application/x-pipefx-media')) return 'copy';
+    if (list.includes('Files')) return 'copy';
+    return 'move';
+  };
+
   const onDragEnter = useCallback((event: React.DragEvent) => {
     event.preventDefault();
-    event.dataTransfer.dropEffect = event.dataTransfer.types.includes('Files')
-      ? 'copy'
-      : 'move';
+    event.dataTransfer.dropEffect = pickDropEffect(event.dataTransfer.types);
   }, []);
 
   const onDragOver = useCallback((event: React.DragEvent) => {
     event.preventDefault();
-    // Accept both internal node drags AND external file drops
-    event.dataTransfer.dropEffect = event.dataTransfer.types.includes('Files')
-      ? 'copy'
-      : 'move';
+    event.dataTransfer.dropEffect = pickDropEffect(event.dataTransfer.types);
   }, []);
 
   const onDrop = useCallback(
@@ -332,6 +338,50 @@ function NodeSystemFlow() {
         x: event.clientX,
         y: event.clientY,
       });
+
+      // === MediaPool drag (in-app) ===
+      // Payload carries the asset URL of a saved project file. Fetch
+      // it, convert to a data URL, and create a mediaNode at the drop
+      // position — same shape as native file drops below so downstream
+      // executor code doesn't need to special-case it.
+      const custom = event.dataTransfer.getData('application/x-pipefx-media');
+      if (custom) {
+        try {
+          const parsed = JSON.parse(custom) as {
+            src: string;
+            name: string;
+            kind: 'image' | 'video';
+          };
+          void (async () => {
+            try {
+              const resp = await fetch(parsed.src);
+              const blob = await resp.blob();
+              const reader = new FileReader();
+              reader.onload = (e) => {
+                const dataUrl = e.target?.result as string;
+                const newNode: Node = {
+                  id: getId(),
+                  type: 'mediaNode',
+                  position,
+                  data: {
+                    url: dataUrl,
+                    fileName: parsed.name,
+                    mediaType: parsed.kind,
+                    mimeType: blob.type,
+                  },
+                };
+                setNodes((nds) => nds.concat(newNode));
+              };
+              reader.readAsDataURL(blob);
+            } catch (err) {
+              console.error('[NodeSystem] MediaPool drop failed:', err);
+            }
+          })();
+          return;
+        } catch {
+          // fall through to native handling
+        }
+      }
 
       // === External file drop (OS → Canvas) ===
       const files = event.dataTransfer.files;
@@ -1151,6 +1201,7 @@ function NodeSystemFlow() {
             selectionMode={SelectionMode.Partial}
             minZoom={0.05}
             fitView
+            proOptions={{ hideAttribution: true }}
             className="bg-muted/10 w-full h-full"
           >
             <Controls className="bg-card border-border shadow-md rounded-md overflow-hidden fill-foreground m-4" />
@@ -1348,10 +1399,12 @@ function NodeSystemFlow() {
   );
 }
 
-export function NodeSystemDashboard() {
+export function NodeSystemDashboard({
+  projectFolder,
+}: { projectFolder?: string } = {}) {
   return (
     <ReactFlowProvider>
-      <NodeSystemFlow />
+      <NodeSystemFlow projectFolder={projectFolder} />
     </ReactFlowProvider>
   );
 }

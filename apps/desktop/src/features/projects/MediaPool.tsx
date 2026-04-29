@@ -6,7 +6,7 @@ import { ImageIcon, Video as VideoIcon, RefreshCw, FolderOpen, Link2 } from 'luc
 import { Button } from '../../components/ui/button';
 import { ScrollArea } from '../../components/ui/scroll-area';
 import { cn } from '../../lib/utils';
-import { updateProjectApi } from '../../lib/api';
+import { updateProject } from '../../lib/projects-store';
 
 interface MediaPoolProps {
   projectId?: string;
@@ -97,7 +97,7 @@ export function MediaPool({ projectId, folderPath, onFolderLinked }: MediaPoolPr
       const sep = picked.includes('\\') ? '\\' : '/';
       await mkdir(`${picked}${sep}images`, { recursive: true });
       await mkdir(`${picked}${sep}videos`, { recursive: true });
-      await updateProjectApi(projectId, { folderPath: picked });
+      await updateProject(projectId, { folderPath: picked });
       onFolderLinked?.();
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
@@ -186,7 +186,21 @@ export function MediaPool({ projectId, folderPath, onFolderLinked }: MediaPoolPr
                 href={file.src}
                 target="_blank"
                 rel="noreferrer"
-                className="group relative aspect-square bg-muted rounded-md overflow-hidden border hover:border-primary transition-colors"
+                draggable
+                onDragStart={(e) => {
+                  e.dataTransfer.setData(
+                    'application/x-pipefx-media',
+                    JSON.stringify({
+                      path: file.path,
+                      src: file.src,
+                      name: file.name,
+                      kind: tab === 'images' ? 'image' : 'video',
+                    })
+                  );
+                  e.dataTransfer.setData('text/uri-list', file.src);
+                  e.dataTransfer.effectAllowed = 'copy';
+                }}
+                className="group relative aspect-square bg-muted rounded-md overflow-hidden border hover:border-primary transition-colors cursor-grab active:cursor-grabbing"
                 title={file.name}
               >
                 {tab === 'images' ? (

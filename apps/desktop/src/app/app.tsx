@@ -35,7 +35,8 @@ import {
 import { cn } from '../lib/utils.js';
 import { loadSkills, filterSkillsByApp, type Skill } from '../lib/load-skills.js';
 import { usePinnedSkills } from '../lib/pinned-skills.js';
-import { fetchProjects, createProject, switchApp, getActiveAppState } from '../lib/api.js';
+import { switchApp, getActiveAppState } from '../lib/api.js';
+import { loadProjects, saveProject } from '../lib/projects-store.js';
 
 // Layout
 import { NavRail } from '../components/layout/NavRail.js';
@@ -322,9 +323,9 @@ export function App() {
     loadSkills().then(setSkills);
   }, []);
 
-  // Fetch projects on mount
+  // Load projects from local store on mount
   useEffect(() => {
-    fetchProjects().then(setProjects).catch(console.error);
+    loadProjects().then(setProjects).catch(console.error);
   }, []);
 
   // Switch active NLE app
@@ -397,11 +398,11 @@ export function App() {
 
   const handleProjectCreated = useCallback(
     async ({ name, folderPath }: { name: string; folderPath: string }) => {
-      const p = await createProject({ name, externalAppName: activeApp, folderPath });
+      const p = await saveProject({ name, folderPath });
       setProjects((prev) => [...prev, p]);
       setActiveProjectId(p.id);
     },
-    [activeApp]
+    []
   );
 
   const activeProject = useMemo(
@@ -857,7 +858,7 @@ export function App() {
               {/* Core feature panels */}
               {activeView === 'node-system' && (
                 <div className="flex-1 min-h-0 bg-card rounded-xl border overflow-hidden flex flex-col">
-                  <NodeSystemDashboard />
+                  <NodeSystemDashboard projectFolder={activeProjectFolder} />
                 </div>
               )}
               {activeView === 'video-gen' && (
@@ -1039,7 +1040,7 @@ export function App() {
                           projectId={activeProjectId}
                           folderPath={activeProjectFolder}
                           onFolderLinked={() => {
-                            void fetchProjects().then(setProjects);
+                            void loadProjects().then(setProjects);
                           }}
                         />
                       </div>

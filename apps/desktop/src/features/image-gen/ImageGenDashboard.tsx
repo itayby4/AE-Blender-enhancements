@@ -1,10 +1,11 @@
-import { useState, useEffect, type ChangeEvent } from 'react';
+import { useState, useEffect, useMemo, useRef, type ChangeEvent } from 'react';
 import type {
   MediaGenRequest,
   MediaGenResponse,
 } from '@pipefx/media-gen/contracts';
 import { generateMedia } from '../../lib/api';
-import { writeFile } from '@tauri-apps/plugin-fs';
+import { writeFile, readDir } from '@tauri-apps/plugin-fs';
+import { convertFileSrc } from '@tauri-apps/api/core';
 import { cn } from '../../lib/utils';
 import { Textarea } from '../../components/ui/textarea';
 import {
@@ -18,6 +19,9 @@ import {
   Loader2,
   Upload,
   X,
+  AlertTriangle,
+  Trash2,
+  Copy,
 } from 'lucide-react';
 
 type ModelId = 'seeddream45' | 'gemini2' | 'gpt-image-2';
@@ -55,6 +59,81 @@ const MODEL_IDS: ModelId[] = ['seeddream45', 'gemini2', 'gpt-image-2'];
 const ASPECT_RATIOS: AspectRatio[] = ['16:9', '9:16', '1:1', '4:3'];
 const QUALITIES: Quality[] = ['auto', 'low', 'medium', 'high'];
 
+// Justified-row layout — each row stretches to fill the canvas width;
+// images in a row share the same height; height varies per row based on
+// how its aspect ratios pack. Last row keeps target height (no stretch).
+const TARGET_ROW_HEIGHT = 240;
+const ROW_GAP = 6;
+
+function aspectToRatio(ar: AspectRatio): number {
+  switch (ar) {
+    case '16:9':
+      return 16 / 9;
+    case '9:16':
+      return 9 / 16;
+    case '1:1':
+      return 1;
+    case '4:3':
+      return 4 / 3;
+  }
+}
+
+interface Generation {
+  id: string;
+  batchId: string;
+  status: 'pending' | 'success' | 'error';
+  url?: string;
+  aspectRatio: AspectRatio;
+  ratio: number;
+  error?: string;
+}
+
+interface LaidOutCell {
+  item: Generation;
+  width: number;
+}
+interface LaidOutRow {
+  cells: LaidOutCell[];
+  height: number;
+}
+
+function buildRows(items: Generation[], containerWidth: number): LaidOutRow[] {
+  if (containerWidth <= 0) return [];
+  const rows: LaidOutRow[] = [];
+  let row: Generation[] = [];
+  let widthAtTarget = 0;
+
+  const finalize = (isLast: boolean) => {
+    if (row.length === 0) return;
+    const gapTotal = (row.length - 1) * ROW_GAP;
+    if (isLast) {
+      rows.push({
+        cells: row.map((it) => ({ item: it, width: TARGET_ROW_HEIGHT * it.ratio })),
+        height: TARGET_ROW_HEIGHT,
+      });
+    } else {
+      const available = containerWidth - gapTotal;
+      const scale = available / widthAtTarget;
+      rows.push({
+        cells: row.map((it) => ({ item: it, width: TARGET_ROW_HEIGHT * it.ratio * scale })),
+        height: TARGET_ROW_HEIGHT * scale,
+      });
+    }
+    row = [];
+    widthAtTarget = 0;
+  };
+
+  for (const item of items) {
+    const w = TARGET_ROW_HEIGHT * item.ratio;
+    const total = widthAtTarget + w + row.length * ROW_GAP;
+    if (total > containerWidth && row.length > 0) finalize(false);
+    row.push(item);
+    widthAtTarget += w;
+  }
+  finalize(true);
+  return rows;
+}
+
 export function ImageGenDashboard({
   active = true,
   projectFolder,
@@ -71,15 +150,7 @@ export function ImageGenDashboard({
   const [showAspectMenu, setShowAspectMenu] = useState(false);
   const [quality, setQuality] = useState<Quality>('auto');
   const [showQualityMenu, setShowQualityMenu] = useState(false);
-  const [generations, setGenerations] = useState<
-    Array<{
-      id: string;
-      status: 'pending' | 'success' | 'error';
-      url?: string;
-      aspectRatio: AspectRatio;
-      error?: string;
-    }>
-  >([]);
+  const [generations, setGenerations] = useState<Generation[]>([]);
   const [imageRef, setImageRef] = useState<string | null>(
     'https://picsum.photos/400/300'
   ); // Mock initial image
@@ -87,7 +158,71 @@ export function ImageGenDashboard({
   const BATCH_MAX = 4;
   const [isDragging, setIsDragging] = useState(false);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
-  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const canvasRef = useRef<HTMLDivElement | null>(null);
+  const [canvasWidth, setCanvasWidth] = useState(0);
+
+  // Track container width so the justified-row layout can repack on resize.
+  useEffect(() => {
+    const el = canvasRef.current;
+    if (!el) return;
+    setCanvasWidth(el.clientWidth);
+    const ro = new ResizeObserver((entries) => {
+      setCanvasWidth(entries[0].contentRect.width);
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
+  // Hydrate from disk: load any images already saved to <projectFolder>/images
+  // so previously generated assets appear in the dashboard. Skipped if the
+  // folder isn't set or doesn't exist yet.
+  useEffect(() => {
+    if (!projectFolder) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const sep = projectFolder.includes('\\') ? '\\' : '/';
+        const imgDir = `${projectFolder}${sep}images`;
+        const entries = await readDir(imgDir);
+        const files = entries
+          .filter((e) => !e.isDirectory && /\.(png|jpe?g|webp|gif)$/i.test(e.name))
+          .sort((a, b) => b.name.localeCompare(a.name));
+
+        const loaded = await Promise.all(
+          files.map(async (f) => {
+            const path = `${imgDir}${sep}${f.name}`;
+            const src = convertFileSrc(path);
+            const ratio = await new Promise<number>((res) => {
+              const img = new Image();
+              img.onload = () => res(img.naturalWidth / img.naturalHeight || 1);
+              img.onerror = () => res(1);
+              img.src = src;
+            });
+            return {
+              id: `disk-${f.name}`,
+              batchId: 'disk',
+              status: 'success' as const,
+              url: src,
+              aspectRatio: '1:1' as AspectRatio,
+              ratio,
+            };
+          })
+        );
+
+        if (cancelled) return;
+        setGenerations((prev) => {
+          const ids = new Set(prev.map((g) => g.id));
+          const fresh = loaded.filter((l) => !ids.has(l.id));
+          return [...prev, ...fresh];
+        });
+      } catch {
+        // images dir doesn't exist yet — silent
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [projectFolder]);
 
   useEffect(() => {
     // Only listen for drops while this view is the active tab — otherwise
@@ -111,9 +246,28 @@ export function ImageGenDashboard({
       }
     };
 
-    const handleDrop = (e: DragEvent) => {
+    const handleDrop = async (e: DragEvent) => {
       e.preventDefault();
       setIsDragging(false);
+
+      // MediaPool drag — payload has the asset URL of a saved file.
+      const custom = e.dataTransfer?.getData('application/x-pipefx-media');
+      if (custom) {
+        try {
+          const parsed = JSON.parse(custom) as { src: string; kind: string };
+          if (parsed.kind === 'image' && parsed.src) {
+            const resp = await fetch(parsed.src);
+            const blob = await resp.blob();
+            const reader = new FileReader();
+            reader.onload = (ev) => setImageRef(ev.target?.result as string);
+            reader.readAsDataURL(blob);
+          }
+          return;
+        } catch {
+          // fall through to native file handling
+        }
+      }
+
       const file = e.dataTransfer?.files?.[0];
       if (file && file.type.startsWith('image/')) {
         const reader = new FileReader();
@@ -135,10 +289,16 @@ export function ImageGenDashboard({
     };
   }, [active]);
 
-  const runOne = async (jobAspect: AspectRatio) => {
+  const runOne = async (jobAspect: AspectRatio, batchId: string) => {
     const jobId = crypto.randomUUID();
     setGenerations((prev) => [
-      { id: jobId, status: 'pending', aspectRatio: jobAspect },
+      {
+        id: jobId,
+        batchId,
+        status: 'pending',
+        aspectRatio: jobAspect,
+        ratio: aspectToRatio(jobAspect),
+      },
       ...prev,
     ]);
 
@@ -188,7 +348,6 @@ export function ImageGenDashboard({
     } catch (err: unknown) {
       console.error(err);
       const msg = err instanceof Error ? err.message : 'Unknown generation error';
-      setErrorMsg(msg);
       setGenerations((prev) =>
         prev.map((g) =>
           g.id === jobId ? { ...g, status: 'error', error: msg } : g
@@ -199,29 +358,25 @@ export function ImageGenDashboard({
 
   const handleGenerate = () => {
     if (!prompt.trim()) return;
-    setErrorMsg(null);
     const jobAspect = aspectRatio;
+    const batchId = crypto.randomUUID();
     for (let i = 0; i < batchSize; i++) {
-      void runOne(jobAspect);
+      void runOne(jobAspect, batchId);
     }
   };
+
+  const removeGeneration = (id: string) =>
+    setGenerations((prev) => prev.filter((g) => g.id !== id));
 
   const pendingCount = generations.filter((g) => g.status === 'pending').length;
   const hasAnyJobs = generations.length > 0;
   const MAX_CONCURRENT = 8;
 
-  const aspectClass = (ar: AspectRatio): string => {
-    switch (ar) {
-      case '16:9':
-        return 'aspect-video';
-      case '9:16':
-        return 'aspect-[9/16]';
-      case '1:1':
-        return 'aspect-square';
-      case '4:3':
-        return 'aspect-[4/3]';
-    }
-  };
+  // canvasRef is on the scroll container; subtract the inner row's p-2 (8px each side).
+  const rows = useMemo(
+    () => buildRows(generations, Math.max(0, canvasWidth - 16)),
+    [generations, canvasWidth]
+  );
 
   const handleFileUpload = (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -249,16 +404,23 @@ export function ImageGenDashboard({
       {/* Canvas — in-place slot grid (Higgsfield-style). Pending jobs occupy
           slots with the same aspect ratio as the final image, so the
           rendered image appears in place. */}
-      <div className="absolute inset-0 overflow-y-auto scrollbar-none z-0 bg-muted/30">
+      <div
+        ref={canvasRef}
+        className="absolute inset-0 overflow-y-auto scrollbar-none z-0 bg-muted/30"
+      >
         {hasAnyJobs ? (
-          <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2 p-3 pb-[260px] w-full">
-            {generations.map((g) => (
+          <div className="flex flex-col gap-1.5 p-2 pb-[260px] w-full">
+            {rows.map((row, ri) => (
+              <div
+                key={ri}
+                className="flex gap-1.5"
+                style={{ height: `${row.height}px` }}
+              >
+                {row.cells.map(({ item: g, width }) => (
               <div
                 key={g.id}
-                className={cn(
-                  'relative w-full overflow-hidden rounded-md border border-border/40 bg-muted/40',
-                  aspectClass(g.aspectRatio)
-                )}
+                style={{ width: `${width}px` }}
+                className="relative h-full shrink-0 overflow-hidden rounded-xl border border-border/50 bg-muted/40"
               >
                 {g.status === 'pending' && (
                   <div className="absolute inset-0 flex flex-col items-center justify-center gap-2">
@@ -281,10 +443,61 @@ export function ImageGenDashboard({
                   />
                 )}
                 {g.status === 'error' && (
-                  <div className="absolute inset-0 flex items-center justify-center p-2 text-center">
-                    <p className="text-[10px] text-destructive">{g.error || 'Failed'}</p>
+                  <div className="absolute inset-0 flex flex-col bg-muted">
+                    {/* Badge row */}
+                    <div className="flex flex-wrap gap-1.5 p-2.5 pb-0">
+                      {((): Array<{ label: string; cls: string }> => {
+                        const e = (g.error ?? '').toLowerCase();
+                        const badges: Array<{ label: string; cls: string }> = [];
+                        if (e.includes('notfound') || e.includes('not found') || e.includes('404'))
+                          badges.push({ label: 'API Error', cls: 'bg-amber-500/20 text-amber-400 border border-amber-500/30' });
+                        if (e.includes('nsfw'))
+                          badges.push({ label: 'NSFW', cls: 'bg-red-500/20 text-red-400 border border-red-500/30' });
+                        if (e.includes('credit'))
+                          badges.push({ label: 'Credits Refunded', cls: 'bg-blue-500/20 text-blue-400 border border-blue-500/30' });
+                        if (badges.length === 0)
+                          badges.push({ label: 'Failed', cls: 'bg-muted-foreground/10 text-muted-foreground border border-border' });
+                        return badges;
+                      })().map((b) => (
+                        <span key={b.label} className={cn('inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded-md', b.cls)}>
+                          {b.label}
+                        </span>
+                      ))}
+                    </div>
+                    {/* Center message */}
+                    <div className="flex-1 flex flex-col items-center justify-center gap-1 px-3 text-center">
+                      <AlertTriangle className="h-5 w-5 text-muted-foreground/60 shrink-0" />
+                      <p className="text-[11px] font-medium text-foreground/70">Generation failed</p>
+                      {g.error && (
+                        <p
+                          className="text-[10px] text-muted-foreground leading-snug max-w-full truncate w-full"
+                          title={g.error}
+                        >
+                          {g.error.slice(0, 60)}{g.error.length > 60 ? '…' : ''}
+                        </p>
+                      )}
+                    </div>
+                    {/* Action row */}
+                    <div className="flex items-center gap-2 p-2.5 pt-0">
+                      <button
+                        onClick={() => void navigator.clipboard.writeText(g.error ?? '')}
+                        className="flex items-center gap-1 h-7 px-2 rounded-md bg-secondary/60 hover:bg-secondary text-muted-foreground hover:text-foreground text-[10px] font-medium transition-colors border border-border/40"
+                      >
+                        <Copy className="h-3 w-3" />
+                        Copy error
+                      </button>
+                      <button
+                        onClick={() => removeGeneration(g.id)}
+                        className="flex items-center gap-1 h-7 px-2 rounded-md bg-secondary/60 hover:bg-destructive/20 text-muted-foreground hover:text-destructive text-[10px] font-medium transition-colors border border-border/40 ml-auto"
+                      >
+                        <Trash2 className="h-3 w-3" />
+                        Delete
+                      </button>
+                    </div>
                   </div>
                 )}
+              </div>
+                ))}
               </div>
             ))}
           </div>
@@ -307,26 +520,6 @@ export function ImageGenDashboard({
 
       {/* Floating Control Panel */}
       <div className="absolute bottom-6 left-1/2 -translate-x-1/2 w-full max-w-[860px] px-4 pointer-events-none z-20">
-        {/* Error Notification Toast */}
-        {errorMsg && (
-          <div className="absolute -top-16 left-1/2 -translate-x-1/2 w-full max-w-sm pointer-events-auto">
-            <div className="bg-destructive text-destructive-foreground shadow-2xl px-4 py-3 rounded-2xl flex items-start gap-3 border border-destructive/80 animate-in slide-in-from-bottom-5">
-              <div className="mt-0.5">
-                <X className="w-4 h-4" />
-              </div>
-              <p className="flex-1 text-sm font-medium leading-snug">
-                {errorMsg}
-              </p>
-              <button
-                onClick={() => setErrorMsg(null)}
-                className="shrink-0 p-1 hover:bg-black/20 rounded-full transition-colors"
-              >
-                <X className="w-3.5 h-3.5" />
-              </button>
-            </div>
-          </div>
-        )}
-
         <div className="bg-card/95 backdrop-blur-xl rounded-[24px] shadow-2xl border border-border/80 pointer-events-auto flex text-foreground transition-all hover:border-border hover:shadow-[0_20px_60px_-15px_rgba(0,0,0,0.3)]">
           <div className="p-4 pl-5 pr-4 flex max-md:flex-col gap-4 w-full">
             {/* Left Content Column */}

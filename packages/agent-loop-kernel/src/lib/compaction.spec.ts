@@ -1,10 +1,12 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import {
   shouldCompact,
   compactHistory,
+  compactHistoryAsync,
   estimateTokens,
   DEFAULT_COMPACTION_CONFIG,
   type CompactionConfig,
+  type Summarizer,
 } from './compaction.js';
 import type { ProviderMessage } from '@pipefx/llm-providers';
 
@@ -152,5 +154,98 @@ describe('compactHistory', () => {
     expect(result.compactedMessages[0].role).toBe('system');
     expect(result.compactedMessages[1].role).toBe('assistant');
     expect(result.compactedMessages[1].content).toContain('tool_use');
+  });
+});
+
+describe('compactHistoryAsync', () => {
+  // Build a history that's well above the compaction threshold so the async
+  // path always runs the slice + summarize logic.
+  function bigHistory(): ProviderMessage[] {
+    return [
+      msg('user', `first user request ${BIG_CHUNK}`),
+      msg('assistant', `first assistant reply ${BIG_CHUNK}`),
+      msg('user', `second user request ${BIG_CHUNK}`),
+      msg('assistant', `second assistant reply ${BIG_CHUNK}`),
+      msg('user', 'third user request (recent)'),
+      msg('assistant', 'third assistant reply (recent)'),
+      msg('user', 'most recent user request'),
+      msg('assistant', 'most recent assistant reply'),
+    ];
+  }
+
+  it('falls back to heuristic when no summarizer is provided', async () => {
+    const messages = bigHistory();
+    const result = await compactHistoryAsync(messages);
+    expect(result.removedCount).toBeGreaterThan(0);
+    // Heuristic baseline emits a Conversation summary line.
+    expect(result.summary).toContain('Conversation summary');
+  });
+
+  it('uses the LLM summary when the summarizer succeeds', async () => {
+    const summarize = vi.fn(async () => '<summary>LLM-generated body</summary>');
+    const summarizer: Summarizer = { summarize };
+    const messages = bigHistory();
+
+    const result = await compactHistoryAsync(messages, undefined, summarizer);
+
+    expect(summarize).toHaveBeenCalledTimes(1);
+    expect(result.removedCount).toBeGreaterThan(0);
+    expect(result.summary).toContain('LLM-generated body');
+    // First message must be the synthetic continuation system message.
+    expect(result.compactedMessages[0].role).toBe('system');
+  });
+
+  it('falls back to heuristic when the summarizer throws', async () => {
+    const summarize = vi.fn(async () => {
+      throw new Error('rate limited');
+    });
+    const summarizer: Summarizer = { summarize };
+    const messages = bigHistory();
+
+    const result = await compactHistoryAsync(messages, undefined, summarizer);
+
+    expect(summarize).toHaveBeenCalledTimes(1);
+    expect(result.removedCount).toBeGreaterThan(0);
+    expect(result.summary).toContain('Conversation summary');
+    expect(result.summary).not.toContain('LLM-generated');
+  });
+
+  it('falls back to heuristic when the summarizer returns empty output', async () => {
+    const summarize = vi.fn(async () => '   ');
+    const summarizer: Summarizer = { summarize };
+    const messages = bigHistory();
+
+    const result = await compactHistoryAsync(messages, undefined, summarizer);
+
+    expect(summarize).toHaveBeenCalledTimes(1);
+    expect(result.summary).toContain('Conversation summary');
+  });
+
+  it('does not invoke the summarizer when below the threshold', async () => {
+    const summarize = vi.fn(async () => '<summary>should not run</summary>');
+    const summarizer: Summarizer = { summarize };
+    const small: ProviderMessage[] = [msg('user', 'hi'), msg('assistant', 'hello')];
+
+    const result = await compactHistoryAsync(small, undefined, summarizer);
+
+    expect(summarize).not.toHaveBeenCalled();
+    expect(result.removedCount).toBe(0);
+    expect(result.compactedMessages).toEqual(small);
+  });
+
+  it('forwards the abort signal to the summarizer', async () => {
+    const seen: AbortSignal[] = [];
+    const summarize = vi.fn(async (_messages: ProviderMessage[], signal?: AbortSignal) => {
+      if (signal) seen.push(signal);
+      return '<summary>ok</summary>';
+    });
+    const summarizer: Summarizer = { summarize };
+    const controller = new AbortController();
+    const messages = bigHistory();
+
+    await compactHistoryAsync(messages, undefined, summarizer, controller.signal);
+
+    expect(seen).toHaveLength(1);
+    expect(seen[0]).toBe(controller.signal);
   });
 });

@@ -6,8 +6,9 @@ import {
   CloudProvider,
 } from '@pipefx/llm-providers';
 import { runAgentLoop } from '@pipefx/agent-loop-kernel';
-import type { Agent, ChatOptions } from '@pipefx/agent-loop-kernel';
+import type { Agent, ChatOptions, Summarizer } from '@pipefx/agent-loop-kernel';
 import type { AgentConfig } from './types.js';
+import { createAnthropicSummarizer } from './summarizer.js';
 
 /**
  * Resolve the correct Provider instance and model name for the given request.
@@ -61,18 +62,43 @@ function resolveProvider(
 }
 
 /**
+ * Pick the summarizer the kernel uses during context compaction. We currently
+ * only ship a Haiku-backed implementation -- it's cheap, fast, and produces
+ * structured output reliably. If no Anthropic key is available, returns null
+ * and the kernel falls back to the heuristic baseline.
+ *
+ * Note: cloud-routed agents skip this -- their summarization (if any) is a
+ * cloud-api concern and would need its own credit/billing path.
+ */
+function resolveSummarizer(config: AgentConfig): Summarizer | null {
+  if (config.cloudConfig) return null;
+  if (!config.anthropicApiKey) return null;
+  return createAnthropicSummarizer(config.anthropicApiKey);
+}
+
+/**
  * Construct an Agent bound to the provider/model selection policy encoded in
  * AgentConfig. The actual tool-use loop lives in @pipefx/agent-loop-kernel;
  * this function is just the glue that resolves a Provider per call and
  * delegates to the kernel.
  */
 export function createAgent(config: AgentConfig): Agent {
+  // Created once per agent and reused across turns -- the summarizer holds an
+  // Anthropic SDK client we don't want to re-instantiate every chat().
+  const summarizer = resolveSummarizer(config);
+
   return {
     async chat(message: string, options?: ChatOptions): Promise<string> {
       const { provider, model } = resolveProvider(config, options?.providerOverride);
       const systemPrompt = options?.systemPromptOverride ?? config.systemPrompt;
       return runAgentLoop(
-        { provider, model, systemPrompt, registry: config.registry },
+        {
+          provider,
+          model,
+          systemPrompt,
+          registry: config.registry,
+          summarizer,
+        },
         message,
         options
       );

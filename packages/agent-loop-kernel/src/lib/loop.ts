@@ -11,9 +11,15 @@ import type {
 } from './types.js';
 import {
   shouldCompact,
-  compactHistory,
+  compactHistoryAsync,
   DEFAULT_COMPACTION_CONFIG,
 } from './compaction.js';
+import {
+  createLoopGuard,
+  DEFAULT_LOOP_GUARD_CONFIG,
+  type LoopGuard,
+  type LoopGuardOutcome,
+} from './loop-guard.js';
 
 // ── Verbose agent-loop logging ───────────────────────────────────────────────
 // Set PIPEFX_AI_LOG=debug to surface every turn:
@@ -146,6 +152,38 @@ function appendReminderToLastResult(
 }
 
 /**
+ * Merge guard + caller reminders into a single <system-reminder> on the last
+ * tool result. Either may be null; if both are empty, no-op.
+ */
+function applyReminders(
+  toolResults: ProviderToolResult[],
+  guardReminder: string | null,
+  callerReminder: string | null | undefined
+): void {
+  const parts = [guardReminder, callerReminder].filter(
+    (r): r is string => typeof r === 'string' && r.length > 0
+  );
+  if (parts.length === 0) return;
+  appendReminderToLastResult(toolResults, parts.join('\n\n'));
+}
+
+/**
+ * Build the abort message returned when the loop guard trips. Prefers any
+ * partial assistant text the model already produced; otherwise emits a clear
+ * explanation that the user can read directly.
+ */
+function buildGuardAbortMessage(
+  outcome: NonNullable<LoopGuardOutcome['abortedOn']>,
+  partialText: string | null
+): string {
+  if (partialText && partialText.length > 0) return partialText;
+  return (
+    `I had to stop — I kept calling ${outcome.name} with the same arguments ` +
+    `and got the same result. Try rephrasing the request or breaking it into smaller steps.`
+  );
+}
+
+/**
  * Execute tool calls and return results.
  */
 async function executeToolCalls(
@@ -266,7 +304,7 @@ export async function runAgentLoop(
     `[AI] chat() entered provider=${options?.providerOverride || 'gemini'} msgChars=${message.length}`
   );
 
-  const { provider, model, systemPrompt, registry } = ctx;
+  const { provider, model, systemPrompt, registry, summarizer } = ctx;
   const useStreaming = !!options?.onStreamChunk;
 
   // Build tool list (optionally filtered by skill)
@@ -312,8 +350,15 @@ export async function runAgentLoop(
 
   // ── Context Compaction ──
   // Check if the conversation is getting too long and compact if needed.
+  // Uses the async path so an injected LLM summarizer (e.g., Haiku) can replace
+  // the heuristic baseline. Falls back to the heuristic on summarizer failure.
   if (shouldCompact(messages, DEFAULT_COMPACTION_CONFIG)) {
-    const compactionResult = compactHistory(messages, DEFAULT_COMPACTION_CONFIG);
+    const compactionResult = await compactHistoryAsync(
+      messages,
+      DEFAULT_COMPACTION_CONFIG,
+      summarizer,
+      options?.signal
+    );
     if (compactionResult.removedCount > 0) {
       messages = compactionResult.compactedMessages;
       if (options?.onCompaction) {
@@ -351,6 +396,10 @@ export async function runAgentLoop(
     };
     options.onUsage(aggregated);
   };
+
+  // Per-turn loop guard — catches same-tool/same-args ping-pong before the
+  // coarse MAX_TOOL_ROUNDS cap kicks in.
+  const guard: LoopGuard = createLoopGuard(DEFAULT_LOOP_GUARD_CONFIG);
 
   // Once plan mode is approved (or blocked as already-approved), strip
   // EnterPlanMode from the tool list for the rest of this turn so the
@@ -410,19 +459,29 @@ export async function runAgentLoop(
       const toolResults = await executeToolCalls(response.toolCalls, registry, options);
       maybeStripEnterPlanMode(toolResults);
 
-      if (options.getPostRoundReminder) {
-        const argsByCallId = new Map(response.toolCalls.map((c) => [c.id, c.args]));
-        const reminder = options.getPostRoundReminder({
-          toolNames: toolResults.map((r) => r.name),
-          toolCalls: toolResults.map((r) => ({
-            name: r.name,
-            args: argsByCallId.get(r.callId) ?? {},
-            isError: r.isError === true,
-          })),
-          roundNumber: rounds,
-        });
-        appendReminderToLastResult(toolResults, reminder);
+      const guardOutcome = guard.observe({
+        toolCalls: response.toolCalls.map((c) => ({ name: c.name, args: c.args })),
+      });
+      if (guardOutcome.abortedOn) {
+        console.warn(
+          `[AI] same tool/args called ${guardOutcome.abortedOn.count}× — aborting turn (${guardOutcome.abortedOn.name})`
+        );
+        return buildGuardAbortMessage(guardOutcome.abortedOn, response.text ?? null);
       }
+
+      const argsByCallId = new Map(response.toolCalls.map((c) => [c.id, c.args]));
+      const callerReminder = options.getPostRoundReminder
+        ? options.getPostRoundReminder({
+            toolNames: toolResults.map((r) => r.name),
+            toolCalls: toolResults.map((r) => ({
+              name: r.name,
+              args: argsByCallId.get(r.callId) ?? {},
+              isError: r.isError === true,
+            })),
+            roundNumber: rounds,
+          })
+        : null;
+      applyReminders(toolResults, guardOutcome.reminder, callerReminder);
 
       // Continue with tool results (streaming)
       const continueStream = provider.continueWithToolResultsStream({
@@ -473,19 +532,29 @@ export async function runAgentLoop(
     const toolResults = await executeToolCalls(response.toolCalls, registry, options);
     maybeStripEnterPlanMode(toolResults);
 
-    if (options?.getPostRoundReminder) {
-      const argsByCallId = new Map(response.toolCalls.map((c) => [c.id, c.args]));
-      const reminder = options.getPostRoundReminder({
-        toolNames: toolResults.map((r) => r.name),
-        toolCalls: toolResults.map((r) => ({
-          name: r.name,
-          args: argsByCallId.get(r.callId) ?? {},
-          isError: r.isError === true,
-        })),
-        roundNumber: rounds,
-      });
-      appendReminderToLastResult(toolResults, reminder);
+    const guardOutcome = guard.observe({
+      toolCalls: response.toolCalls.map((c) => ({ name: c.name, args: c.args })),
+    });
+    if (guardOutcome.abortedOn) {
+      console.warn(
+        `[AI] same tool/args called ${guardOutcome.abortedOn.count}× — aborting turn (${guardOutcome.abortedOn.name})`
+      );
+      return buildGuardAbortMessage(guardOutcome.abortedOn, response.text ?? null);
     }
+
+    const argsByCallId = new Map(response.toolCalls.map((c) => [c.id, c.args]));
+    const callerReminder = options?.getPostRoundReminder
+      ? options.getPostRoundReminder({
+          toolNames: toolResults.map((r) => r.name),
+          toolCalls: toolResults.map((r) => ({
+            name: r.name,
+            args: argsByCallId.get(r.callId) ?? {},
+            isError: r.isError === true,
+          })),
+          roundNumber: rounds,
+        })
+      : null;
+    applyReminders(toolResults, guardOutcome.reminder, callerReminder);
 
     response = await provider.continueWithToolResults({
       ...chatParams,

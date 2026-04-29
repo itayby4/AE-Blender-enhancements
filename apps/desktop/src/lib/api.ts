@@ -30,34 +30,6 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
   return res.json();
 }
 
-// ── Projects ──
-
-export function fetchProjects(): Promise<any[]> {
-  return request('/api/projects');
-}
-
-export function createProject(data: {
-  name: string;
-  externalAppName: string;
-  externalProjectName?: string;
-  folderPath?: string;
-}): Promise<any> {
-  return request('/api/projects', {
-    method: 'POST',
-    body: JSON.stringify(data),
-  });
-}
-
-export function updateProjectApi(
-  id: string,
-  updates: { folderPath?: string; name?: string }
-): Promise<any> {
-  return request('/api/projects/update', {
-    method: 'POST',
-    body: JSON.stringify({ id, ...updates }),
-  });
-}
-
 // ── Chat ──
 
 export interface ChatPayload {

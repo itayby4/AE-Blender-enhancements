@@ -23,6 +23,7 @@
     "@pipefx/agent-loop-kernel": "workspace:*",
     "@pipefx/connectors": "workspace:*",
     "@pipefx/llm-providers": "workspace:*",
+    "@anthropic-ai/sdk": "^0.82.0",
     "tslib": "^2.3.0"
   },
   "nx": {

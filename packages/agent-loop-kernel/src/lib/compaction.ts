@@ -289,7 +289,105 @@ function getCompactContinuationMessage(
   return base;
 }
 
-// ΓöÇΓöÇ Main Compaction Function ΓöÇΓöÇ
+// -- Pluggable summarizer (async) --
+
+/**
+ * Optional LLM-backed summarizer. When provided to the kernel, replaces the
+ * heuristic `summarizeMessages()` with a real model summary that produces a
+ * far more useful continuation.
+ *
+ * Implementations MUST raise on failure (network error, rate limit, timeout).
+ * The kernel falls back to the heuristic on any throw, so a flaky summarizer
+ * degrades gracefully instead of breaking compaction.
+ *
+ * Output contract: a `<summary>...</summary>` block matching the structure
+ * `summarizeMessages()` emits, so downstream formatting / merge logic is
+ * unchanged. Plain prose is also accepted -- it'll be wrapped by the caller.
+ */
+export interface Summarizer {
+  summarize(
+    messages: ProviderMessage[],
+    signal?: AbortSignal
+  ): Promise<string>;
+}
+
+// -- Slice computation (shared by sync + async paths) --
+
+interface CompactionSlice {
+  existingSummary: string | null;
+  removed: ProviderMessage[];
+  preserved: ProviderMessage[];
+}
+
+/**
+ * Decide which messages to summarize and which to preserve verbatim. Returns
+ * null when the history is below the compaction threshold or the boundary
+ * walk leaves nothing to remove.
+ */
+function computeCompactionSlice(
+  messages: ProviderMessage[],
+  config: CompactionConfig
+): CompactionSlice | null {
+  if (!shouldCompact(messages, config)) return null;
+
+  const existingSummary =
+    messages.length > 0 ? extractExistingCompactedSummary(messages[0]) : null;
+  const compactedPrefixLen = existingSummary ? 1 : 0;
+
+  let keepFrom = Math.max(
+    compactedPrefixLen,
+    messages.length - config.preserveRecentMessages
+  );
+
+  // Guard: don't split tool-use / tool-result pairs at the boundary.
+  // If the first preserved message looks like it's part of a tool exchange
+  // (assistant message mentioning tools followed by user message with results),
+  // walk back to include the full pair.
+  while (keepFrom > compactedPrefixLen) {
+    const firstPreserved = messages[keepFrom];
+    if (firstPreserved.role !== 'user') break;
+
+    const preceding = messages[keepFrom - 1];
+    if (preceding?.role === 'assistant') {
+      keepFrom--;
+      break;
+    }
+    break;
+  }
+
+  const removed = messages.slice(compactedPrefixLen, keepFrom);
+  if (removed.length === 0) return null;
+
+  const preserved = messages.slice(keepFrom);
+  return { existingSummary, removed, preserved };
+}
+
+/**
+ * Assemble the final CompactionResult from a slice + a raw summary blob
+ * (heuristic or LLM-produced -- the rest of the pipeline doesn't care).
+ */
+function buildCompactionResult(
+  slice: CompactionSlice,
+  rawSummary: string
+): CompactionResult {
+  const summary = mergeCompactSummaries(slice.existingSummary, rawSummary);
+  const continuation = getCompactContinuationMessage(
+    summary,
+    true,
+    slice.preserved.length > 0
+  );
+  const compactedMessages: ProviderMessage[] = [
+    { role: 'system', content: continuation },
+    ...slice.preserved,
+  ];
+  return {
+    summary: formatCompactSummary(summary),
+    compactedMessages,
+    removedCount: slice.removed.length,
+  };
+}
+
+// -- Main Compaction Function --
 
 /**
  * Compact a message history by summarizing older messages and preserving
@@ -307,72 +405,47 @@ export function compactHistory(
   messages: ProviderMessage[],
   config: CompactionConfig = DEFAULT_COMPACTION_CONFIG
 ): CompactionResult {
-  if (!shouldCompact(messages, config)) {
-    return {
-      summary: '',
-      compactedMessages: messages,
-      removedCount: 0,
-    };
+  const slice = computeCompactionSlice(messages, config);
+  if (!slice) {
+    return { summary: '', compactedMessages: messages, removedCount: 0 };
+  }
+  return buildCompactionResult(slice, summarizeMessages(slice.removed));
+}
+
+/**
+ * Async variant of `compactHistory` that uses an injected `Summarizer` (e.g.,
+ * Haiku) to produce the summary block. Falls back to the heuristic
+ * `summarizeMessages()` on any summarizer failure or empty output, so a
+ * misbehaving model never blocks compaction.
+ *
+ * When `summarizer` is null/undefined, behaves exactly like `compactHistory`.
+ */
+export async function compactHistoryAsync(
+  messages: ProviderMessage[],
+  config: CompactionConfig = DEFAULT_COMPACTION_CONFIG,
+  summarizer?: Summarizer | null,
+  signal?: AbortSignal
+): Promise<CompactionResult> {
+  const slice = computeCompactionSlice(messages, config);
+  if (!slice) {
+    return { summary: '', compactedMessages: messages, removedCount: 0 };
   }
 
-  // Check for existing compacted summary
-  const existingSummary =
-    messages.length > 0 ? extractExistingCompactedSummary(messages[0]) : null;
-  const compactedPrefixLen = existingSummary ? 1 : 0;
+  let rawSummary = summarizeMessages(slice.removed);
 
-  // Calculate where to start preserving
-  let keepFrom = Math.max(
-    compactedPrefixLen,
-    messages.length - config.preserveRecentMessages
-  );
-
-  // Guard: don't split tool-use / tool-result pairs at the boundary.
-  // If the first preserved message looks like it's part of a tool exchange
-  // (assistant message mentioning tools followed by user message with results),
-  // walk back to include the full pair.
-  // In our ProviderMessage format, we check if the message just before the
-  // boundary is an assistant message ΓÇö if so, walk back one more to keep the pair.
-  while (keepFrom > compactedPrefixLen) {
-    const firstPreserved = messages[keepFrom];
-    if (firstPreserved.role !== 'user') break;
-
-    const preceding = messages[keepFrom - 1];
-    if (preceding?.role === 'assistant') {
-      keepFrom--;
-      break;
+  if (summarizer) {
+    try {
+      const llmSummary = await summarizer.summarize(slice.removed, signal);
+      if (llmSummary && llmSummary.trim().length > 0) {
+        rawSummary = llmSummary;
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      console.warn(
+        `[Compaction] LLM summarizer failed, falling back to heuristic: ${message}`
+      );
     }
-    break;
   }
 
-  const removed = messages.slice(compactedPrefixLen, keepFrom);
-  const preserved = messages.slice(keepFrom);
-
-  if (removed.length === 0) {
-    return {
-      summary: '',
-      compactedMessages: messages,
-      removedCount: 0,
-    };
-  }
-
-  // Build summary
-  const rawSummary = summarizeMessages(removed);
-  const summary = mergeCompactSummaries(existingSummary, rawSummary);
-  const continuation = getCompactContinuationMessage(
-    summary,
-    true,
-    preserved.length > 0
-  );
-
-  // Build new message array
-  const compactedMessages: ProviderMessage[] = [
-    { role: 'system', content: continuation },
-    ...preserved,
-  ];
-
-  return {
-    summary: formatCompactSummary(summary),
-    compactedMessages,
-    removedCount: removed.length,
-  };
+  return buildCompactionResult(slice, rawSummary);
 }

@@ -1,4 +1,4 @@
-import { useState, type ChangeEvent } from 'react';
+import { useState, useEffect, type ChangeEvent } from 'react';
 import type {
   MediaGenRequest,
   MediaGenResponse,
@@ -23,7 +23,8 @@ import {
 } from '../../components/ui/popover';
 import { Input } from '../../components/ui/input';
 import { save } from '@tauri-apps/plugin-dialog';
-import { writeFile } from '@tauri-apps/plugin-fs';
+import { writeFile, readDir } from '@tauri-apps/plugin-fs';
+import { convertFileSrc } from '@tauri-apps/api/core';
 import { generateMedia } from '../../lib/api';
 
 const MODELS = [
@@ -74,26 +75,101 @@ export function VideoGenDashboard({ projectFolder }: { projectFolder?: string } 
 
   const pendingCount = generations.filter((g) => g.status === 'pending').length;
 
-  const handleDropImageRef = async (e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragImageRef(false);
+  // Hydrate from disk: show videos and images already saved under the
+  // project folder so previously-generated assets persist across remounts.
+  useEffect(() => {
+    if (!projectFolder) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const sep = projectFolder.includes('\\') ? '\\' : '/';
+        const scan = async (
+          subdir: 'images' | 'videos',
+          re: RegExp,
+          type: 'image' | 'video'
+        ): Promise<VideoGeneration[]> => {
+          try {
+            const dir = `${projectFolder}${sep}${subdir}`;
+            const entries = await readDir(dir);
+            return entries
+              .filter((e) => !e.isDirectory && re.test(e.name))
+              .sort((a, b) => b.name.localeCompare(a.name))
+              .map((f) => ({
+                id: `disk-${subdir}-${f.name}`,
+                status: 'success' as const,
+                url: convertFileSrc(`${dir}${sep}${f.name}`),
+                type,
+                model: 'disk',
+                prompt: f.name,
+                createdAt: 0,
+              }));
+          } catch {
+            return [];
+          }
+        };
+
+        const [vids, imgs] = await Promise.all([
+          scan('videos', /\.(mp4|webm|mov|mkv)$/i, 'video'),
+          scan('images', /\.(png|jpe?g|webp|gif)$/i, 'image'),
+        ]);
+
+        if (cancelled) return;
+        setGenerations((prev) => {
+          const ids = new Set(prev.map((g) => g.id));
+          const fresh = [...vids, ...imgs].filter((d) => !ids.has(d.id));
+          return [...prev, ...fresh];
+        });
+      } catch {
+        // best-effort hydration
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [projectFolder]);
+
+  // Accept either a native file drop OR a MediaPool drag (custom payload
+  // carries the asset:// URL of a saved file). Both end up as a data URL
+  // in the target setter so the wire format matches what the upload picker
+  // produces.
+  const consumeMediaDrop = async (
+    e: React.DragEvent,
+    setter: (val: string | null) => void
+  ): Promise<void> => {
+    const custom = e.dataTransfer.getData('application/x-pipefx-media');
+    if (custom) {
+      try {
+        const parsed = JSON.parse(custom) as { src: string; kind: string };
+        if (parsed.kind === 'image' && parsed.src) {
+          const resp = await fetch(parsed.src);
+          const blob = await resp.blob();
+          const reader = new FileReader();
+          reader.onload = (ev) => setter(ev.target?.result as string);
+          reader.readAsDataURL(blob);
+          return;
+        }
+      } catch {
+        // fall through
+      }
+    }
     const file = e.dataTransfer.files[0];
     if (file && file.type.startsWith('image/')) {
       const reader = new FileReader();
-      reader.onload = (e) => setImageRef(e.target?.result as string);
+      reader.onload = (ev) => setter(ev.target?.result as string);
       reader.readAsDataURL(file);
     }
+  };
+
+  const handleDropImageRef = async (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragImageRef(false);
+    await consumeMediaDrop(e, setImageRef);
   };
 
   const handleDropLastFrameRef = async (e: React.DragEvent) => {
     e.preventDefault();
     setIsDragLastFrameRef(false);
-    const file = e.dataTransfer.files[0];
-    if (file && file.type.startsWith('image/')) {
-      const reader = new FileReader();
-      reader.onload = (e) => setLastFrameRef(e.target?.result as string);
-      reader.readAsDataURL(file);
-    }
+    await consumeMediaDrop(e, setLastFrameRef);
   };
 
   const openImagePicker = (setter: (val: string | null) => void) => {

@@ -1,6 +1,7 @@
 import { useState, useCallback } from 'react';
 import { useReactFlow, type Edge, type Node } from '@xyflow/react';
 import { getAccessToken } from '@pipefx/auth/ui';
+import { writeFile } from '@tauri-apps/plugin-fs';
 import type {
   MediaGenRequest,
   SaveRenderRequest,
@@ -31,7 +32,15 @@ class Semaphore {
 
 const pipelineLimiter = new Semaphore(3);
 
-export function usePipelineExecutor() {
+export interface UsePipelineExecutorOptions {
+  /** When set, generated assets are also written to
+   *  `<projectFolder>/{images|videos}/` so they show up in the project's
+   *  media pool and image-gen / video-gen dashboards. */
+  projectFolder?: string;
+}
+
+export function usePipelineExecutor(opts: UsePipelineExecutorOptions = {}) {
+  const { projectFolder } = opts;
   const [isGlobalExecuting, setIsGlobalExecuting] = useState(false);
   const { getEdges, getNodes, setNodes } = useReactFlow();
 
@@ -219,26 +228,9 @@ export function usePipelineExecutor() {
 
           const result = await response.json();
 
-          try {
-            const saveBody: SaveRenderRequest = {
-              url: result.url,
-              type: (result.type as 'image' | 'video' | undefined) ?? 'video',
-              model: backendModel as string,
-              prompt: prompt,
-            };
-            await fetch('http://localhost:3001/api/save-render', {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                ...(token ? { Authorization: `Bearer ${token}` } : {}),
-              },
-              body: JSON.stringify(saveBody),
-            });
-          } catch {
-            /* ignore */
-          }
-
-          // Execution succeeded! Update node with result media
+          // Clear "generating" state immediately so the UI updates as soon
+          // as the API responds. Saving (next steps) shouldn't block the
+          // node's preview from rendering.
           setNodes((nds) =>
             nds.map((n) =>
               n.id === executionId
@@ -254,6 +246,52 @@ export function usePipelineExecutor() {
                 : n
             )
           );
+
+          // Backups (fire-and-forget) — don't await; failures are logged
+          // but never block the pipeline UI or downstream nodes.
+          void (async () => {
+            try {
+              const saveBody: SaveRenderRequest = {
+                url: result.url,
+                type: (result.type as 'image' | 'video' | undefined) ?? 'video',
+                model: backendModel as string,
+                prompt: prompt,
+              };
+              await fetch('http://localhost:3001/api/save-render', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  ...(token ? { Authorization: `Bearer ${token}` } : {}),
+                },
+                body: JSON.stringify(saveBody),
+              });
+            } catch {
+              /* ignore */
+            }
+          })();
+
+          if (projectFolder && result.url) {
+            void (async () => {
+              try {
+                const sep = projectFolder.includes('\\') ? '\\' : '/';
+                const isImage = (result.type ?? 'video') === 'image';
+                const subdir = isImage ? 'images' : 'videos';
+                const ext = isImage ? 'png' : 'mp4';
+                const prefix = isImage ? 'img' : 'vid';
+                const resp = await fetch(result.url);
+                const buf = new Uint8Array(await resp.arrayBuffer());
+                const ts = new Date().toISOString().replace(/[:.]/g, '-');
+                const shortId = executionId.slice(-6);
+                const filePath = `${projectFolder}${sep}${subdir}${sep}${prefix}_${ts}_${shortId}.${ext}`;
+                await writeFile(filePath, buf);
+              } catch (saveErr) {
+                console.error(
+                  '[Pipeline] Auto-save to project folder failed:',
+                  saveErr
+                );
+              }
+            })();
+          }
         } catch (err: unknown) {
           const errorMessage = err instanceof Error ? err.message : String(err);
           console.error(
@@ -317,7 +355,7 @@ export function usePipelineExecutor() {
         setIsGlobalExecuting(false);
       }
     },
-    [isGlobalExecuting, getEdges, getNodes, setNodes]
+    [isGlobalExecuting, getEdges, getNodes, setNodes, projectFolder]
   );
 
   return { executePipeline, isGlobalExecuting };

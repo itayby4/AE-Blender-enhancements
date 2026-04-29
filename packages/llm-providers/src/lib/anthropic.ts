@@ -11,6 +11,16 @@ import type {
 
 /**
  * Anthropic (Claude) provider — wraps the Anthropic SDK with streaming support.
+ *
+ * Prompt caching: a `cache_control: { type: 'ephemeral' }` breakpoint is set
+ * on (a) the system prompt and (b) the last tool in the tools array. Anthropic
+ * caches all content up to and including each breakpoint for ~5 min, so the
+ * stable system + tool prefix is reused across turns within a chat. The
+ * provider already extracts `cache_read_input_tokens` for usage tracking.
+ *
+ * Anthropic silently skips caching when the cached prefix is below the
+ * minimum-token threshold (≥1024 for Sonnet, ≥2048 for Haiku at the time of
+ * writing). No correctness impact — small prompts simply won't benefit.
  */
 export class AnthropicProvider implements Provider {
   readonly name = 'anthropic';
@@ -21,7 +31,10 @@ export class AnthropicProvider implements Provider {
   }
 
   async chat(params: ChatParams): Promise<ProviderResponse> {
-    const claudeTools = mapToolsToAnthropic(params.tools);
+    const { system, tools } = this.withCacheBreakpoints(
+      params.systemPrompt,
+      mapToolsToAnthropic(params.tools)
+    );
     const messages: Anthropic.MessageParam[] = params.messages
       .filter((m) => m.role !== 'system')
       .map((m) => ({
@@ -31,10 +44,10 @@ export class AnthropicProvider implements Provider {
 
     const response = await this.client.messages.create({
       model: params.model,
-      system: params.systemPrompt,
+      system,
       max_tokens: 4000,
       messages,
-      tools: claudeTools.length > 0 ? claudeTools : undefined,
+      tools: tools.length > 0 ? tools : undefined,
     });
 
     return this.parseResponse(response);
@@ -42,21 +55,27 @@ export class AnthropicProvider implements Provider {
 
   async continueWithToolResults(params: ContinueParams): Promise<ProviderResponse> {
     const messages = this.buildContinueMessages(params);
-    const claudeTools = mapToolsToAnthropic(params.tools);
+    const { system, tools } = this.withCacheBreakpoints(
+      params.systemPrompt,
+      mapToolsToAnthropic(params.tools)
+    );
 
     const response = await this.client.messages.create({
       model: params.model,
-      system: params.systemPrompt,
+      system,
       max_tokens: 4000,
       messages,
-      tools: claudeTools.length > 0 ? claudeTools : undefined,
+      tools: tools.length > 0 ? tools : undefined,
     });
 
     return this.parseResponse(response);
   }
 
   async *chatStream(params: ChatParams): AsyncGenerator<StreamEvent> {
-    const claudeTools = mapToolsToAnthropic(params.tools);
+    const { system, tools } = this.withCacheBreakpoints(
+      params.systemPrompt,
+      mapToolsToAnthropic(params.tools)
+    );
     const messages: Anthropic.MessageParam[] = params.messages
       .filter((m) => m.role !== 'system')
       .map((m) => ({
@@ -64,25 +83,69 @@ export class AnthropicProvider implements Provider {
         content: m.content,
       }));
 
-    yield* this.streamMessage(params.model, params.systemPrompt, messages, claudeTools);
+    yield* this.streamMessage(params.model, system, messages, tools);
   }
 
   async *continueWithToolResultsStream(params: ContinueParams): AsyncGenerator<StreamEvent> {
     const messages = this.buildContinueMessages(params);
-    const claudeTools = mapToolsToAnthropic(params.tools);
+    const { system, tools } = this.withCacheBreakpoints(
+      params.systemPrompt,
+      mapToolsToAnthropic(params.tools)
+    );
 
-    yield* this.streamMessage(params.model, params.systemPrompt, messages, claudeTools);
+    yield* this.streamMessage(params.model, system, messages, tools);
+  }
+
+  /**
+   * Build a system+tools pair carrying ephemeral cache breakpoints.
+   *
+   * - System: wrapped in a single text block with cache_control when non-empty.
+   *   Empty/whitespace-only prompts pass through as the original string so the
+   *   SDK call shape matches what we sent before this change.
+   * - Tools: the LAST tool gets cache_control. One breakpoint at the tail
+   *   caches every preceding tool too.
+   */
+  private withCacheBreakpoints(
+    systemPrompt: string,
+    tools: ReturnType<typeof mapToolsToAnthropic>
+  ): {
+    system: Anthropic.MessageCreateParams['system'];
+    tools: ReturnType<typeof mapToolsToAnthropic>;
+  } {
+    const system: Anthropic.MessageCreateParams['system'] =
+      systemPrompt && systemPrompt.length > 0
+        ? [
+            {
+              type: 'text',
+              text: systemPrompt,
+              cache_control: { type: 'ephemeral' },
+            },
+          ]
+        : systemPrompt;
+
+    const cachedTools =
+      tools.length === 0
+        ? tools
+        : [
+            ...tools.slice(0, -1),
+            {
+              ...tools[tools.length - 1],
+              cache_control: { type: 'ephemeral' as const },
+            },
+          ];
+
+    return { system, tools: cachedTools };
   }
 
   private async *streamMessage(
     model: string,
-    systemPrompt: string,
+    system: Anthropic.MessageCreateParams['system'],
     messages: Anthropic.MessageParam[],
     tools: any[]
   ): AsyncGenerator<StreamEvent> {
     const stream = this.client.messages.stream({
       model,
-      system: systemPrompt,
+      system,
       max_tokens: 4000,
       messages,
       tools: tools.length > 0 ? tools : undefined,
