@@ -1,7 +1,5 @@
 // ── @pipefx/skills/ui — class-name helper ────────────────────────────────
-// Tiny no-dep clsx replacement so the UI surface doesn't pull in another
-// transitive dependency. Treats falsy values as drop-out.
+// Re-export from @pipefx/ui-kit. Kept as a local module path so internal
+// imports (`../lib/cn.js`) don't need touching.
 
-export function cn(...parts: ReadonlyArray<string | false | null | undefined>): string {
-  return parts.filter(Boolean).join(' ');
-}
+export { cn } from '@pipefx/ui-kit';

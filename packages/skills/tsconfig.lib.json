@@ -14,16 +14,19 @@
   "include": ["src/**/*.ts", "src/**/*.tsx"],
   "references": [
     {
+      "path": "../ui-kit/tsconfig.lib.json"
+    },
+    {
       "path": "../event-bus/tsconfig.lib.json"
     },
     {
       "path": "../connectors-contracts/tsconfig.lib.json"
     },
     {
-      "path": "../brain-contracts/tsconfig.lib.json"
+      "path": "../command-palette/tsconfig.lib.json"
     },
     {
-      "path": "../command-palette/tsconfig.lib.json"
+      "path": "../brain-contracts/tsconfig.lib.json"
     }
   ]
 }
