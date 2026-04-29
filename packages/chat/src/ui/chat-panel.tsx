@@ -197,20 +197,21 @@ export function ChatPanel({
           {/* History popover — replaces the trash bin */}
           <Popover open={isHistoryOpen} onOpenChange={setIsHistoryOpen}>
             <PopoverTrigger
-              render={
+              render={(triggerProps) => (
                 <Button
+                  {...triggerProps}
                   variant="ghost"
                   size="icon"
                   className="h-8 w-8 text-muted-foreground hover:text-foreground relative"
                   title="Chat History"
-                />
-              }
-            >
-              <History className="h-3.5 w-3.5" />
-              {chatSessions.length > 0 && (
-                <span className="absolute top-1.5 right-1.5 h-1.5 w-1.5 rounded-full bg-primary" />
+                >
+                  <History className="h-3.5 w-3.5" />
+                  {chatSessions.length > 0 && (
+                    <span className="absolute top-1.5 right-1.5 h-1.5 w-1.5 rounded-full bg-primary" />
+                  )}
+                </Button>
               )}
-            </PopoverTrigger>
+            />
             <PopoverContent align="end" className="w-72 p-0 overflow-hidden" sideOffset={6}>
               {/* Popover header */}
               <div className="flex items-center justify-between px-3 py-2.5 border-b">
