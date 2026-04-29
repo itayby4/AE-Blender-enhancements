@@ -9,10 +9,10 @@ import nx from '@nx/eslint-plugin';
 //   feature: brain | chat | auth | billing | connectors | skills |
 //            media-gen | post-production | node-system
 //
-// All rules run at WARN during the migration. Phase 11 flips to ERROR.
-// A few transitional per-package scope tags (scope:tasks, scope:usage,
-// scope:backend) remain on packages that haven't migrated
-// onto the new scope/layer/feature axes yet.
+// As of phase 11.5 the boundary rule runs at ERROR. The transitional
+// per-package scope tags (scope:tasks, scope:usage, scope:backend,
+// scope:desktop) have all been retagged to canonical
+// scope:platform / scope:app values.
 // ---------------------------------------------------------------------------
 
 export default [
@@ -35,7 +35,7 @@ export default [
     files: ['**/*.ts', '**/*.js'],
     rules: {
       '@nx/enforce-module-boundaries': [
-        'warn',
+        'error',
         {
           enforceBuildableLibDependency: true,
           allow: ['^.*/eslint(\\.base)?\\.config\\.[cm]?[jt]s$'],
@@ -192,34 +192,6 @@ export default [
               ];
             })(),
 
-            // ===== Transitional: current per-package scope tags =====
-            // These are the tags packages carry today. They come off as each
-            // package migrates onto the new scope/layer/feature axes during
-            // Phase 1+. Do not add new ones.
-            {
-              sourceTag: 'scope:tasks',
-              onlyDependOnLibsWithTags: ['scope:shared', 'scope:tasks'],
-            },
-            {
-              sourceTag: 'scope:usage',
-              onlyDependOnLibsWithTags: [
-                'scope:shared',
-                'scope:platform',
-                'scope:usage',
-              ],
-            },
-            {
-              sourceTag: 'scope:backend',
-              onlyDependOnLibsWithTags: [
-                'scope:shared',
-                'scope:mcp',
-                'scope:tasks',
-                'scope:usage',
-                'scope:platform',
-                'scope:feature',
-              ],
-            },
-
           ],
         },
       ],
@@ -237,11 +209,10 @@ export default [
     rules: {
       // Feature-isolation scaffold. As feature packages split in Phase 3+,
       // each feature's non-contracts sub-paths get added here so a deep
-      // import like `@pipefx/brain-loop/internals` triggers a warning even
-      // when a package forgets its feature:<X> tag. Warn-only through
-      // Phase 11.
+      // import like `@pipefx/brain-loop/internals` triggers an error even
+      // when a package forgets its feature:<X> tag.
       'no-restricted-imports': [
-        'warn',
+        'error',
         {
           patterns: [
             {

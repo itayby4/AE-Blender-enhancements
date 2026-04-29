@@ -11,6 +11,7 @@
 @source '../../../packages/skills-builtin/src/**/*.{ts,tsx}';
 @source '../../../packages/ui-kit/src/**/*.{ts,tsx}';
 @source '../../../packages/chat/src/**/*.{ts,tsx}';
+@source '../../../packages/settings-shell/src/**/*.{ts,tsx}';
 
 @custom-variant dark (&:is(.dark *));
 

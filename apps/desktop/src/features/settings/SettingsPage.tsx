@@ -693,7 +693,9 @@ function ApiModeSection({
       // Refresh balance after a short delay for webhook processing
       setTimeout(refreshBalance, 3000);
     },
-    onClose: () => {},
+    onClose: () => {
+      // user dismissed the checkout modal — no action needed
+    },
     onError: () => toast.error('Checkout failed. Please try again.'),
   });
 

@@ -20,7 +20,7 @@
   },
   "nx": {
     "tags": [
-      "scope:tasks"
+      "scope:platform"
     ]
   }
 }

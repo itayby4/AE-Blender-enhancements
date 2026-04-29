@@ -1,5 +1,5 @@
 import type { Provider, UsageData } from '@pipefx/llm-providers';
-import type { ConnectorRegistry } from '@pipefx/connectors';
+import type { ConnectorsApi } from '@pipefx/connectors-contracts';
 
 /**
  * Context required to run a single chat turn through the kernel.
@@ -10,7 +10,7 @@ export interface LoopContext {
   provider: Provider;
   model: string;
   systemPrompt: string;
-  registry: ConnectorRegistry;
+  registry: ConnectorsApi;
 }
 
 export interface PostRoundToolCall {

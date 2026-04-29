@@ -270,7 +270,7 @@ export async function runAgentLoop(
   const useStreaming = !!options?.onStreamChunk;
 
   // Build tool list (optionally filtered by skill)
-  let tools = await registry.getAllTools();
+  let tools = await registry.listTools();
   if (options?.allowedTools) {
     const allowed = new Set(options.allowedTools);
     tools = tools.filter((t) => allowed.has(t.name));

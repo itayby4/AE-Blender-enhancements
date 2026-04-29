@@ -348,7 +348,9 @@ export function App() {
             });
           }
         }
-      } catch { }
+      } catch {
+        // best-effort sync; ignore failures so the interval keeps running
+      }
     }, 5000);
     return () => clearInterval(interval);
   }, [projects, activeProjectId, syncPrompt]);

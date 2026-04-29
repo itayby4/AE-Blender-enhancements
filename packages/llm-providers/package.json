@@ -22,7 +22,7 @@
     "tslib": "^2.3.0",
     "@anthropic-ai/sdk": "^0.82.0",
     "@google/genai": "^1.46.0",
-    "@pipefx/connectors": "workspace:*",
+    "@pipefx/connectors-contracts": "workspace:*",
     "openai": "^6.32.0"
   },
   "nx": {

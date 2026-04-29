@@ -1,0 +1,14 @@
+# ── PipeFX Desktop Environment Variables ──
+
+# Supabase Auth (anon key — public, safe for client-side)
+VITE_SUPABASE_URL=https://hisihmksibzepfurgiup.supabase.co
+VITE_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imhpc2lobWtzaWJ6ZXBmdXJnaXVwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY0MTIxOTQsImV4cCI6MjA5MTk4ODE5NH0.I7SYO4N-BBHhVw_YhkOHzXBagbNZ0vQuukaRijbDpDk
+
+# Paddle Billing (client-side token — safe for client-side, like Stripe's publishable key)
+VITE_PADDLE_CLIENT_TOKEN=live_941c369ec61e3641535262956f3
+VITE_PADDLE_ENV=production
+
+# Paddle Price IDs
+VITE_PADDLE_PRICE_STARTER=pri_01kq8gpgmnvxzgm5vbhqcvmsvh
+VITE_PADDLE_PRICE_CREATOR=pri_01kq8gsa26ej1rjnzmzng215gq
+VITE_PADDLE_PRICE_STUDIO=pri_01kq8gwf6vjt1syhah5wacv334

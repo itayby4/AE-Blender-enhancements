@@ -116,7 +116,9 @@ export function LoginPage() {
     isConfigured: isPaddleConfigured,
   } = usePaddleCheckout({
     onComplete: () => toast.success('Subscription activated! Credits incoming.'),
-    onClose: () => { },
+    onClose: () => {
+      // user dismissed the checkout modal — no action needed
+    },
     onError: (err) => {
       console.error('[Paddle] Checkout error:', err);
       toast.error('Checkout failed. You can subscribe later in Settings.');

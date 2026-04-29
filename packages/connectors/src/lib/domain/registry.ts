@@ -213,6 +213,16 @@ export class ConnectorRegistry {
   }
 
   /**
+   * Contract alias for `getAllTools()` — `ConnectorsApi.listTools` from
+   * `@pipefx/connectors-contracts`. Both names are kept so callers
+   * authored against either surface compile, and so platform packages
+   * (e.g. `@pipefx/agent-loop-kernel`) can depend on contracts only.
+   */
+  async listTools(): Promise<ToolDescriptor[]> {
+    return this.getAllTools();
+  }
+
+  /**
    * Route a tool call to the correct connector based on the tool index.
    * Requires getAllTools() to have been called first.
    */
