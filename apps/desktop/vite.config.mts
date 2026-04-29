@@ -27,6 +27,12 @@ export default defineConfig(() => ({
     alias: {
       '@': path.resolve(import.meta.dirname, './src'),
     },
+    // Resolve @pipefx/* packages from TypeScript source (not stale dist/).
+    // The '@pipefx/source' export condition is set in every package's
+    // package.json exports map to point at src/index.ts.
+    conditions: ['@pipefx/source'],
+    // Ensure only one React instance across all workspace packages.
+    dedupe: ['react', 'react-dom'],
   },
   plugins: [react(), tailwindcss()],
   envPrefix: ['VITE_', 'TAURI_'],
