@@ -1,0 +1,48 @@
+{
+  "name": "@pipefx/ui-kit",
+  "version": "0.0.1",
+  "type": "module",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    "./package.json": "./package.json",
+    ".": {
+      "@pipefx/source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "!**/*.tsbuildinfo"
+  ],
+  "dependencies": {
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "tailwind-merge": "^3.5.0",
+    "tslib": "^2.3.0"
+  },
+  "peerDependencies": {
+    "@base-ui/react": "^1.2.0",
+    "lucide-react": "^0.575.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "sonner": "^2.0.7"
+  },
+  "peerDependenciesMeta": {
+    "@base-ui/react": { "optional": true },
+    "lucide-react": { "optional": true },
+    "react": { "optional": true },
+    "react-dom": { "optional": true },
+    "sonner": { "optional": true }
+  },
+  "devDependencies": {
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3"
+  },
+  "nx": {
+    "tags": ["scope:platform"]
+  }
+}

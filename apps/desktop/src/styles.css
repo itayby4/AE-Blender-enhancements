@@ -9,6 +9,8 @@
 @source '../../../packages/connectors/src/**/*.{ts,tsx}';
 @source '../../../packages/skills/src/**/*.{ts,tsx}';
 @source '../../../packages/skills-builtin/src/**/*.{ts,tsx}';
+@source '../../../packages/ui-kit/src/**/*.{ts,tsx}';
+@source '../../../packages/chat/src/**/*.{ts,tsx}';
 
 @custom-variant dark (&:is(.dark *));
 

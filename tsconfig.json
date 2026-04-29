@@ -97,6 +97,9 @@
       "path": "./packages/node-system"
     },
     {
+      "path": "./packages/ui-kit"
+    },
+    {
       "path": "./apps/mcp-aftereffects"
     }
   ]

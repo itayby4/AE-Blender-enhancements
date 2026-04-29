@@ -30,6 +30,7 @@
     "@pipefx/skills": "workspace:*",
     "@pipefx/skills-builtin": "workspace:*",
     "@pipefx/tasks": "workspace:*",
+    "@pipefx/ui-kit": "workspace:*",
     "@react-three/drei": "^10.7.7",
     "@react-three/fiber": "^9.6.0",
     "@tailwindcss/vite": "^4.2.0",

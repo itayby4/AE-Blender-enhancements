@@ -32,6 +32,9 @@
   "include": ["src/**/*.ts", "src/**/*.tsx"],
   "references": [
     {
+      "path": "../../packages/ui-kit/tsconfig.lib.json"
+    },
+    {
       "path": "../../packages/tasks/tsconfig.lib.json"
     },
     {

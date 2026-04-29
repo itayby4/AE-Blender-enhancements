@@ -222,6 +222,9 @@ importers:
       '@pipefx/tasks':
         specifier: workspace:*
         version: link:../../packages/tasks
+      '@pipefx/ui-kit':
+        specifier: workspace:*
+        version: link:../../packages/ui-kit
       '@react-three/drei':
         specifier: ^10.7.7
         version: 10.7.7(@react-three/fiber@9.6.0(@types/react@19.2.14)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(three@0.183.2))(@types/react@19.2.14)(@types/three@0.183.1)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(three@0.183.2)
@@ -508,6 +511,18 @@ importers:
       '@pipefx/llm-providers':
         specifier: workspace:*
         version: link:../llm-providers
+      '@pipefx/skills':
+        specifier: workspace:*
+        version: link:../skills
+      '@pipefx/tasks':
+        specifier: workspace:*
+        version: link:../tasks
+      '@pipefx/ui-kit':
+        specifier: workspace:*
+        version: link:../ui-kit
+      lucide-react:
+        specifier: ^0.575.0
+        version: 0.575.0(react@19.2.4)
       react:
         specifier: ^19.0.0
         version: 19.2.4
@@ -753,6 +768,9 @@ importers:
       '@pipefx/event-bus':
         specifier: workspace:*
         version: link:../event-bus
+      '@pipefx/ui-kit':
+        specifier: workspace:*
+        version: link:../ui-kit
       fflate:
         specifier: ^0.8.2
         version: 0.8.2
@@ -840,6 +858,43 @@ importers:
       tslib:
         specifier: ^2.3.0
         version: 2.8.1
+
+  packages/ui-kit:
+    dependencies:
+      '@base-ui/react':
+        specifier: ^1.2.0
+        version: 1.2.0(@types/react@19.2.14)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
+      class-variance-authority:
+        specifier: ^0.7.1
+        version: 0.7.1
+      clsx:
+        specifier: ^2.1.1
+        version: 2.1.1
+      lucide-react:
+        specifier: ^0.575.0
+        version: 0.575.0(react@19.2.4)
+      react:
+        specifier: ^19.0.0
+        version: 19.2.4
+      react-dom:
+        specifier: ^19.0.0
+        version: 19.2.4(react@19.2.4)
+      sonner:
+        specifier: ^2.0.7
+        version: 2.0.7(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
+      tailwind-merge:
+        specifier: ^3.5.0
+        version: 3.5.0
+      tslib:
+        specifier: ^2.3.0
+        version: 2.8.1
+    devDependencies:
+      '@types/react':
+        specifier: ^19.2.14
+        version: 19.2.14
+      '@types/react-dom':
+        specifier: ^19.2.3
+        version: 19.2.3(@types/react@19.2.14)
 
   packages/usage:
     dependencies:
