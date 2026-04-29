@@ -4,6 +4,7 @@ import type {
   ProviderResponse,
   UsageData,
 } from '@pipefx/llm-providers';
+import type { ToolDescriptor } from '@pipefx/connectors-contracts';
 import type {
   AggregatedUsage,
   ChatOptions,
@@ -311,11 +312,11 @@ export async function runAgentLoop(
   let tools = await registry.listTools();
   if (options?.allowedTools) {
     const allowed = new Set(options.allowedTools);
-    tools = tools.filter((t) => allowed.has(t.name));
+    tools = tools.filter((t: ToolDescriptor) => allowed.has(t.name));
   }
   if (options?.excludedTools && options.excludedTools.length > 0) {
     const excluded = new Set(options.excludedTools);
-    tools = tools.filter((t) => !excluded.has(t.name));
+    tools = tools.filter((t: ToolDescriptor) => !excluded.has(t.name));
   }
 
   // Log which tools the model sees this turn — especially planning tools.
@@ -323,10 +324,10 @@ export async function runAgentLoop(
   // of prompting will make TodoWrite / PlanMode / Agent fire.
   if (isAiDebug()) {
     const planningPresent = tools
-      .map((t) => t.name)
-      .filter((n) => PLANNING_TOOL_NAMES.has(n));
+      .map((t: ToolDescriptor) => t.name)
+      .filter((n: string) => PLANNING_TOOL_NAMES.has(n));
     const planningMissing = Array.from(PLANNING_TOOL_NAMES).filter(
-      (n) => !tools.some((t) => t.name === n)
+      (n: string) => !tools.some((t: ToolDescriptor) => t.name === n)
     );
     aiLog('turn start', {
       provider: options?.providerOverride || 'gemini',
@@ -412,8 +413,8 @@ export async function runAgentLoop(
         PLAN_APPROVED_MARKERS.some((m) => r.content.includes(m))
     );
     if (!triggered) return;
-    if (!chatParams.tools.some((t) => t.name === 'EnterPlanMode')) return;
-    chatParams.tools = chatParams.tools.filter((t) => t.name !== 'EnterPlanMode');
+    if (!chatParams.tools.some((t: ToolDescriptor) => t.name === 'EnterPlanMode')) return;
+    chatParams.tools = chatParams.tools.filter((t: ToolDescriptor) => t.name !== 'EnterPlanMode');
     aiLog('strip EnterPlanMode', { reason: 'plan-resolved-mid-turn' });
   };
 
