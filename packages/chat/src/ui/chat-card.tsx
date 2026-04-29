@@ -1,5 +1,4 @@
-import { Card, CardContent } from '../../components/ui/card';
-import { Button } from '../../components/ui/button';
+import { Button, Card, CardContent } from '@pipefx/ui-kit';
 
 export interface ChatCardAction {
   label: string;

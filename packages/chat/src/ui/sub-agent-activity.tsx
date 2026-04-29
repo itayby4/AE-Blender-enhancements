@@ -7,9 +7,8 @@ import {
   XCircle,
   Wrench,
 } from 'lucide-react';
-import { cn } from '../lib/utils.js';
-import { TerminalSpinner } from './ui/TerminalSpinner.js';
-import type { SubAgentInfo } from '@pipefx/chat/contracts';
+import { cn, TerminalSpinner } from '@pipefx/ui-kit';
+import type { SubAgentInfo } from '../contracts/types.js';
 
 interface SubAgentActivityProps {
   subAgents: SubAgentInfo[];

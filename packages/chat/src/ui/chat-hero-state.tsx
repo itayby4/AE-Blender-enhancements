@@ -1,7 +1,6 @@
-import { useMemo } from 'react';
+import { useMemo, type ReactNode } from 'react';
 import { Scan, Clapperboard, Sparkles, Palette } from 'lucide-react';
-import { cn } from '../../lib/utils.js';
-import { PipeFxLogo } from '../../components/brand/PipeFxLogo.js';
+import { cn } from '@pipefx/ui-kit';
 
 // ═══════════════════════════════════════════════════════════════
 // ChatHeroState — Calm, static first-impression for AI Chat.
@@ -17,9 +16,13 @@ interface SuggestedAction {
 
 interface ChatHeroStateProps {
   onAction: (prompt: string) => void;
+  /** Optional brand-mark slot. Sized via Tailwind classes from this
+   *  package, so hosts can pass any logo component sized
+   *  `h-* w-*` and it renders identically to the previous PipeFx mark. */
+  logo?: ReactNode;
 }
 
-export function ChatHeroState({ onAction }: ChatHeroStateProps) {
+export function ChatHeroState({ onAction, logo }: ChatHeroStateProps) {
   const suggestedActions: SuggestedAction[] = useMemo(
     () => [
       {
@@ -58,10 +61,8 @@ export function ChatHeroState({ onAction }: ChatHeroStateProps) {
     <div className="@container relative flex flex-col items-center justify-start flex-1 min-h-0 px-3 pt-10 @[300px]:pt-14 pb-4 gap-4 overflow-hidden">
       {/* Central hero content — logo is bare, no frame */}
       <div className="flex flex-col items-center gap-2.5 @[300px]:gap-3 z-10">
-        {/* Logo scales gracefully from tiny panels to full-width */}
-        <PipeFxLogo
-          className="h-16 w-16 @[280px]:h-20 @[280px]:w-20 @[360px]:h-24 @[360px]:w-24 @[460px]:h-28 @[460px]:w-28 text-foreground"
-        />
+        {/* Logo slot — host-provided. Sized via host classes. */}
+        {logo}
 
         {/* Wordmark */}
         <div className="flex items-baseline gap-0.5 select-none">

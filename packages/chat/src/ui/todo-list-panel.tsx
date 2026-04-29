@@ -1,7 +1,6 @@
 import { CheckCircle2, Circle, ListChecks } from 'lucide-react';
-import { cn } from '../lib/utils.js';
-import { TerminalSpinner } from './ui/TerminalSpinner.js';
-import type { TodoItem } from '@pipefx/chat/contracts';
+import { cn, TerminalSpinner } from '@pipefx/ui-kit';
+import type { TodoItem } from '../contracts/types.js';
 
 interface TodoListPanelProps {
   todos: TodoItem[];

@@ -42,13 +42,20 @@
     "@pipefx/brain-contracts": "workspace:*",
     "@pipefx/connectors": "workspace:*",
     "@pipefx/llm-providers": "workspace:*",
+    "@pipefx/skills": "workspace:*",
+    "@pipefx/tasks": "workspace:*",
+    "@pipefx/ui-kit": "workspace:*",
     "tslib": "^2.3.0"
   },
   "peerDependencies": {
+    "lucide-react": "^0.575.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"
   },
   "peerDependenciesMeta": {
+    "lucide-react": {
+      "optional": true
+    },
     "react": {
       "optional": true
     },

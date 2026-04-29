@@ -1,8 +1,14 @@
-import { useState, useRef, useEffect, useCallback, type ChangeEvent, type KeyboardEvent } from 'react';
+import {
+  useState,
+  useRef,
+  useEffect,
+  useCallback,
+  type ChangeEvent,
+  type KeyboardEvent,
+  type ReactNode,
+} from 'react';
 import {
   Send,
-  User,
-  Bot,
   Square,
   CheckCircle2,
   XCircle,
@@ -19,35 +25,29 @@ import {
   Clock,
 } from 'lucide-react';
 import {
+  Button,
   Popover,
   PopoverContent,
   PopoverTrigger,
-} from '../../components/ui/popover.js';
-import { Separator } from '../../components/ui/separator.js';
+  ScrollArea,
+  TerminalSpinner,
+  Textarea,
+  cn,
+} from '@pipefx/ui-kit';
+import { getAccessToken } from '@pipefx/auth/ui';
+import { SkillBuilderCard } from '@pipefx/skills/ui';
+import type { InstalledSkill } from '@pipefx/skills/contracts';
+import type { TaskDTO } from '@pipefx/tasks';
 import type {
   ChatSession,
   TranscriptMessage,
   TodoItem,
   SubAgentInfo,
-} from '@pipefx/chat/contracts';
-import { Button } from '../../components/ui/button.js';
-import { ScrollArea } from '../../components/ui/scroll-area.js';
-import { Textarea } from '../../components/ui/textarea.js';
-import { cn } from '../../lib/utils.js';
-import { getAccessToken } from '@pipefx/auth/ui';
-import { SkillBuilderCard } from '@pipefx/skills/ui';
-import type { InstalledSkill } from '@pipefx/skills/contracts';
-import { parseMessageContent, ChatCard } from '../skills/ChatCard.js';
-// v1 SkillAutocomplete was retired in 12.10.5 — `SkillQuickFilter`
-// (mounted at app level) replaces it. v1 chat skills still trigger via
-// the `handleSend` regex below.
-import type { TaskDTO } from '@pipefx/tasks';
-import type { Skill } from '../../lib/load-skills.js';
-import { loadSkills } from '../../lib/load-skills.js';
-import { ChatHeroState } from './ChatHeroState.js';
-import { TerminalSpinner } from '../../components/ui/TerminalSpinner.js';
-import { TodoListPanel } from '../../components/TodoListPanel.js';
-import { SubAgentActivity } from '../../components/SubAgentActivity.js';
+} from '../contracts/types.js';
+import { parseMessageContent, ChatCard } from './chat-card.js';
+import { ChatHeroState } from './chat-hero-state.js';
+import { TodoListPanel } from './todo-list-panel.js';
+import { SubAgentActivity } from './sub-agent-activity.js';
 
 interface ChatPanelProps {
   messages: TranscriptMessage[];
@@ -57,17 +57,16 @@ interface ChatPanelProps {
   activeTasks: TaskDTO[];
   selectedLlmModel: string;
   selectedSkillId: string;
-  skills: Skill[];
-  activeApp: string;
   chatInput: string;
   onChatInputChange: (value: string) => void;
-  onSendMessage: (text: string, overrideSkill?: Skill) => void;
+  /** Receives only the user-typed text; legacy `overrideSkill` second
+   *  parameter is host-driven and not surfaced from the panel. */
+  onSendMessage: (text: string) => void;
   onStopGeneration: () => void;
   onClearChat: () => void;
   onSelectSkill: (skillId: string) => void;
   onSelectModel: (model: string) => void;
   onNavigate: (view: string) => void;
-  onSkillsReloaded: (skills: Skill[]) => void;
   onPlanNavigate: (content: string) => void;
   /** Phase 12.14: fired when the inline `SkillBuilderCard` finishes
    *  installing a fresh chat-authored skill. The host wires this to its
@@ -82,6 +81,9 @@ interface ChatPanelProps {
   // Agent-system surface (from useChat)
   todos?: TodoItem[];
   subAgents?: SubAgentInfo[];
+  /** Optional brand mark rendered inside `ChatHeroState`. The chat
+   *  package is brand-agnostic — hosts pass their own logo node. */
+  heroLogo?: ReactNode;
 }
 
 /**
@@ -97,8 +99,6 @@ export function ChatPanel({
   activeTasks,
   selectedLlmModel,
   selectedSkillId,
-  skills,
-  activeApp,
   chatInput,
   onChatInputChange,
   onSendMessage,
@@ -107,7 +107,6 @@ export function ChatPanel({
   onSelectSkill,
   onSelectModel,
   onNavigate,
-  onSkillsReloaded,
   onPlanNavigate,
   onSkillCreated,
   chatSessions,
@@ -117,6 +116,7 @@ export function ChatPanel({
   activeSessionId,
   todos,
   subAgents,
+  heroLogo,
 }: ChatPanelProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
@@ -196,18 +196,20 @@ export function ChatPanel({
           </select>
           {/* History popover — replaces the trash bin */}
           <Popover open={isHistoryOpen} onOpenChange={setIsHistoryOpen}>
-            <PopoverTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8 text-muted-foreground hover:text-foreground relative"
-                title="Chat History"
-              >
-                <History className="h-3.5 w-3.5" />
-                {chatSessions.length > 0 && (
-                  <span className="absolute top-1.5 right-1.5 h-1.5 w-1.5 rounded-full bg-primary" />
-                )}
-              </Button>
+            <PopoverTrigger
+              render={
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 text-muted-foreground hover:text-foreground relative"
+                  title="Chat History"
+                />
+              }
+            >
+              <History className="h-3.5 w-3.5" />
+              {chatSessions.length > 0 && (
+                <span className="absolute top-1.5 right-1.5 h-1.5 w-1.5 rounded-full bg-primary" />
+              )}
             </PopoverTrigger>
             <PopoverContent align="end" className="w-72 p-0 overflow-hidden" sideOffset={6}>
               {/* Popover header */}
@@ -285,6 +287,7 @@ export function ChatPanel({
       {/* Hero state — cinematic first impression */}
       {showHero && (
         <ChatHeroState
+          logo={heroLogo}
           onAction={(prompt) => {
             onChatInputChange(prompt);
             onSendMessage(prompt);

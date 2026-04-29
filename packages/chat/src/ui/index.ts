@@ -12,6 +12,22 @@ export type {
   UseChatHistoryResult,
 } from './hooks/use-chat-history.js';
 
+export { ChatPanel } from './chat-panel.js';
+export { ChatHeroState } from './chat-hero-state.js';
+export { TodoListPanel } from './todo-list-panel.js';
+export { SubAgentActivity } from './sub-agent-activity.js';
+export {
+  ChatCard,
+  parseMessageContent,
+  hasCardBlocks,
+} from './chat-card.js';
+export type {
+  ChatCardAction,
+  ParsedCard,
+  ParsedSkill,
+  ParsedPlan,
+} from './chat-card.js';
+
 export type {
   ChatSession,
   ChatMessage,

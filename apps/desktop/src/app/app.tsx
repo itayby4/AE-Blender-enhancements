@@ -42,9 +42,10 @@ import { NavRail } from '../components/layout/NavRail.js';
 import { ConnectorStatus } from '@pipefx/connectors/ui';
 import { TitleBar } from '../components/layout/TitleBar.js';
 import { TerminalSpinner } from '../components/ui/TerminalSpinner.js';
+import { PipeFxLogo } from '../components/brand/PipeFxLogo.js';
 
 // Features
-import { ChatPanel } from '../features/chat/ChatPanel.js';
+import { ChatPanel, parseMessageContent } from '@pipefx/chat/ui';
 import { CommandPalette } from '@pipefx/command-palette/ui';
 import type { CommandSource } from '@pipefx/command-palette/contracts';
 import {
@@ -80,7 +81,6 @@ import { TooltipProvider } from '../components/ui/tooltip.js';
 import { useTaskStream } from '../hooks/useTaskStream.js';
 import { useChat, useChatHistory } from '@pipefx/chat/ui';
 import { dispatchPipelineActions } from '@pipefx/node-system';
-import { parseMessageContent } from '../features/skills/ChatCard.js';
 
 // Auth
 import { getAccessToken, useAuth } from '@pipefx/auth/ui';
@@ -465,6 +465,12 @@ export function App() {
     // Agent-system surface
     todos: chat.todos,
     subAgents: chat.subAgents,
+    // Brand mark for the empty-state hero (chat package is brand-agnostic)
+    heroLogo: (
+      <PipeFxLogo
+        className="h-16 w-16 @[280px]:h-20 @[280px]:w-20 @[360px]:h-24 @[360px]:w-24 @[460px]:h-28 @[460px]:w-28 text-foreground"
+      />
+    ),
   };
 
   // ── Command palette sources ──
